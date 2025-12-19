@@ -147,12 +147,15 @@ export function suggestReplaceStep(
     }
 
     // When we produce a deletion mark that directly abuts
-    // an existing mark with a zero-width space, we delete
+    // an existing DELETION mark with a zero-width space, we delete
     // that space. We'll join the marks later, and can use
     // the joined marks to find deletions across the block
-    // boundary
+    // boundary.
+    // IMPORTANT: Only delete the ZWSP if it has a deletion mark, NOT an insertion mark.
+    // ZWSPs with insertion marks are used for block split suggestions and should be preserved.
     if (
       $stepFrom.nodeBefore?.text?.endsWith("\u200B") &&
+      deletion.isInSet($stepFrom.nodeBefore.marks) &&
       !$stepTo.nodeAfter?.text?.startsWith("\u200B")
     ) {
       trackedTransaction.delete(stepFrom - 1, stepFrom);
@@ -164,6 +167,7 @@ export function suggestReplaceStep(
 
     if (
       $stepTo.nodeAfter?.text?.startsWith("\u200B") &&
+      deletion.isInSet($stepTo.nodeAfter.marks) &&
       !$stepFrom.nodeBefore?.text?.endsWith("\u200B")
     ) {
       trackedTransaction.delete(stepTo, stepTo + 1);

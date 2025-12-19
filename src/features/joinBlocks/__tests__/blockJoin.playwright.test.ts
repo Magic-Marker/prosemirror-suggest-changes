@@ -155,6 +155,89 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       expect(afterBackspace.paragraphCount).toBe(2);
     });
 
+    test("should remove split after Enter + Type + Backspace + Backspace", async ({
+      page,
+    }) => {
+      // This test reproduces a bug where after:
+      // 1. Enter (split paragraph)
+      // 2. Type a character
+      // 3. Backspace (delete the character)
+      // 4. Backspace again - should remove the split but currently does something else
+      const initialState = await getEditorState(page);
+
+      await page.evaluate(() => {
+        window.pmEditor.setCursorToEnd();
+      });
+
+      // Press Enter to split the paragraph
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(100);
+
+      const afterEnter = await getEditorState(page);
+      expect(afterEnter.paragraphCount).toBe(2);
+
+      // Type a character
+      await page.keyboard.type("A");
+      await page.waitForTimeout(100);
+
+      const afterType = await getEditorState(page);
+      expect(afterType.textContent).toContain("A");
+
+      // Press Backspace to delete the character
+      await page.keyboard.press("Backspace");
+      await page.waitForTimeout(100);
+
+      const afterFirstBackspace = await getEditorState(page);
+      expect(afterFirstBackspace.textContent).not.toContain("A");
+      expect(afterFirstBackspace.paragraphCount).toBe(2);
+
+      // Press Backspace again - should remove the split and go back to original
+      await page.keyboard.press("Backspace");
+      await page.waitForTimeout(100);
+
+      const finalState = await getEditorState(page);
+
+      // Document should be back to original state (1 paragraph, original text)
+      expect(finalState.paragraphCount).toBe(1);
+      expect(finalState.textContent).toBe(initialState.textContent);
+    });
+
+    test("should remove split after Enter in middle + delete first char of second paragraph + Backspace", async ({
+      page,
+    }) => {
+      // This test verifies a bug fix where:
+      // 1. Split paragraph in the middle (e.g., "test |paragraph" -> "test " and "paragraph")
+      // 2. Move cursor past the ZWSP to after first letter ('p')
+      // 3. Press Backspace (marks 'p' as deleted)
+      // 4. Press Backspace again - should remove the ZWSP pair and join blocks
+
+      // Position cursor in the middle of "test paragraph" (after "test ")
+      await pressEnterAt(page, 6); // Position 6 is after "test "
+
+      const afterEnter = await getEditorState(page);
+      expect(afterEnter.paragraphCount).toBe(2);
+
+      // Move right once to position after 'p'
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(100);
+
+      // Press Backspace to delete 'p' (marks it as deleted in suggestion mode)
+      await page.keyboard.press("Backspace");
+      await page.waitForTimeout(100);
+
+      const afterFirstBackspace = await getEditorState(page);
+      expect(afterFirstBackspace.paragraphCount).toBe(2);
+
+      // Press Backspace again - should remove the ZWSP pair and join blocks
+      await page.keyboard.press("Backspace");
+      await page.waitForTimeout(100);
+
+      const finalState = await getEditorState(page);
+
+      // Document should be back to one paragraph
+      expect(finalState.paragraphCount).toBe(1);
+    });
+
     test("should handle Enter at middle of text then Backspace", async ({
       page,
     }) => {
