@@ -4,13 +4,19 @@ import {
   TextSelection,
   type Transaction,
 } from "prosemirror-state";
-import { type ReplaceStep, type Step } from "prosemirror-transform";
+import { type Step, type ReplaceStep } from "prosemirror-transform";
 
 import { findSuggestionMarkEnd } from "./findSuggestionMarkEnd.js";
 import { rebasePos } from "./rebasePos.js";
 import { getSuggestionMarks } from "./utils.js";
 import { type SuggestionId } from "./generateId.js";
 import { joinBlocks } from "./features/joinBlocks/index.js";
+import {
+  collapseZWSPNodes,
+  findJoinMark,
+  joinNodesAndMarkJoinPoints,
+  removeZWSPDeletions,
+} from "./features/joinOnDelete/index.js";
 
 /**
  * Transform a replace step into its equivalent tracked steps.
@@ -115,13 +121,14 @@ export function suggestReplaceStep(
     }
   }
 
+  let $stepFrom = trackedTransaction.doc.resolve(stepFrom);
+  let $stepTo = trackedTransaction.doc.resolve(stepTo);
+
   // If there's a deletion, we need to check for and handle
   // the case where it crosses a block boundary, so that we
   // can leave zero-width spaces as markers if there's no other
   // content to anchor the deletion to.
   if (stepFrom !== stepTo) {
-    let $stepFrom = trackedTransaction.doc.resolve(stepFrom);
-    let $stepTo = trackedTransaction.doc.resolve(stepTo);
     // When there are no characters to mark with deletions before
     // the end of a block, we add zero-width, non-printable
     // characters as markers to indicate that a deletion exists
@@ -146,33 +153,6 @@ export function suggestReplaceStep(
       $stepTo = trackedTransaction.doc.resolve(stepTo);
     }
 
-    // When we produce a deletion mark that directly abuts
-    // an existing DELETION mark with a zero-width space, we delete
-    // that space. We'll join the marks later, and can use
-    // the joined marks to find deletions across the block
-    // boundary.
-    // IMPORTANT: Only delete the ZWSP if it has a deletion mark, NOT an insertion mark.
-    // ZWSPs with insertion marks are used for block split suggestions and should be preserved.
-    if (
-      $stepFrom.nodeBefore?.text?.endsWith("\u200B") &&
-      deletion.isInSet($stepFrom.nodeBefore.marks) &&
-      !$stepTo.nodeAfter?.text?.startsWith("\u200B")
-    ) {
-      trackedTransaction.delete(stepFrom - 1, stepFrom);
-      stepFrom--;
-      stepTo--;
-      $stepFrom = trackedTransaction.doc.resolve(stepFrom);
-      $stepTo = trackedTransaction.doc.resolve(stepTo);
-    }
-
-    if (
-      $stepTo.nodeAfter?.text?.startsWith("\u200B") &&
-      deletion.isInSet($stepTo.nodeAfter.marks) &&
-      !$stepFrom.nodeBefore?.text?.endsWith("\u200B")
-    ) {
-      trackedTransaction.delete(stepTo, stepTo + 1);
-    }
-
     // If the user is deleting exactly a zero-width space,
     // delete the space and also shift the range back by one,
     // so that they actually mark the character before the
@@ -184,7 +164,10 @@ export function suggestReplaceStep(
       stepTo - stepFrom === 1 &&
       trackedTransaction.doc.textBetween(stepFrom, stepTo) === "\u200B"
     ) {
-      trackedTransaction.delete(stepFrom, stepTo);
+      const joinMark = findJoinMark($stepFrom);
+      if (joinMark === null) {
+        trackedTransaction.delete(stepFrom, stepTo);
+      }
       stepFrom--;
       stepTo--;
       $stepFrom = trackedTransaction.doc.resolve(stepFrom);
@@ -192,6 +175,9 @@ export function suggestReplaceStep(
       trackedTransaction.setSelection(TextSelection.near($stepFrom));
     }
   }
+
+  $stepFrom = trackedTransaction.doc.resolve(stepFrom);
+  $stepTo = trackedTransaction.doc.resolve(stepTo);
 
   // TODO: Even if the range doesn't map to a block
   // range, check whether it contains any whole
@@ -210,11 +196,21 @@ export function suggestReplaceStep(
     blockRange.start !== stepFrom ||
     blockRange.end !== stepTo
   ) {
-    trackedTransaction.addMark(
-      stepFrom,
-      stepTo,
-      deletion.create({ id: markId }),
-    );
+    // add marks on inline nodes in [stepFrom, stepTo] range
+    // preserve their attributes
+    // this is needed for the join mark to be preserved in case a new deletion goes over it
+    trackedTransaction.doc.nodesBetween(stepFrom, stepTo, (node, pos) => {
+      if (!node.isInline) return true;
+      const rangeFrom = Math.max(stepFrom, pos);
+      const rangeTo = Math.min(stepTo, pos + node.nodeSize);
+      const mark = deletion.isInSet(node.marks);
+      trackedTransaction.addMark(
+        rangeFrom,
+        rangeTo,
+        deletion.create({ ...(mark?.attrs ?? {}), id: markId }),
+      );
+      return false;
+    });
   } else {
     trackedTransaction.doc.nodesBetween(
       blockRange.start,
@@ -265,6 +261,55 @@ export function suggestReplaceStep(
     }
   }
 
+  // remove zwsp deletion marks that we don't need
+  // then actually join nodes inside the range
+  // mark join points with zwsp deletion marks of type join
+  // save left/right node data as they were before the join,
+  // so we can restore the node markup on revert (when we split them back)
+  const removeDeletionsTransform = removeZWSPDeletions(
+    trackedTransaction,
+    stepFrom,
+    stepTo,
+  );
+
+  removeDeletionsTransform.steps.forEach((step) => {
+    trackedTransaction.step(step);
+  });
+
+  stepFrom = removeDeletionsTransform.mapping.map(stepFrom);
+  stepTo = removeDeletionsTransform.mapping.map(stepTo);
+
+  $stepFrom = trackedTransaction.doc.resolve(stepFrom);
+  $stepTo = trackedTransaction.doc.resolve(stepTo);
+
+  const joinNodesTransform = joinNodesAndMarkJoinPoints(
+    trackedTransaction,
+    stepFrom,
+    stepTo,
+    markId,
+  );
+
+  joinNodesTransform.steps.forEach((step) => {
+    trackedTransaction.step(step);
+  });
+
+  stepFrom = joinNodesTransform.mapping.map(stepFrom);
+  stepTo = joinNodesTransform.mapping.map(stepTo);
+
+  $stepFrom = trackedTransaction.doc.resolve(stepFrom);
+  $stepTo = trackedTransaction.doc.resolve(stepTo);
+
+  // make sure that cursor does not end up "in between" nodes when the replacement is structural
+  if (
+    removeDeletionsTransform.steps.length > 0 &&
+    joinNodesTransform.steps.length > 0 &&
+    (step as ReplaceStep & { structure: boolean }).structure
+  ) {
+    trackedTransaction.setSelection(
+      TextSelection.near(trackedTransaction.doc.resolve($stepFrom.pos - 1)),
+    );
+  }
+
   // Handle insertions
   // When didBlockJoin is true, only process insertions if the slice contains
   // actual new content (closed slice) rather than just structural info for the join (open slice).
@@ -284,7 +329,7 @@ export function suggestReplaceStep(
     // Don't allow inserting content within an existing deletion
     // mark. Instead, shift the proposed insertion to the end
     // of the deletion.
-    const insertFrom = findSuggestionMarkEnd($to, deletion);
+    let insertFrom = findSuggestionMarkEnd($to, deletion);
 
     // We execute the insertion normally, on top of all of the existing
     // tracked changes.
@@ -352,11 +397,32 @@ export function suggestReplaceStep(
       $insertedTo = trackedTransaction.doc.resolve(insertedTo);
     }
 
+    const collapseZWSPNodesTransform = collapseZWSPNodes(
+      trackedTransaction,
+      stepFrom,
+      insertedTo,
+    );
+
+    collapseZWSPNodesTransform.steps.forEach((step) => {
+      trackedTransaction.step(step);
+    });
+
+    insertFrom = collapseZWSPNodesTransform.mapping.map(insertFrom);
+    insertedTo = collapseZWSPNodesTransform.mapping.map(insertedTo);
+
     if (insertFrom !== $to.pos) {
       trackedTransaction.setSelection(
         TextSelection.near(
           trackedTransaction.doc.resolve(insertFrom + step.slice.size),
         ),
+      );
+    }
+
+    // when insertion zwsp and a join mark cancel each other out, what happens is a normal editing "split" of a node
+    // so we need to make sure the cursor is set at the start of the split node on the right
+    if (collapseZWSPNodesTransform.steps.length > 0) {
+      trackedTransaction.setSelection(
+        TextSelection.near(trackedTransaction.doc.resolve(insertedTo)),
       );
     }
   }

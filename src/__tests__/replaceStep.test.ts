@@ -9,6 +9,7 @@ import { assert, describe, it } from "vitest";
 import { suggestReplaceStep } from "../replaceStep.js";
 
 import { type TaggedNode, testBuilders } from "../testing/testBuilders.js";
+import { ZWSP } from "../constants.js";
 
 describe("ReplaceStep", () => {
   it("should wrap an insertion in a mark", () => {
@@ -230,8 +231,17 @@ describe("ReplaceStep", () => {
       testBuilders.paragraph(
         "first",
         testBuilders.deletion({ id: 1 }, " paragraph"),
-      ),
-      testBuilders.paragraph(
+        testBuilders.deletion(
+          {
+            id: 1,
+            type: "join",
+            data: {
+              leftNode: { type: "paragraph", attrs: {}, marks: [] },
+              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+            },
+          },
+          ZWSP,
+        ),
         testBuilders.deletion({ id: 1 }, "second"),
         testBuilders.insertion({ id: 1 }, " and only"),
         " paragraph",
@@ -563,8 +573,17 @@ describe("ReplaceStep", () => {
       testBuilders.paragraph(
         "first",
         testBuilders.deletion({ id: 1 }, " paragraph"),
-      ),
-      testBuilders.paragraph(
+        testBuilders.deletion(
+          {
+            id: 1,
+            type: "join",
+            data: {
+              leftNode: { type: "paragraph", attrs: {}, marks: [] },
+              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+            },
+          },
+          ZWSP,
+        ),
         testBuilders.deletion({ id: 1 }, "second"),
         " paragraph",
       ),
@@ -612,10 +631,17 @@ describe("ReplaceStep", () => {
     const expected = testBuilders.doc(
       testBuilders.paragraph(
         "first paragraph",
-        testBuilders.deletion({ id: 1 }, "\u200B"),
-      ),
-      testBuilders.paragraph(
-        testBuilders.deletion({ id: 1 }, "\u200B"),
+        testBuilders.deletion(
+          {
+            id: 1,
+            type: "join",
+            data: {
+              leftNode: { type: "paragraph", attrs: {}, marks: [] },
+              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+            },
+          },
+          ZWSP,
+        ),
         "second paragraph",
       ),
     );
@@ -626,7 +652,7 @@ describe("ReplaceStep", () => {
     );
   });
 
-  it("should clear zero-width chars after joining with printable deletions", () => {
+  it("should NOT clear zero-width chars after joining with printable deletions", () => {
     const doc = testBuilders.doc(
       testBuilders.paragraph(
         "first paragraph",
@@ -671,6 +697,7 @@ describe("ReplaceStep", () => {
         testBuilders.deletion({ id: 1 }, "\u200B"),
       ),
       testBuilders.paragraph(
+        testBuilders.deletion({ id: 1 }, "\u200B"),
         testBuilders.deletion({ id: 1 }, "second"),
         " paragraph",
       ),

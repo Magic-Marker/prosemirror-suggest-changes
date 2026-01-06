@@ -16,7 +16,11 @@ const schema = new Schema({
     doc: { ...nodes.doc, marks: "difficulty insertion deletion modification" },
     orderedList: { ...orderedList, group: "block", content: "listItem+" },
     bulletList: { ...bulletList, group: "block", content: "listItem+" },
-    listItem: { ...listItem, content: "block+" },
+    listItem: {
+      ...listItem,
+      content: "block+",
+      marks: "insertion deletion modification",
+    },
   },
   marks: { ...addSuggestionMarks(marks), difficulty },
 });
