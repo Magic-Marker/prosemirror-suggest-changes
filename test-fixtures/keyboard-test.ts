@@ -1,6 +1,6 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { Schema } from "prosemirror-model";
+import { type Mark, Schema } from "prosemirror-model";
 import { nodes, marks } from "prosemirror-schema-basic";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
@@ -70,26 +70,23 @@ let state = EditorState.create({
 state = state.apply(state.tr.setMeta(suggestChangesKey, { enabled: true }));
 
 // Custom dispatch with logging
-const dispatch = withSuggestChanges(
-  function (this: EditorView, tr) {
-    const docBefore = this.state.doc.textContent;
-    const newState = this.state.apply(tr);
+const dispatch = withSuggestChanges(function (this: EditorView, tr) {
+  const docBefore = this.state.doc.textContent;
+  const newState = this.state.apply(tr);
 
-    transactions.push({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      steps: tr.steps.map((s) => s.toJSON()),
-      selection: { from: tr.selection.from, to: tr.selection.to },
-      docBefore,
-      docAfter: newState.doc.textContent,
-    });
+  transactions.push({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    steps: tr.steps.map((s) => s.toJSON()),
+    selection: { from: tr.selection.from, to: tr.selection.to },
+    docBefore,
+    docAfter: newState.doc.textContent,
+  });
 
-    this.updateState(newState);
+  this.updateState(newState);
 
-    // Update status display
-    updateStatus();
-  },
-  () => 1,
-);
+  // Update status display
+  updateStatus();
+});
 
 // Create editor view
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -125,6 +122,7 @@ declare global {
         textContent: string;
         cursorFrom: number;
         cursorTo: number;
+        marks: Mark[];
       };
       getDocJSON: () => unknown;
       replaceDoc: (docJSON: unknown) => void;
@@ -149,12 +147,17 @@ window.pmEditor = {
   view,
 
   getState() {
+    const marks: Mark[] = [];
+    view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
+      marks.push(...node.marks);
+    });
     return {
       blockCount: view.state.doc.childCount,
       paragraphCount: view.state.doc.childCount, // Kept for backward compatibility
       textContent: view.state.doc.textContent,
       cursorFrom: view.state.selection.from,
       cursorTo: view.state.selection.to,
+      marks,
     };
   },
 

@@ -11,6 +11,8 @@ import { findSuggestionMarkEnd } from "./findSuggestionMarkEnd.js";
 import { suggestChangesKey } from "./plugin.js";
 import { getSuggestionMarks } from "./utils.js";
 import { type SuggestionId } from "./generateId.js";
+import { ZWSP } from "./constants.js";
+import { maybeRevertJoinMark } from "./features/joinOnDelete/index.js";
 
 /**
  * Given a node and a transform, add a set of steps to the
@@ -100,7 +102,14 @@ function applySuggestionsToTransform(
     const insertionTo = insertionFrom + child.nodeSize;
     if (child.isInline) {
       tr.removeMark(insertionFrom, insertionTo, markTypeToApply);
-      if (child.text === "\u200B") {
+      const reverted = maybeRevertJoinMark(
+        tr,
+        insertionFrom,
+        insertionTo,
+        child,
+        markTypeToApply,
+      );
+      if (!reverted && child.text === ZWSP) {
         tr.delete(insertionFrom, insertionTo);
       }
     } else {

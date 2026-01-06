@@ -6,6 +6,8 @@ export const deletion: MarkSpec = {
   excludes: "insertion modification deletion",
   attrs: {
     id: { validate: suggestionIdValidate },
+    type: { default: null, validate: "string|null" },
+    data: { default: null },
   },
   toDOM(mark, inline) {
     return [
@@ -14,6 +16,8 @@ export const deletion: MarkSpec = {
         "data-id": JSON.stringify(mark.attrs["id"]),
         "data-inline": String(inline),
         ...(!inline && { style: "display: block" }),
+        "data-type": JSON.stringify(mark.attrs["type"]),
+        "data-data": JSON.stringify(mark.attrs["data"]),
       },
       0,
     ];
@@ -25,6 +29,8 @@ export const deletion: MarkSpec = {
         if (!node.dataset["id"]) return false;
         return {
           id: JSON.parse(node.dataset["id"]) as SuggestionId,
+          type: JSON.parse(node.dataset["type"] ?? "null") as string | null,
+          data: JSON.parse(node.dataset["data"] ?? "null") as object | null,
         };
       },
     },

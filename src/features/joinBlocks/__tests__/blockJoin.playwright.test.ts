@@ -25,7 +25,7 @@ import {
   setupDocFromJSON,
   assertDocFullyReverted,
   performEnterBackspaceCycle,
-} from "./playwrightHelpers.js";
+} from "../../../__tests__/playwrightHelpers.js";
 
 test.describe("Block Join E2E - Real Keyboard Events", () => {
   test.beforeEach(async ({ page }) => {
