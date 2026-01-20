@@ -142,6 +142,38 @@ export const modification: MarkSpec = {
   ],
 };
 
+export const structure: MarkSpec = {
+  inclusive: false,
+  excludes: "deletion insertion modification",
+  attrs: {
+    id: { validate: suggestionIdValidate },
+    data: { default: null },
+  },
+  toDOM(mark) {
+    return [
+      "div",
+      {
+        "data-type": "structure",
+        "data-id": JSON.stringify(mark.attrs["id"]),
+        "data-data": JSON.stringify(mark.attrs["data"]),
+      },
+      0,
+    ];
+  },
+  parseDOM: [
+    {
+      tag: "div[data-type='structure']",
+      getAttrs(node) {
+        if (!node.dataset["id"]) return false;
+        return {
+          id: JSON.parse(node.dataset["id"]) as SuggestionId,
+          data: JSON.parse(node.dataset["data"] ?? "null") as object | null,
+        };
+      },
+    },
+  ],
+};
+
 /**
  * Add the deletion, insertion, and modification marks to
  * the provided MarkSpec map.
@@ -149,12 +181,16 @@ export const modification: MarkSpec = {
 export function addSuggestionMarks<Marks extends string>(
   marks: Record<Marks, MarkSpec>,
   opts?: { experimental_deletions?: "hidden" | "visible" },
-): Record<Marks | "deletion" | "insertion" | "modification", MarkSpec> {
+): Record<
+  Marks | "deletion" | "insertion" | "modification" | "structure",
+  MarkSpec
+> {
   return {
     ...marks,
     deletion:
       opts?.experimental_deletions === "hidden" ? hiddenDeletion : deletion,
     insertion,
     modification,
+    structure,
   };
 }
