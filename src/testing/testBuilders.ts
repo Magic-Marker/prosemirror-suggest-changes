@@ -9,17 +9,30 @@ import { bulletList, listItem, orderedList } from "prosemirror-schema-list";
 import { addSuggestionMarks } from "../schema.js";
 import { difficulty } from "./difficultyMark.js";
 
-const schema = new Schema({
+export const schema = new Schema({
   nodes: {
     ...nodes,
     image: { ...nodes.image, group: "block", inline: false },
-    doc: { ...nodes.doc, marks: "difficulty insertion deletion modification" },
-    orderedList: { ...orderedList, group: "block", content: "listItem+" },
-    bulletList: { ...bulletList, group: "block", content: "listItem+" },
+    doc: {
+      ...nodes.doc,
+      marks: "difficulty insertion deletion modification structure",
+    },
+    orderedList: {
+      ...orderedList,
+      group: "block",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
+    },
+    bulletList: {
+      ...bulletList,
+      group: "block",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
+    },
     listItem: {
       ...listItem,
       content: "block+",
-      marks: "insertion deletion modification",
+      marks: "insertion deletion modification structure",
     },
   },
   marks: { ...addSuggestionMarks(marks), difficulty },
