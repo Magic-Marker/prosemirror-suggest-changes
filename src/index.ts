@@ -3,6 +3,7 @@ export {
   insertion,
   deletion,
   modification,
+  structure,
 } from "./schema.js";
 
 export {
