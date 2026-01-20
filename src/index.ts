@@ -4,6 +4,7 @@ export {
   deletion,
   modification,
   hiddenDeletion,
+  structure,
 } from "./schema.js";
 
 export {
