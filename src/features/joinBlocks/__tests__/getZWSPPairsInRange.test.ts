@@ -607,7 +607,7 @@ describe("getZWSPPairsInRange", () => {
       assert(result.length === 1, "Expected one pair in list items");
     });
 
-    it("should work with nested structures (list_item > paragraph)", () => {
+    it("should work with nested structures (listItem > paragraph)", () => {
       const doc = testBuilders.doc(
         testBuilders.bulletList(
           testBuilders.listItem(

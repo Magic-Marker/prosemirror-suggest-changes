@@ -178,8 +178,8 @@ export function assertReverted(
  */
 export async function setupDocFromJSON(
   page: Page,
-  docJSON: unknown,
-): Promise<{ initialState: EditorState; initialDoc: unknown }> {
+  docJSON: object,
+): Promise<{ initialState: EditorState; initialDoc: object }> {
   await page.evaluate((json) => {
     window.pmEditor.replaceDoc(json);
   }, docJSON);

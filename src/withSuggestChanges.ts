@@ -1,174 +1,27 @@
-import { type Schema, type Node } from "prosemirror-model";
-import { type EditorState, type Transaction } from "prosemirror-state";
-import {
-  AddMarkStep,
-  AddNodeMarkStep,
-  AttrStep,
-  RemoveMarkStep,
-  RemoveNodeMarkStep,
-  ReplaceAroundStep,
-  ReplaceStep,
-  type Step,
-} from "prosemirror-transform";
-
-import { trackAddMarkStep } from "./addMarkStep.js";
-import { trackAddNodeMarkStep } from "./addNodeMarkStep.js";
-import { trackAttrStep } from "./attrStep.js";
-import { suggestRemoveMarkStep } from "./removeMarkStep.js";
-import { suggestRemoveNodeMarkStep } from "./removeNodeMarkStep.js";
-import { suggestReplaceAroundStep } from "./replaceAroundStep.js";
-import { suggestReplaceStep } from "./replaceStep.js";
+import { type Node, type Schema } from "prosemirror-model";
+import { type Transaction } from "prosemirror-state";
+import { type Transform } from "prosemirror-transform";
 import { type EditorView } from "prosemirror-view";
 import { isSuggestChangesEnabled, suggestChangesKey } from "./plugin.js";
-import { generateNextNumberId, type SuggestionId } from "./generateId.js";
-import { getSuggestionMarks } from "./utils.js";
+import { type SuggestionId } from "./generateId.js";
 import { prependDeletionsWithZWSP } from "./prependDeletionsWithZWSP.js";
+import {
+  getRequiredStructuralContextPaths,
+  suggestStructureChanges,
+  type SuggestStructureChangesResult,
+} from "./features/wrapUnwrap/structureChangesPlugin.js";
+import { type StructuralContextPath } from "./features/wrapUnwrap/types.js";
+import { handleSpecialTransactionShape } from "./features/transactionShaping/index.js";
+import { transformToSuggestionTransaction } from "./transformToSuggestionTransaction.js";
 
-type StepHandler<S extends Step> = (
-  trackedTransaction: Transaction,
-  state: EditorState,
-  doc: Node,
-  step: S,
-  prevSteps: Step[],
-  suggestionId: SuggestionId,
-) => boolean;
+export { transformToSuggestionTransaction } from "./transformToSuggestionTransaction.js";
+export { suggestStructureChanges } from "./features/wrapUnwrap/structureChangesPlugin.js";
 
-function getStepHandler<S extends Step>(step: S): StepHandler<S> {
-  if (step instanceof ReplaceStep) {
-    return suggestReplaceStep as unknown as StepHandler<S>;
-  }
-  if (step instanceof ReplaceAroundStep) {
-    return suggestReplaceAroundStep as unknown as StepHandler<S>;
-  }
-  if (step instanceof AddMarkStep) {
-    return trackAddMarkStep as unknown as StepHandler<S>;
-  }
-  if (step instanceof RemoveMarkStep) {
-    return suggestRemoveMarkStep as unknown as StepHandler<S>;
-  }
-  if (step instanceof AddNodeMarkStep) {
-    return trackAddNodeMarkStep as unknown as StepHandler<S>;
-  }
-  if (step instanceof RemoveNodeMarkStep) {
-    return suggestRemoveNodeMarkStep as unknown as StepHandler<S>;
-  }
-  if (step instanceof AttrStep) {
-    return trackAttrStep as unknown as StepHandler<S>;
-  }
-
-  // Default handler — simply rebase the step onto the
-  // tracked transaction and apply it.
-  return (
-    trackedTransaction: Transaction,
-    _state: EditorState,
-    _doc: Node,
-    step: S,
-    prevSteps: Step[],
-  ) => {
-    const reset = prevSteps
-      .slice()
-      .reverse()
-      .reduce<Step | null>(
-        (acc, step) => acc?.map(step.getMap().invert()) ?? null,
-        step,
-      );
-
-    const rebased = trackedTransaction.steps.reduce(
-      (acc, step) => acc?.map(step.getMap()) ?? null,
-      reset,
-    );
-
-    if (rebased) {
-      trackedTransaction.step(rebased);
-    }
-    return false;
-  };
-}
-
-/**
- * Given a standard transaction from ProseMirror, produce
- * a new transaction that tracks the changes from the original,
- * rather than applying them.
- *
- * For each type of step, we implement custom behavior to prevent
- * deletions from being removed from the document, instead adding
- * deletion marks, and ensuring that all insertions have insertion
- * marks.
- */
-export function transformToSuggestionTransaction(
-  originalTransaction: Transaction,
-  state: EditorState,
-  generateId?: (schema: Schema, doc?: Node) => SuggestionId,
-) {
-  getSuggestionMarks(state.schema);
-
-  let suggestionId = generateId
-    ? generateId(state.schema, originalTransaction.docs[0])
-    : generateNextNumberId(state.schema, originalTransaction.docs[0]);
-  // Create a new transaction from scratch. The original transaction
-  // is going to be dropped in favor of this one.
-  const trackedTransaction = state.tr;
-
-  for (let i = 0; i < originalTransaction.steps.length; i++) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const step = originalTransaction.steps[i]!;
-
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const doc = originalTransaction.docs[i]!;
-
-    const stepTracker = getStepHandler(step);
-    if (
-      stepTracker(
-        trackedTransaction,
-        state,
-        doc,
-        step,
-        originalTransaction.steps.slice(0, i),
-        suggestionId,
-      ) &&
-      i < originalTransaction.steps.length - 1
-    ) {
-      // If the suggestionId was used by one of the step handlers,
-      // increment it so that it's not reused.
-      if (generateId) {
-        suggestionId = generateId(state.schema, trackedTransaction.doc);
-      } else if (typeof suggestionId === "number") {
-        suggestionId = suggestionId + 1;
-      }
-    }
-    continue;
-  }
-
-  if (originalTransaction.selectionSet && !trackedTransaction.selectionSet) {
-    // Map the original selection backwards through the original transaction,
-    // and then forwards through the new one.
-
-    const originalBaseDoc = originalTransaction.docs[0];
-    const base = originalBaseDoc
-      ? originalTransaction.selection.map(
-          originalBaseDoc,
-          originalTransaction.mapping.invert(),
-        )
-      : originalTransaction.selection;
-
-    trackedTransaction.setSelection(
-      base.map(trackedTransaction.doc, trackedTransaction.mapping),
-    );
-  }
-
-  if (originalTransaction.scrolledIntoView) {
-    trackedTransaction.scrollIntoView();
-  }
-
-  if (originalTransaction.storedMarksSet) {
-    trackedTransaction.setStoredMarks(originalTransaction.storedMarks);
-  }
-
-  // @ts-expect-error Preserve original transaction meta exactly as-is
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  trackedTransaction.meta = originalTransaction.meta;
-
-  return trackedTransaction;
+const TRACE_ENABLED = false;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[withSuggestChanges]", ...args);
 }
 
 /**
@@ -185,6 +38,15 @@ export function transformToSuggestionTransaction(
 export function withSuggestChanges(
   dispatchTransaction?: EditorView["dispatch"],
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
+  opts?: {
+    experimental_trackStructureChanges?: boolean;
+    experimental_trackStructures?: StructuralContextPath[];
+    experimental_ensureUniqueNodeIds?: (
+      transactions: Transaction[],
+      oldDoc: Node,
+      newDoc: Node,
+    ) => Transform;
+  },
 ): EditorView["dispatch"] {
   const dispatch =
     dispatchTransaction ??
@@ -198,15 +60,119 @@ export function withSuggestChanges(
       isChangeOrigin?: boolean;
     };
 
-    const transaction =
+    const isEnabled =
       isSuggestChangesEnabled(this.state) &&
       !tr.getMeta("history$") &&
       !tr.getMeta("collab$") &&
       !ySyncMeta.isUndoRedoOperation &&
       !ySyncMeta.isChangeOrigin &&
-      !("skip" in (tr.getMeta(suggestChangesKey) ?? {}))
-        ? transformToSuggestionTransaction(tr, this.state, generateId)
-        : tr;
+      !("skip" in (tr.getMeta(suggestChangesKey) ?? {}));
+
+    let transaction = tr;
+
+    if (isEnabled) {
+      let structureChangesResult: SuggestStructureChangesResult | null = null;
+      const docBefore = transaction.docs[0];
+
+      const structuralContextPaths = opts?.experimental_trackStructureChanges
+        ? getRequiredStructuralContextPaths(opts.experimental_trackStructures)
+        : null;
+      const ensureUniqueNodeIds = opts?.experimental_ensureUniqueNodeIds;
+      const shapedTransaction = transaction.docChanged
+        ? handleSpecialTransactionShape({
+            transaction,
+            state: this.state,
+            generateId,
+            structuralContextPaths,
+            ensureUniqueNodeIds,
+          })
+        : null;
+
+      if (
+        !shapedTransaction &&
+        transaction.docChanged &&
+        docBefore &&
+        structuralContextPaths &&
+        typeof ensureUniqueNodeIds === "function"
+      ) {
+        trace("trying to track structure changes first...");
+        // after a transaction, some nodes may not yet have unique ids (they were just added, and the unique id plugin has not yet run)
+        // this hook allows to "post-process" the transaction and add the missing ids
+        // basically it allows to run the core logic of the unique ids plugin earlier
+        const perfUid = performance.now();
+        const uniqueNodeIdsTransform = ensureUniqueNodeIds(
+          [transaction],
+          docBefore,
+          transaction.doc,
+        );
+        trace(
+          "perf",
+          "structure",
+          "ensureUniqueNodsIds took",
+          Number((performance.now() - perfUid).toFixed(2)),
+          "ms",
+        );
+        const docAfter = uniqueNodeIdsTransform.doc;
+        trace("unique node ids set", docAfter);
+
+        // try running structure changes first
+        // if handled, then ignore the main plugin
+        // otherwise use the main plugin
+        const perfStructure = performance.now();
+        structureChangesResult = suggestStructureChanges(
+          docBefore,
+          docAfter,
+          structuralContextPaths,
+          generateId,
+        );
+        trace(
+          "perf",
+          "structure",
+          "suggestStructureChanges took",
+          Number((performance.now() - perfStructure).toFixed(2)),
+          "ms",
+        );
+        trace(
+          "structure changes transform completed",
+          structureChangesResult.transform,
+        );
+        if (structureChangesResult.handled) {
+          uniqueNodeIdsTransform.steps.forEach((step) => {
+            transaction.step(step);
+          });
+          structureChangesResult.transform.steps.forEach((step) => {
+            transaction.step(step);
+          });
+          trace(
+            "applied unique id transform and structure changes transform to the transaction",
+            transaction,
+          );
+        }
+      }
+
+      if (shapedTransaction) {
+        transaction = shapedTransaction;
+      } else if (
+        transaction.docChanged &&
+        structureChangesResult?.handled !== true
+      ) {
+        trace("running the main suggestions plugin...");
+        const perfSuggestions = performance.now();
+        transaction = transformToSuggestionTransaction(
+          tr,
+          this.state,
+          generateId,
+        );
+        trace(
+          "perf",
+          "suggestions",
+          "transformToSuggestionTransaction took",
+          Number((performance.now() - perfSuggestions).toFixed(2)),
+          "ms",
+        );
+        trace("main suggestions plugin completed", transaction);
+      }
+    }
 
     if (transaction.docChanged) {
       prependDeletionsWithZWSP(transaction);

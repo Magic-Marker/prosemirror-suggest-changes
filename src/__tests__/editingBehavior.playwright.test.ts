@@ -3,6 +3,68 @@ import { setupDocFromJSON } from "./playwrightHelpers.js";
 import { EditorPage } from "./playwrightPage.js";
 
 test.describe("General editing behavior around suggestion marks", () => {
+  test("should be able to type after a Mod+Enter hard break in a list item", async ({
+    page,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "orderedList",
+          attrs: { order: 1 },
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "one" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "two" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "three" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const editorPage = new EditorPage(page);
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+    await editorPage.pressKey("ArrowUp");
+
+    await editorPage.pressKey("ControlOrMeta+Enter");
+    await editorPage.insertText(" after");
+
+    expect(await editorPage.getParagraphText(0, [1])).toBe("two after");
+    expect(await editorPage.getParagraphText(0, [2])).toBe("three");
+
+    const currentDoc = await editorPage.getCurrentDoc();
+    const secondItemParagraph = currentDoc.child(0).child(1).child(0);
+    expect(secondItemParagraph.child(0).text).toBe("two");
+    expect(secondItemParagraph.child(1).type.name).toBe("hardBreak");
+    expect(secondItemParagraph.child(2).text).toBe(" after");
+  });
+
   test("backspacing into a pair of adjacent deletion/insertion marks should delete characters in the insertion", async ({
     page,
   }) => {

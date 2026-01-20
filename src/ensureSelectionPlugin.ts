@@ -105,14 +105,16 @@ export function ensureSelection() {
       });
 
       trace("appendTransaction", "search for new valid $head...");
-      let $newHead = getNewValidPos(
-        newState.selection.$head,
-        getDirection(
-          oldState.selection.$head,
-          newState.selection.$head,
-          pluginState,
-        ),
-      );
+      let $newHead = newState.selection.empty
+        ? $newAnchor
+        : getNewValidPos(
+            newState.selection.$head,
+            getDirection(
+              oldState.selection.$head,
+              newState.selection.$head,
+              pluginState,
+            ),
+          );
       trace("appendTransaction", "new valid $head", $newHead?.pos, {
         $newHead,
       });
@@ -264,9 +266,11 @@ function isPosValid($pos: ResolvedPos) {
   const ZWSP_REGEXP = new RegExp(ZWSP, "g");
   const isZWSPBefore =
     $pos.nodeBefore &&
+    $pos.nodeBefore.isText &&
     $pos.nodeBefore.textContent.replace(ZWSP_REGEXP, "") === "";
   const isZWSPAfter =
     $pos.nodeAfter &&
+    $pos.nodeAfter.isText &&
     $pos.nodeAfter.textContent.replace(ZWSP_REGEXP, "") === "";
 
   if (insertionBefore && insertionAfter && isZWSPBefore && isZWSPAfter) {

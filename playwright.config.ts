@@ -8,10 +8,15 @@ export default defineConfig<TestOptions>({
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 2 : 0,
   ...(process.env["CI"] ? { workers: 1 } : {}),
-  reporter: "list",
+  reporter: [
+    ["list"],
+    ["html", { open: process.env["CI"] ? "never" : "on-failure" }],
+  ],
   use: {
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
   },
   projects: [
     {

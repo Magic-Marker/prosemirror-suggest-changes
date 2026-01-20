@@ -256,6 +256,11 @@ test.describe("Join Block Backspace Bug", () => {
     await page.keyboard.press("Backspace");
     await page.waitForTimeout(50);
 
+    // the ensureSelection plugin will move the cursor to the paragraph below
+    // so get it back up
+    await page.keyboard.press("ArrowUp");
+    await page.waitForTimeout(50);
+
     // one paragraph should be deleted, one should contain contents of both paragraphs in deletion marks
     expect(await editorPage.getParagraphCount()).toBe(7);
     expect(await editorPage.getParagraphText(4)).toBe(

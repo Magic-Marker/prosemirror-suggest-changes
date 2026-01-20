@@ -13,6 +13,8 @@
  */
 
 import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
+import { eq } from "prosemirror-test-builder";
+import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import {
   testEnterThenBackspace,
   testDoubleEnterDoubleBackspace,
@@ -23,7 +25,6 @@ import {
   pressDelete,
   assertReverted,
   setupDocFromJSON,
-  assertDocFullyReverted,
   performEnterBackspaceCycle,
 } from "../../../__tests__/playwrightHelpers.js";
 
@@ -259,17 +260,18 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
   });
 
   test.describe("List Item Block Join Behavior", () => {
-    test("Bullet list: Enter then Backspace should rejoin list items", async ({
+    test("Bullet list: Enter then two Backspaces should rejoin list items", async ({
       page,
+      deletionMarksVisibility,
     }) => {
-      const { initialState, initialDoc } = await setupDocFromJSON(page, {
+      const { initialDoc } = await setupDocFromJSON(page, {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -289,28 +291,26 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       });
 
       await page.keyboard.press("Enter");
-      await page.waitForTimeout(100);
-
       await page.keyboard.press("Backspace");
-      await page.waitForTimeout(100);
+      await page.keyboard.press("Backspace");
 
-      const finalState = await page.evaluate(() => window.pmEditor.getState());
-      const finalDoc = await page.evaluate(() => window.pmEditor.getDocJSON());
-
-      assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+      const docs = await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
     });
 
-    test("Ordered list: Enter then Backspace should rejoin list items", async ({
+    test("Ordered list: Enter then two Backspaces should rejoin list items", async ({
       page,
+      deletionMarksVisibility,
     }) => {
-      const { initialState, initialDoc } = await setupDocFromJSON(page, {
+      const { initialDoc } = await setupDocFromJSON(page, {
         type: "doc",
         content: [
           {
-            type: "ordered_list",
+            type: "orderedList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -330,28 +330,26 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       });
 
       await page.keyboard.press("Enter");
-      await page.waitForTimeout(100);
-
       await page.keyboard.press("Backspace");
-      await page.waitForTimeout(100);
+      await page.keyboard.press("Backspace");
 
-      const finalState = await page.evaluate(() => window.pmEditor.getState());
-      const finalDoc = await page.evaluate(() => window.pmEditor.getDocJSON());
-
-      assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+      const docs = await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
     });
 
     test("List item: Enter at middle of text then Backspace", async ({
       page,
+      deletionMarksVisibility,
     }) => {
-      const { initialState, initialDoc } = await setupDocFromJSON(page, {
+      const { initialDoc } = await setupDocFromJSON(page, {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -387,26 +385,25 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       }, splitPosition);
 
       await page.keyboard.press("Enter");
-      await page.waitForTimeout(100);
-
       await page.keyboard.press("Backspace");
-      await page.waitForTimeout(100);
 
-      const finalState = await page.evaluate(() => window.pmEditor.getState());
-      const finalDoc = await page.evaluate(() => window.pmEditor.getDocJSON());
-
-      assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+      const docs = await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
     });
 
-    test("List item: Multiple sequential splits/joins", async ({ page }) => {
-      const { initialState, initialDoc } = await setupDocFromJSON(page, {
+    test("List item: Multiple sequential splits/joins", async ({
+      page,
+      deletionMarksVisibility,
+    }) => {
+      const { initialDoc } = await setupDocFromJSON(page, {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -422,32 +419,40 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       await page.locator("#editor .ProseMirror").click();
 
       for (let i = 1; i <= 3; i++) {
-        await performEnterBackspaceCycle(page);
+        await page.evaluate(() => {
+          window.pmEditor.setCursorToEnd();
+        });
+        await page.keyboard.press("Enter");
+        await page.keyboard.press("Backspace");
+        await page.keyboard.press("Backspace");
       }
 
-      const finalState = await page.evaluate(() => window.pmEditor.getState());
-      const finalDoc = await page.evaluate(() => window.pmEditor.getDocJSON());
-
-      assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+      const docs = await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
     });
 
-    test("Deeply nested list (3 levels): Enter then Backspace should rejoin all levels", async ({
+    test("Deeply nested list (3 levels): Enter then two Backspaces should rejoin all levels", async ({
       page,
+      deletionMarksVisibility,
     }) => {
-      const { initialState, initialDoc } = await setupDocFromJSON(page, {
+      const { initialDoc } = await setupDocFromJSON(page, {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
-                    type: "bullet_list",
+                    type: "paragraph",
+                  },
+                  {
+                    type: "bulletList",
                     content: [
                       {
-                        type: "list_item",
+                        type: "listItem",
                         content: [
                           {
                             type: "paragraph",
@@ -471,37 +476,38 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       });
 
       await page.keyboard.press("Enter");
-      await page.waitForTimeout(100);
-
       await page.keyboard.press("Backspace");
-      await page.waitForTimeout(100);
+      await page.keyboard.press("Backspace");
 
-      const finalState = await page.evaluate(() => window.pmEditor.getState());
-      const finalDoc = await page.evaluate(() => window.pmEditor.getDocJSON());
-
-      assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+      const docs = await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
     });
 
-    test("Extremely nested structure (4 levels): Enter then Backspace should rejoin all levels", async ({
+    test("Extremely nested structure (4 levels): Enter then two Backspaces should rejoin all levels", async ({
       page,
+      deletionMarksVisibility,
     }) => {
-      const { initialState, initialDoc } = await setupDocFromJSON(page, {
+      const { initialDoc } = await setupDocFromJSON(page, {
         type: "doc",
         content: [
           {
             type: "blockquote",
             content: [
               {
-                type: "bullet_list",
+                type: "bulletList",
                 content: [
                   {
-                    type: "list_item",
+                    type: "listItem",
                     content: [
                       {
-                        type: "bullet_list",
+                        type: "paragraph",
+                      },
+                      {
+                        type: "bulletList",
                         content: [
                           {
-                            type: "list_item",
+                            type: "listItem",
                             content: [
                               {
                                 type: "paragraph",
@@ -529,15 +535,12 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       });
 
       await page.keyboard.press("Enter");
-      await page.waitForTimeout(100);
-
       await page.keyboard.press("Backspace");
-      await page.waitForTimeout(100);
+      await page.keyboard.press("Backspace");
 
-      const finalState = await page.evaluate(() => window.pmEditor.getState());
-      const finalDoc = await page.evaluate(() => window.pmEditor.getDocJSON());
-
-      assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+      const docs = await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
     });
   });
 });

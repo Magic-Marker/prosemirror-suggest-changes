@@ -13,6 +13,15 @@ import { getSuggestionMarks } from "./utils.js";
 import { type SuggestionId } from "./generateId.js";
 import { ZWSP } from "./constants.js";
 import { maybeRevertJoinMark } from "./features/joinOnDelete/index.js";
+import { isJoinMark } from "./features/joinOnDelete/types.js";
+import {
+  revertAllStructureSuggestions,
+  revertStructureSuggestion,
+} from "./features/wrapUnwrap/revert/index.js";
+import {
+  applyAllStructureSuggestions,
+  applyStructureSuggestion,
+} from "./features/wrapUnwrap/apply/index.js";
 
 /**
  * Given a node and a transform, add a set of steps to the
@@ -56,6 +65,7 @@ function applySuggestionsToTransform(
       tr.removeNodeMark(0, markTypeToApply);
     }
   }
+  const restoredStructureSuggestionIds = new Set<SuggestionId>();
 
   node.descendants((child, pos) => {
     if (from !== undefined && pos < from) {
@@ -102,20 +112,91 @@ function applySuggestionsToTransform(
     const insertionTo = insertionFrom + child.nodeSize;
     if (child.isInline) {
       tr.removeMark(insertionFrom, insertionTo, markTypeToApply);
-      const reverted = maybeRevertJoinMark(
+      const joinRevertResult = maybeRevertJoinMark(
         tr,
         insertionFrom,
         insertionTo,
         child,
         markTypeToApply,
       );
-      if (!reverted && child.text === ZWSP) {
+
+      // reverting a join mark may produce new structure marks that were serialized in the join metadata
+      if (joinRevertResult) {
+        joinRevertResult.restoredStructureSuggestionIds.forEach((id) =>
+          restoredStructureSuggestionIds.add(id),
+        );
+      }
+
+      if (!joinRevertResult && child.text === ZWSP) {
         tr.delete(insertionFrom, insertionTo);
       }
     } else {
       tr.removeNodeMark(insertionFrom, markTypeToApply);
     }
     return true;
+  });
+  return {
+    restoredStructureSuggestionIds,
+  };
+}
+
+/**
+ * Collect suggestion IDs of join marks in the node
+ *
+ * @param node
+ * @param deletion
+ * @returns an array of suggestion IDs
+ */
+function findJoinSuggestionIds(node: Node, deletion: MarkType) {
+  const joinSuggestionIds: SuggestionId[] = [];
+
+  node.descendants((child) => {
+    const mark = deletion.isInSet(child.marks);
+    if (!mark || !isJoinMark(mark)) return true;
+    if (!child.isText || child.text !== ZWSP) return true;
+
+    joinSuggestionIds.push(mark.attrs.id);
+    return true;
+  });
+
+  return joinSuggestionIds.reverse();
+}
+
+/**
+ * Revert suggestions revealed by reverting a join mark
+ * Prioritize reverting revealed suggestions with the same id as the join mark
+ * (that means they are linked to the join mark and has to be reverted together as one)
+ * Revert other revealed suggestions as well so the user doesn't have to revert multiple times at the same place
+ *
+ * @param tr
+ * @param suggestionId
+ * @param restoredStructureSuggestionIds
+ */
+function revertRestoredStructureSuggestions(
+  tr: Transform,
+  suggestionId: SuggestionId,
+  restoredStructureSuggestionIds: Set<SuggestionId>,
+) {
+  if (restoredStructureSuggestionIds.has(suggestionId)) {
+    const restoredStructureTransform = revertStructureSuggestion(
+      tr.doc,
+      suggestionId,
+    );
+    restoredStructureTransform.steps.forEach((step) => {
+      tr.step(step);
+    });
+  }
+
+  restoredStructureSuggestionIds.forEach((restoredSuggestionId) => {
+    if (restoredSuggestionId === suggestionId) return;
+
+    const restoredStructureTransform = revertStructureSuggestion(
+      tr.doc,
+      restoredSuggestionId,
+    );
+    restoredStructureTransform.steps.forEach((step) => {
+      tr.step(step);
+    });
   });
 }
 
@@ -230,23 +311,57 @@ function applyModificationsToTransform(
 export function applySuggestionsToNode(node: Node) {
   const { deletion, insertion } = getSuggestionMarks(node.type.schema);
 
-  const transform = new Transform(node);
-  applySuggestionsToTransform(node, transform, insertion, deletion);
-  applyModificationsToTransform(node, transform, 1);
-  return transform.doc;
+  // first, create a structure transform that applies all structure changes on the given node
+  const structureTransform = applyAllStructureSuggestions(node);
+
+  // then start a clear transform from the document where the structure changes are applied
+  const suggestionsTransform = new Transform(structureTransform.doc);
+  applySuggestionsToTransform(
+    suggestionsTransform.doc,
+    suggestionsTransform,
+    insertion,
+    deletion,
+  );
+  applyModificationsToTransform(
+    suggestionsTransform.doc,
+    suggestionsTransform,
+    1,
+  );
+
+  // replay suggestion transform on top of the structure transform
+  suggestionsTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  const secondStructureTransform = applyAllStructureSuggestions(
+    structureTransform.doc,
+  );
+  secondStructureTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  return structureTransform.doc;
 }
 
 export function applySuggestionsToRange(doc: Node, from: number, to: number) {
+  const { deletion, insertion } = getSuggestionMarks(doc.type.schema);
+
   // blockRange can only return null if a predicate is provided
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const nodeRange = doc.resolve(from).blockRange(doc.resolve(to))!;
 
-  const { deletion, insertion } = getSuggestionMarks(doc.type.schema);
-
-  const transform = new Transform(doc);
-  applySuggestionsToTransform(
+  // create a structure transform that applies all structure changes on the given node range
+  const structureTransform = applyAllStructureSuggestions(
     doc,
-    transform,
+    nodeRange.start,
+    nodeRange.end,
+  );
+
+  // then start a clear transform from the document where the structure changes are applied
+  const suggestionsTransform = new Transform(structureTransform.doc);
+  applySuggestionsToTransform(
+    suggestionsTransform.doc,
+    suggestionsTransform,
     insertion,
     deletion,
     undefined,
@@ -254,17 +369,31 @@ export function applySuggestionsToRange(doc: Node, from: number, to: number) {
     nodeRange.end,
   );
   applyModificationsToTransform(
-    doc,
-    transform,
+    suggestionsTransform.doc,
+    suggestionsTransform,
     1,
     undefined,
     nodeRange.start,
     nodeRange.end,
   );
 
-  return transform.doc.slice(
-    transform.mapping.map(from),
-    transform.mapping.map(to),
+  // replay suggestion transform on top of the structure transform
+  suggestionsTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  const secondStructureTransform = applyAllStructureSuggestions(
+    structureTransform.doc,
+    structureTransform.mapping.map(from),
+    structureTransform.mapping.map(to),
+  );
+  secondStructureTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  return structureTransform.doc.slice(
+    structureTransform.mapping.map(from),
+    structureTransform.mapping.map(to),
   );
 }
 
@@ -281,11 +410,46 @@ export function applySuggestions(
 ) {
   const { deletion, insertion } = getSuggestionMarks(state.schema);
 
-  const tr = state.tr;
-  applySuggestionsToTransform(state.doc, tr, insertion, deletion);
-  applyModificationsToTransform(tr.doc, tr, 1);
-  tr.setMeta(suggestChangesKey, { skip: true });
-  dispatch?.(tr);
+  // create a structure transform that applies all structure changes on the given document
+  const structureTransform = applyAllStructureSuggestions(state.doc);
+
+  // then start a clear transform from the document where the structure changes are applied
+  const suggestionsTransform = new Transform(structureTransform.doc);
+  applySuggestionsToTransform(
+    suggestionsTransform.doc,
+    suggestionsTransform,
+    insertion,
+    deletion,
+  );
+  applyModificationsToTransform(
+    suggestionsTransform.doc,
+    suggestionsTransform,
+    1,
+  );
+
+  // replay suggestion transform on top of the structure transform
+  suggestionsTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  const secondStructureTransform = applyAllStructureSuggestions(
+    structureTransform.doc,
+  );
+  secondStructureTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  // apply the structure transform to the transaction
+  const transaction = state.tr;
+  structureTransform.steps.forEach((step) => {
+    transaction.step(step);
+  });
+
+  if (!transaction.steps.length) return false;
+
+  transaction.setMeta(suggestChangesKey, { skip: true });
+  dispatch?.(transaction);
+
   return true;
 }
 
@@ -300,19 +464,58 @@ export function applySuggestionsInRange(from?: number, to?: number): Command {
   return (state, dispatch) => {
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
-    const tr = state.tr;
-    applySuggestionsToTransform(
+    // create a structure transform that applies all structure changes on the given node range
+    const structureTransform = applyAllStructureSuggestions(
       state.doc,
-      tr,
+      from,
+      to,
+    );
+
+    // then start a clear transform from the document where the structure changes are applied
+    const suggestionsTransform = new Transform(structureTransform.doc);
+    applySuggestionsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
       insertion,
       deletion,
       undefined,
       from,
       to,
     );
-    applyModificationsToTransform(tr.doc, tr, 1, undefined, from, to);
-    tr.setMeta(suggestChangesKey, { skip: true });
-    dispatch?.(tr);
+    applyModificationsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
+      1,
+      undefined,
+      from,
+      to,
+    );
+
+    // replay suggestion transform on top of the structure transform
+    suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    const secondStructureTransform = applyAllStructureSuggestions(
+      structureTransform.doc,
+      from === undefined ? undefined : structureTransform.mapping.map(from),
+      to === undefined ? undefined : structureTransform.mapping.map(to),
+    );
+    secondStructureTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    // apply the structure transform to the transaction
+    const transaction = state.tr;
+    structureTransform.steps.forEach((step) => {
+      transaction.step(step);
+    });
+
+    if (!transaction.steps.length) return false;
+
+    transaction.setMeta(suggestChangesKey, { skip: true });
+    dispatch?.(transaction);
+
     return true;
   };
 }
@@ -332,20 +535,48 @@ export function applySuggestion(
   return (state, dispatch) => {
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
-    const tr = state.tr;
-    applySuggestionsToTransform(
+    // create a structure transform that applies the given structure change on the given node
+    const structureTransform = applyStructureSuggestion(
       state.doc,
-      tr,
+      suggestionId,
+    );
+
+    // then start a clear transform from the document where the structure changes are applied
+    const suggestionsTransform = new Transform(structureTransform.doc);
+    applySuggestionsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
       insertion,
       deletion,
       suggestionId,
       from,
       to,
     );
-    applyModificationsToTransform(tr.doc, tr, 1, undefined, from, to);
-    if (!tr.steps.length) return false;
-    tr.setMeta(suggestChangesKey, { skip: true });
-    dispatch?.(tr);
+    applyModificationsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
+      1,
+      undefined,
+      from,
+      to,
+    );
+
+    // replay suggestion transform on top of the structure transform
+    suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    // apply the structure transform to the transaction
+    const transaction = state.tr;
+    structureTransform.steps.forEach((step) => {
+      transaction.step(step);
+    });
+
+    if (!transaction.steps.length) return false;
+
+    transaction.setMeta(suggestChangesKey, { skip: true });
+    dispatch?.(transaction);
+
     return true;
   };
 }
@@ -362,11 +593,73 @@ export function revertSuggestions(
   dispatch?: EditorView["dispatch"],
 ) {
   const { deletion, insertion } = getSuggestionMarks(state.schema);
-  const tr = state.tr;
-  applySuggestionsToTransform(state.doc, tr, deletion, insertion);
-  applyModificationsToTransform(tr.doc, tr, -1);
-  tr.setMeta(suggestChangesKey, { skip: true });
-  dispatch?.(tr);
+
+  // create a structure transform that reverts all structure changes on the given document
+  const structureTransform = revertAllStructureSuggestions(state.doc);
+
+  // revert all join marks first as well as any structure marks they contain serialized
+  const joinSuggestionIds = findJoinSuggestionIds(
+    structureTransform.doc,
+    deletion,
+  );
+
+  joinSuggestionIds.forEach((suggestionId) => {
+    const suggestionsTransform = new Transform(structureTransform.doc);
+    const { restoredStructureSuggestionIds } = applySuggestionsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
+      deletion,
+      insertion,
+      suggestionId,
+    );
+
+    suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    revertRestoredStructureSuggestions(
+      structureTransform,
+      suggestionId,
+      restoredStructureSuggestionIds,
+    );
+  });
+
+  // then start a clear transform from the document where the structure changes and join marks are reverted
+  const suggestionsTransform = new Transform(structureTransform.doc);
+  applySuggestionsToTransform(
+    suggestionsTransform.doc,
+    suggestionsTransform,
+    deletion,
+    insertion,
+  );
+  applyModificationsToTransform(
+    suggestionsTransform.doc,
+    suggestionsTransform,
+    -1,
+  );
+  // replay suggestion transform on top of the structure transform
+  suggestionsTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  const secondStructureTransform = revertAllStructureSuggestions(
+    structureTransform.doc,
+  );
+  secondStructureTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  // apply the structure transform to the transaction
+  const transaction = state.tr;
+  structureTransform.steps.forEach((step) => {
+    transaction.step(step);
+  });
+
+  if (!transaction.steps.length) return false;
+
+  transaction.setMeta(suggestChangesKey, { skip: true });
+  dispatch?.(transaction);
+
   return true;
 }
 
@@ -380,19 +673,59 @@ export function revertSuggestions(
 export function revertSuggestionsInRange(from?: number, to?: number): Command {
   return (state, dispatch) => {
     const { deletion, insertion } = getSuggestionMarks(state.schema);
-    const tr = state.tr;
-    applySuggestionsToTransform(
+
+    // create a structure transform that reverts all structure changes on the given node range
+    const structureTransform = revertAllStructureSuggestions(
       state.doc,
-      tr,
+      from,
+      to,
+    );
+
+    // then start a clear transform from the document where the structure changes are reverted
+    const suggestionsTransform = new Transform(structureTransform.doc);
+    applySuggestionsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
       deletion,
       insertion,
       undefined,
       from,
       to,
     );
-    applyModificationsToTransform(tr.doc, tr, -1, undefined, from, to);
-    tr.setMeta(suggestChangesKey, { skip: true });
-    dispatch?.(tr);
+    applyModificationsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
+      -1,
+      undefined,
+      from,
+      to,
+    );
+
+    // replay suggestion transform on top of the structure transform
+    suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    const secondStructureTransform = revertAllStructureSuggestions(
+      structureTransform.doc,
+      from === undefined ? undefined : structureTransform.mapping.map(from),
+      to === undefined ? undefined : structureTransform.mapping.map(to),
+    );
+    secondStructureTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    // apply the structure transform to the transaction
+    const transaction = state.tr;
+    structureTransform.steps.forEach((step) => {
+      transaction.step(step);
+    });
+
+    if (!transaction.steps.length) return false;
+
+    transaction.setMeta(suggestChangesKey, { skip: true });
+    dispatch?.(transaction);
+
     return true;
   };
 }
@@ -412,20 +745,56 @@ export function revertSuggestion(
   return (state, dispatch) => {
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
-    const tr = state.tr;
-    applySuggestionsToTransform(
+    // create a structure transform that reverts the given structure change on the given node
+    const structureTransform = revertStructureSuggestion(
       state.doc,
-      tr,
+      suggestionId,
+    );
+
+    // then start a clear transform from the document where the structure changes are reverted
+    const suggestionsTransform = new Transform(structureTransform.doc);
+    const { restoredStructureSuggestionIds } = applySuggestionsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
       deletion,
       insertion,
       suggestionId,
       from,
       to,
     );
-    if (!tr.steps.length) return false;
-    tr.setMeta(suggestChangesKey, { skip: true });
-    applyModificationsToTransform(tr.doc, tr, -1, undefined, from, to);
-    dispatch?.(tr);
+    applyModificationsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
+      -1,
+      undefined,
+      from,
+      to,
+    );
+
+    // replay suggestion transform on top of the structure transform
+    suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    // in case there are structure marks revealed after join mark revert,
+    // revert them as well
+    revertRestoredStructureSuggestions(
+      structureTransform,
+      suggestionId,
+      restoredStructureSuggestionIds,
+    );
+
+    // apply the structure transform to the transaction
+    const transaction = state.tr;
+    structureTransform.steps.forEach((step) => {
+      transaction.step(step);
+    });
+
+    if (!transaction.steps.length) return false;
+
+    transaction.setMeta(suggestChangesKey, { skip: true });
+    dispatch?.(transaction);
+
     return true;
   };
 }

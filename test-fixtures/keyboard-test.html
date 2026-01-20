@@ -38,10 +38,26 @@
         font-family: monospace;
         font-size: 12px;
       }
+      [data-type="structure"] {
+        background-color: #b3d9ff;
+        color: #005c99;
+        mix-blend-mode: multiply;
+      }
+      blockquote {
+        border-left: 2px solid #000;
+        padding-left: 1rem;
+        margin-left: 1rem;
+      }
+      del,
+      [data-node-deletion] {
+        color: #9f003e;
+        background-color: #ffb7dc;
+      }
     </style>
   </head>
   <body>
     <h1>ProseMirror Keyboard Event Test</h1>
+    <div id="buttons"></div>
     <div id="editor"></div>
     <div id="status"></div>
     <script type="module" src="/test-fixtures/keyboard-test.ts"></script>
