@@ -3,7 +3,11 @@ import { suggestChangesKey } from "../../plugin.js";
 import { getSuggestionMarks } from "../../utils.js";
 import { type SuggestionId } from "../../generateId.js";
 import { type Node, type Mark, Slice } from "prosemirror-model";
-import { ReplaceAroundStep, type Transform } from "prosemirror-transform";
+import {
+  ReplaceAroundStep,
+  ReplaceStep,
+  type Transform,
+} from "prosemirror-transform";
 
 export function revertStructureSuggestion(suggestionId: SuggestionId): Command {
   return (state, dispatch) => {
@@ -47,9 +51,8 @@ export function revertStructureSuggestion(suggestionId: SuggestionId): Command {
     );
 
     markIds.forEach((id) => {
-      const { markFrom, markTo, markGapFrom, markGapTo } =
-        findStructureMarkGroupBySuggestionId(id, tr);
-      revertStructureMarkGroup(markFrom, markTo, markGapFrom, markGapTo, tr);
+      const group = findStructureMarkGroupBySuggestionId(id, tr);
+      revertStructureMarkGroup(group, tr);
     });
 
     if (!tr.steps.length) return false;
@@ -74,12 +77,63 @@ function getPosFromMark(mark: Mark, pos: number, node: Node) {
 }
 
 function revertStructureMarkGroup(
-  markFrom: { pos: number; node: Node; mark: Mark },
-  markTo: { pos: number; node: Node; mark: Mark },
-  markGapFrom: { pos: number; node: Node; mark: Mark },
-  markGapTo: { pos: number; node: Node; mark: Mark },
+  group:
+    | {
+        type: "replaceAround";
+        markFrom: { pos: number; node: Node; mark: Mark };
+        markTo: { pos: number; node: Node; mark: Mark };
+        markGapFrom: { pos: number; node: Node; mark: Mark };
+        markGapTo: { pos: number; node: Node; mark: Mark };
+      }
+    | {
+        type: "replace";
+        markFrom: { pos: number; node: Node; mark: Mark };
+        markTo: { pos: number; node: Node; mark: Mark };
+      },
   tr: Transform,
 ) {
+  if (group.type === "replace") {
+    const { markFrom, markTo } = group;
+    // extract positions from, to, gapFrom and gapTo from marks
+    // the positions are either the mark's start, or the mark's end
+    const from = getPosFromMark(markFrom.mark, markFrom.pos, markFrom.node);
+
+    const to = getPosFromMark(markTo.mark, markTo.pos, markTo.node);
+
+    if (from === null || to === null) {
+      throw new Error(`Could not find all positions for suggestion`);
+    }
+
+    // extract the rest of the data required to reconstruct the step: slice, and structure
+    // any of those 2 marks can be used for that, this data is identical in all of them
+    const mark = markFrom.mark;
+    const markData = mark.attrs["data"] as {
+      slice?: object;
+      structure?: boolean;
+    } | null;
+
+    if (!markData?.slice) {
+      throw new Error(`Missing slice data for suggestion`);
+    }
+
+    const slice = Slice.fromJSON(tr.doc.type.schema, markData.slice);
+    const isStepStructural = markData.structure ?? false;
+
+    // reconstruct the step
+    // this is the inverse step of the step that created this change
+    const step = new ReplaceStep(from, to, slice, isStepStructural);
+
+    console.log("applying replace step", step.toJSON());
+
+    tr.removeNodeMark(markFrom.pos, markFrom.mark);
+    tr.removeNodeMark(markTo.pos, markTo.mark);
+
+    tr.step(step);
+
+    return;
+  }
+
+  const { markFrom, markTo, markGapFrom, markGapTo } = group;
   // extract positions from, to, gapFrom and gapTo from marks
   // the positions are either the mark's start, or the mark's end
   const from = getPosFromMark(markFrom.mark, markFrom.pos, markFrom.node);
@@ -127,7 +181,7 @@ function revertStructureMarkGroup(
     isStepStructural,
   );
 
-  console.log("applying step", step.toJSON());
+  console.log("applying replaceAround step", step.toJSON());
 
   tr.removeNodeMark(markFrom.pos, markFrom.mark);
   tr.removeNodeMark(markTo.pos, markTo.mark);
@@ -182,16 +236,29 @@ function findStructureMarkGroupBySuggestionId(
     );
   });
 
-  if (
-    markFrom == null ||
-    markTo == null ||
-    markGapFrom == null ||
-    markGapTo == null
-  ) {
+  if (markFrom == null || markTo == null) {
     throw new Error(
       `Could not find all marks for suggestion id ${suggestionId as string}`,
     );
   }
 
-  return { markFrom, markTo, markGapFrom, markGapTo };
+  const type = (markFrom.mark.attrs["data"] as { type?: string } | null)?.type;
+
+  if (type === "replace") {
+    return { type: "replace" as const, markFrom, markTo };
+  }
+
+  if (markGapFrom == null || markGapTo == null) {
+    throw new Error(
+      `Could not find all gap marks for replace around suggestion id ${suggestionId as string}`,
+    );
+  }
+
+  return {
+    type: "replaceAround" as const,
+    markFrom,
+    markTo,
+    markGapFrom,
+    markGapTo,
+  };
 }
