@@ -4,12 +4,12 @@ import { revertStructureSuggestion } from "../revertStructureSuggestion.js";
 import { applySteps, assertDocumentChanged } from "./testUtils.js";
 
 const initialState = testBuilders.doc(
-  testBuilders.orderedList(//1
-    testBuilders.listItem(testBuilders.paragraph("Item One")),//13
-    testBuilders.listItem(testBuilders.paragraph("Item Two")),//25
-    testBuilders.listItem(testBuilders.paragraph("Item Three")),//39
-    testBuilders.listItem(testBuilders.paragraph("Item Four")),//52
-    testBuilders.listItem(testBuilders.paragraph("Item Five")),//65
+  testBuilders.orderedList(
+    testBuilders.listItem(testBuilders.paragraph("Item One")),
+    testBuilders.listItem(testBuilders.paragraph("Item Two")),
+    testBuilders.listItem(testBuilders.paragraph("Item Three")),
+    testBuilders.listItem(testBuilders.paragraph("Item Four")),
+    testBuilders.listItem(testBuilders.paragraph("Item Five")),
   ),
 );
 
@@ -23,7 +23,151 @@ const finalState = testBuilders.doc(
   testBuilders.paragraph("Item Five"),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.orderedList(
+    testBuilders.listItem(testBuilders.paragraph("Item One")),
+    testBuilders.listItem(testBuilders.paragraph("Item Two")),
+    testBuilders.listItem(testBuilders.paragraph("Item Three")),
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "from",
+          position: "end",
+          gapFromOffset: 1,
+          type: "replaceAround",
+          slice: {
+            content: [
+              {
+                type: "orderedList",
+                attrs: { order: 1 },
+                content: [{ type: "listItem" }],
+              },
+            ],
+            openStart: 1,
+          },
+          insert: 1,
+          structure: false,
+          debug: {
+            inverseFrom: 52,
+            inverseTo: 64,
+            inverseGapFrom: 53,
+            inverseGapTo: 64,
+            gapFromOffset: 1,
+            gapToOffset: 0,
+            fromOffset: 1,
+            toOffset: 0,
+          },
+        },
+      },
+      testBuilders.listItem(testBuilders.paragraph("Item Four")),
+    ),
+  ),
+  testBuilders.structure(
+    {
+      id: 1,
+      type: "structure",
+      data: {
+        value: "gapFrom",
+        position: "start",
+        fromOffset: 1,
+        type: "replaceAround",
+        slice: {
+          content: [
+            {
+              type: "orderedList",
+              attrs: { order: 1 },
+              content: [{ type: "listItem" }],
+            },
+          ],
+          openStart: 1,
+        },
+        insert: 1,
+        structure: false,
+        debug: {
+          inverseFrom: 52,
+          inverseTo: 64,
+          inverseGapFrom: 53,
+          inverseGapTo: 64,
+          gapFromOffset: 1,
+          gapToOffset: 0,
+          fromOffset: 1,
+          toOffset: 0,
+        },
+      },
+    },
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "gapTo",
+          position: "end",
+          toOffset: 0,
+          type: "replaceAround",
+          slice: {
+            content: [
+              {
+                type: "orderedList",
+                attrs: { order: 1 },
+                content: [{ type: "listItem" }],
+              },
+            ],
+            openStart: 1,
+          },
+          insert: 1,
+          structure: false,
+          debug: {
+            inverseFrom: 52,
+            inverseTo: 64,
+            inverseGapFrom: 53,
+            inverseGapTo: 64,
+            gapFromOffset: 1,
+            gapToOffset: 0,
+            fromOffset: 1,
+            toOffset: 0,
+          },
+        },
+      },
+      testBuilders.structure(
+        {
+          id: 1,
+          type: "structure",
+          data: {
+            value: "to",
+            position: "end",
+            gapToOffset: 0,
+            type: "replaceAround",
+            slice: {
+              content: [
+                {
+                  type: "orderedList",
+                  attrs: { order: 1 },
+                  content: [{ type: "listItem" }],
+                },
+              ],
+              openStart: 1,
+            },
+            insert: 1,
+            structure: false,
+            debug: {
+              inverseFrom: 52,
+              inverseTo: 64,
+              inverseGapFrom: 53,
+              inverseGapTo: 64,
+              gapFromOffset: 1,
+              gapToOffset: 0,
+              fromOffset: 1,
+              toOffset: 0,
+            },
+          },
+        },
+        testBuilders.paragraph("Item Five"),
+      ),
+    ),
+  ),
+);
 
 const steps = [
   {
@@ -43,30 +187,30 @@ const steps = [
 
 const inverseSteps = [
   {
-    "stepType": "replaceAround",
-    "from": 52,
-    "to": 64,
-    "gapFrom": 53,
-    "gapTo": 64,
-    "insert": 1,
-    "slice": {
-      "content": [
+    stepType: "replaceAround",
+    from: 52,
+    to: 64,
+    gapFrom: 53,
+    gapTo: 64,
+    insert: 1,
+    slice: {
+      content: [
         {
-          "type": "orderedList",
-          "attrs": {
-            "order": 1
+          type: "orderedList",
+          attrs: {
+            order: 1,
           },
-          "content": [
+          content: [
             {
-              "type": "listItem"
-            }
-          ]
-        }
+              type: "listItem",
+            },
+          ],
+        },
       ],
-      "openStart": 1
+      openStart: 1,
     },
-    "structure": true
-  }
+    structure: true,
+  },
 ];
 
 describe("last list item lift | [ReplaceAroundStep]", () => {
