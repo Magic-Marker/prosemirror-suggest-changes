@@ -23,7 +23,107 @@ const finalState = testBuilders.doc(
   ),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.structure(
+    {
+      id: 1,
+      type: "structure",
+      data: {
+        value: "gapFrom",
+        position: "start",
+        fromOffset: 0,
+        slice: {
+          content: [
+            {
+              type: "orderedList",
+              attrs: { order: 1 },
+              content: [{ type: "listItem" }],
+            },
+          ],
+          openEnd: 1,
+        },
+        insert: 2,
+        structure: true,
+      },
+    },
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "gapTo",
+          position: "end",
+          toOffset: 1,
+          slice: {
+            content: [
+              {
+                type: "orderedList",
+                attrs: { order: 1 },
+                content: [{ type: "listItem" }],
+              },
+            ],
+            openEnd: 1,
+          },
+          insert: 2,
+          structure: true,
+        },
+      },
+      testBuilders.structure(
+        {
+          id: 1,
+          type: "structure",
+          data: {
+            value: "from",
+            position: "start",
+            gapFromOffset: 0,
+            slice: {
+              content: [
+                {
+                  type: "orderedList",
+                  attrs: { order: 1 },
+                  content: [{ type: "listItem" }],
+                },
+              ],
+              openEnd: 1,
+            },
+            insert: 2,
+            structure: true,
+          },
+        },
+        testBuilders.paragraph("Item One"),
+      ),
+    ),
+  ),
+  testBuilders.orderedList(
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "to",
+          position: "start",
+          gapToOffset: 1,
+          slice: {
+            content: [
+              {
+                type: "orderedList",
+                attrs: { order: 1 },
+                content: [{ type: "listItem" }],
+              },
+            ],
+            openEnd: 1,
+          },
+          insert: 2,
+          structure: true,
+        },
+      },
+      testBuilders.listItem(testBuilders.paragraph("Item Two")),
+    ),
+    testBuilders.listItem(testBuilders.paragraph("Item Three")),
+    testBuilders.listItem(testBuilders.paragraph("Item Four")),
+    testBuilders.listItem(testBuilders.paragraph("Item Five")),
+  ),
+);
 
 const steps = [
   {
