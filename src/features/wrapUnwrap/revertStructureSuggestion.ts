@@ -112,18 +112,18 @@ function revertStructureMarkGroup(
       structure?: boolean;
     } | null;
 
-    if (!markData?.slice) {
-      throw new Error(`Missing slice data for suggestion`);
+    if (!markData) {
+      throw new Error(`Missing mark data for suggestion`);
     }
 
-    const slice = Slice.fromJSON(tr.doc.type.schema, markData.slice);
+    const slice = markData.slice
+      ? Slice.fromJSON(tr.doc.type.schema, markData.slice)
+      : Slice.empty;
     const isStepStructural = markData.structure ?? false;
 
     // reconstruct the step
     // this is the inverse step of the step that created this change
     const step = new ReplaceStep(from, to, slice, isStepStructural);
-
-    console.log("applying replace step", step.toJSON());
 
     tr.removeNodeMark(markFrom.pos, markFrom.mark);
     tr.removeNodeMark(markTo.pos, markTo.mark);
@@ -161,11 +161,13 @@ function revertStructureMarkGroup(
     structure?: boolean;
   } | null;
 
-  if (!markData || !markData.slice || markData.insert == null) {
-    throw new Error(`Missing slice data for suggestion`);
+  if (markData?.insert == null) {
+    throw new Error(`Missing insert for suggestion`);
   }
 
-  const slice = Slice.fromJSON(tr.doc.type.schema, markData.slice);
+  const slice = markData.slice
+    ? Slice.fromJSON(tr.doc.type.schema, markData.slice)
+    : Slice.empty;
   const insert = markData.insert;
   const isStepStructural = markData.structure ?? false;
 
@@ -180,8 +182,6 @@ function revertStructureMarkGroup(
     insert,
     isStepStructural,
   );
-
-  console.log("applying replaceAround step", step.toJSON());
 
   tr.removeNodeMark(markFrom.pos, markFrom.mark);
   tr.removeNodeMark(markTo.pos, markTo.mark);

@@ -23,7 +23,128 @@ const finalState = testBuilders.doc(
   ),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.blockquote(
+    testBuilders.blockquote(
+      testBuilders.blockquote(
+        testBuilders.structure(
+          {
+            id: 1,
+            type: "structure",
+            data: {
+              value: "from",
+              position: "end",
+              gapFromOffset: 1,
+              type: "replaceAround",
+              slice: {
+                content: [{ type: "blockquote" }],
+                openStart: 1,
+              },
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 10,
+                inverseTo: 18,
+                inverseGapFrom: 11,
+                inverseGapTo: 18,
+                gapFromOffset: 1,
+                gapToOffset: 0,
+                fromOffset: 1,
+                toOffset: 0,
+              },
+            },
+          },
+          testBuilders.paragraph("Hello"),
+        ),
+      ),
+      testBuilders.structure(
+        {
+          id: 1,
+          type: "structure",
+          data: {
+            value: "gapFrom",
+            position: "start",
+            fromOffset: 1,
+            type: "replaceAround",
+            slice: {
+              content: [{ type: "blockquote" }],
+              openStart: 1,
+            },
+            insert: 0,
+            structure: true,
+            debug: {
+              inverseFrom: 10,
+              inverseTo: 18,
+              inverseGapFrom: 11,
+              inverseGapTo: 18,
+              gapFromOffset: 1,
+              gapToOffset: 0,
+              fromOffset: 1,
+              toOffset: 0,
+            },
+          },
+        },
+        testBuilders.structure(
+          {
+            id: 1,
+            type: "structure",
+            data: {
+              value: "gapTo",
+              position: "end",
+              toOffset: 0,
+              type: "replaceAround",
+              slice: {
+                content: [{ type: "blockquote" }],
+                openStart: 1,
+              },
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 10,
+                inverseTo: 18,
+                inverseGapFrom: 11,
+                inverseGapTo: 18,
+                gapFromOffset: 1,
+                gapToOffset: 0,
+                fromOffset: 1,
+                toOffset: 0,
+              },
+            },
+          },
+          testBuilders.structure(
+            {
+              id: 1,
+              type: "structure",
+              data: {
+                value: "to",
+                position: "end",
+                gapToOffset: 0,
+                type: "replaceAround",
+                slice: {
+                  content: [{ type: "blockquote" }],
+                  openStart: 1,
+                },
+                insert: 0,
+                structure: true,
+                debug: {
+                  inverseFrom: 10,
+                  inverseTo: 18,
+                  inverseGapFrom: 11,
+                  inverseGapTo: 18,
+                  gapFromOffset: 1,
+                  gapToOffset: 0,
+                  fromOffset: 1,
+                  toOffset: 0,
+                },
+              },
+            },
+            testBuilders.paragraph("World"),
+          ),
+        ),
+      ),
+    ),
+  ),
+);
 
 const steps = [
   {
@@ -63,7 +184,7 @@ const inverseSteps = [
 
 describe("lift one node one level in a multi-level wrap | [ReplaceAroundStep]", () => {
   it("should lift one paragraph out of innermost blockquote by applying 1 ReplaceAround step", () => {
-    assertDocumentChanged(initialState, finalState, applySteps(steps, true));
+    assertDocumentChanged(initialState, finalState, applySteps(steps));
   });
 
   it("should revert the lift by applying 1 inverse ReplaceAround step", () => {
