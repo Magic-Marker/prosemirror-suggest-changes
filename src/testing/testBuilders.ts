@@ -13,6 +13,11 @@ export const schema = new Schema({
   nodes: {
     ...nodes,
     image: { ...nodes.image, group: "block", inline: false },
+    blockquote: {
+      ...nodes.blockquote,
+      group: "block",
+      marks: "insertion deletion modification structure",
+    },
     doc: {
       ...nodes.doc,
       marks: "difficulty insertion deletion modification structure",

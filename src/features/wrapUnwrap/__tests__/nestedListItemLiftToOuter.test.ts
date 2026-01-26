@@ -43,7 +43,259 @@ const finalState = testBuilders.doc(
   ),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.orderedList(
+    testBuilders.listItem(testBuilders.paragraph("Item 1")),
+    testBuilders.listItem(
+      testBuilders.paragraph("Item 2"),
+      testBuilders.orderedList(
+        testBuilders.structure(
+          {
+            id: 2,
+            type: "structure",
+            data: {
+              value: "from",
+              position: "end",
+              gapFromOffset: 2,
+              type: "replaceAround",
+              slice: {
+                content: [
+                  {
+                    type: "listItem",
+                    content: [{ type: "orderedList", attrs: { order: 1 } }],
+                  },
+                ],
+                openStart: 2,
+              },
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 33,
+                inverseTo: 73,
+                inverseGapFrom: 35,
+                inverseGapTo: 73,
+                gapFromOffset: 2,
+                gapToOffset: 0,
+                fromOffset: 2,
+                toOffset: 0,
+              },
+            },
+          },
+          testBuilders.listItem(testBuilders.paragraph("Item 2.1"))
+        )
+      )
+    ),
+    testBuilders.structure(
+      {
+        id: 2,
+        type: "structure",
+        data: {
+          value: "gapFrom",
+          position: "start",
+          fromOffset: 2,
+          type: "replaceAround",
+          slice: {
+            content: [
+              {
+                type: "listItem",
+                content: [{ type: "orderedList", attrs: { order: 1 } }],
+              },
+            ],
+            openStart: 2,
+          },
+          insert: 0,
+          structure: true,
+          debug: {
+            inverseFrom: 33,
+            inverseTo: 73,
+            inverseGapFrom: 35,
+            inverseGapTo: 73,
+            gapFromOffset: 2,
+            gapToOffset: 0,
+            fromOffset: 2,
+            toOffset: 0,
+          },
+        },
+      },
+      testBuilders.listItem(testBuilders.paragraph("Item 2.2"))
+    ),
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "to",
+          position: "end",
+          gapToOffset: 2,
+          type: "replaceAround",
+          slice: { content: [{ type: "listItem" }], openStart: 1 },
+          insert: 1,
+          structure: true,
+          debug: {
+            inverseFrom: 56,
+            inverseTo: 71,
+            inverseGapFrom: 57,
+            inverseGapTo: 69,
+            gapFromOffset: 1,
+            gapToOffset: 2,
+            fromOffset: 1,
+            toOffset: 2,
+          },
+        },
+      },
+      testBuilders.structure(
+        {
+          id: 2,
+          type: "structure",
+          data: {
+            value: "gapTo",
+            position: "end",
+            toOffset: 0,
+            type: "replaceAround",
+            slice: {
+              content: [
+                {
+                  type: "listItem",
+                  content: [{ type: "orderedList", attrs: { order: 1 } }],
+                },
+              ],
+              openStart: 2,
+            },
+            insert: 0,
+            structure: true,
+            debug: {
+              inverseFrom: 33,
+              inverseTo: 73,
+              inverseGapFrom: 35,
+              inverseGapTo: 73,
+              gapFromOffset: 2,
+              gapToOffset: 0,
+              fromOffset: 2,
+              toOffset: 0,
+            },
+          },
+        },
+        testBuilders.structure(
+          {
+            id: 2,
+            type: "structure",
+            data: {
+              value: "to",
+              position: "end",
+              gapToOffset: 0,
+              type: "replaceAround",
+              slice: {
+                content: [
+                  {
+                    type: "listItem",
+                    content: [{ type: "orderedList", attrs: { order: 1 } }],
+                  },
+                ],
+                openStart: 2,
+              },
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 33,
+                inverseTo: 73,
+                inverseGapFrom: 35,
+                inverseGapTo: 73,
+                gapFromOffset: 2,
+                gapToOffset: 0,
+                fromOffset: 2,
+                toOffset: 0,
+              },
+            },
+          },
+          testBuilders.listItem(
+            testBuilders.paragraph("Item 2.3"),
+            testBuilders.structure(
+              {
+                id: 1,
+                type: "structure",
+                data: {
+                  value: "from",
+                  position: "start",
+                  gapFromOffset: 1,
+                  type: "replaceAround",
+                  slice: { content: [{ type: "listItem" }], openStart: 1 },
+                  insert: 1,
+                  structure: true,
+                  debug: {
+                    inverseFrom: 56,
+                    inverseTo: 71,
+                    inverseGapFrom: 57,
+                    inverseGapTo: 69,
+                    gapFromOffset: 1,
+                    gapToOffset: 2,
+                    fromOffset: 1,
+                    toOffset: 2,
+                  },
+                },
+              },
+              testBuilders.orderedList(
+                testBuilders.structure(
+                  {
+                    id: 1,
+                    type: "structure",
+                    data: {
+                      value: "gapFrom",
+                      position: "start",
+                      fromOffset: 1,
+                      type: "replaceAround",
+                      slice: { content: [{ type: "listItem" }], openStart: 1 },
+                      insert: 1,
+                      structure: true,
+                      debug: {
+                        inverseFrom: 56,
+                        inverseTo: 71,
+                        inverseGapFrom: 57,
+                        inverseGapTo: 69,
+                        gapFromOffset: 1,
+                        gapToOffset: 2,
+                        fromOffset: 1,
+                        toOffset: 2,
+                      },
+                    },
+                  },
+                  testBuilders.structure(
+                    {
+                      id: 1,
+                      type: "structure",
+                      data: {
+                        value: "gapTo",
+                        position: "end",
+                        toOffset: 2,
+                        type: "replaceAround",
+                        slice: { content: [{ type: "listItem" }], openStart: 1 },
+                        insert: 1,
+                        structure: true,
+                        debug: {
+                          inverseFrom: 56,
+                          inverseTo: 71,
+                          inverseGapFrom: 57,
+                          inverseGapTo: 69,
+                          gapFromOffset: 1,
+                          gapToOffset: 2,
+                          fromOffset: 1,
+                          toOffset: 2,
+                        },
+                      },
+                    },
+                    testBuilders.listItem(testBuilders.paragraph("Item 2.4"))
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    ),
+    testBuilders.listItem(testBuilders.paragraph("Item 3")),
+    testBuilders.listItem(testBuilders.paragraph("Item 4")),
+    testBuilders.listItem(testBuilders.paragraph("Item 5"))
+  )
+);
 
 const steps = [
   {
@@ -135,7 +387,7 @@ describe("lift nested list item to outer list | [ReplaceAroundStep, ReplaceAroun
     assertDocumentChanged(
       finalStateWithMarks,
       initialState,
-      revertStructureSuggestion(1),
+      revertStructureSuggestion(2),
     );
   });
 });

@@ -19,7 +19,158 @@ const finalState = testBuilders.doc(
   testBuilders.paragraph("World"),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.structure(
+    {
+      id: 1,
+      type: "structure",
+      data: {
+        value: "gapFrom",
+        position: "start",
+        fromOffset: 0,
+        type: "replaceAround",
+        slice: {
+          content: [
+            {
+              type: "blockquote",
+              content: [
+                {
+                  type: "blockquote",
+                  content: [{ type: "blockquote" }],
+                },
+              ],
+            },
+          ],
+        },
+        insert: 3,
+        structure: true,
+        debug: {
+          inverseFrom: 0,
+          inverseTo: 14,
+          inverseGapFrom: 0,
+          inverseGapTo: 14,
+          gapFromOffset: 0,
+          gapToOffset: 0,
+          fromOffset: 0,
+          toOffset: 0,
+        },
+      },
+    },
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "from",
+          position: "start",
+          gapFromOffset: 0,
+          type: "replaceAround",
+          slice: {
+            content: [
+              {
+                type: "blockquote",
+                content: [
+                  {
+                    type: "blockquote",
+                    content: [{ type: "blockquote" }],
+                  },
+                ],
+              },
+            ],
+          },
+          insert: 3,
+          structure: true,
+          debug: {
+            inverseFrom: 0,
+            inverseTo: 14,
+            inverseGapFrom: 0,
+            inverseGapTo: 14,
+            gapFromOffset: 0,
+            gapToOffset: 0,
+            fromOffset: 0,
+            toOffset: 0,
+          },
+        },
+      },
+      testBuilders.paragraph("Hello"),
+    ),
+  ),
+  testBuilders.structure(
+    {
+      id: 1,
+      type: "structure",
+      data: {
+        value: "gapTo",
+        position: "end",
+        toOffset: 0,
+        type: "replaceAround",
+        slice: {
+          content: [
+            {
+              type: "blockquote",
+              content: [
+                {
+                  type: "blockquote",
+                  content: [{ type: "blockquote" }],
+                },
+              ],
+            },
+          ],
+        },
+        insert: 3,
+        structure: true,
+        debug: {
+          inverseFrom: 0,
+          inverseTo: 14,
+          inverseGapFrom: 0,
+          inverseGapTo: 14,
+          gapFromOffset: 0,
+          gapToOffset: 0,
+          fromOffset: 0,
+          toOffset: 0,
+        },
+      },
+    },
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "to",
+          position: "end",
+          gapToOffset: 0,
+          type: "replaceAround",
+          slice: {
+            content: [
+              {
+                type: "blockquote",
+                content: [
+                  {
+                    type: "blockquote",
+                    content: [{ type: "blockquote" }],
+                  },
+                ],
+              },
+            ],
+          },
+          insert: 3,
+          structure: true,
+          debug: {
+            inverseFrom: 0,
+            inverseTo: 14,
+            inverseGapFrom: 0,
+            inverseGapTo: 14,
+            gapFromOffset: 0,
+            gapToOffset: 0,
+            fromOffset: 0,
+            toOffset: 0,
+          },
+        },
+      },
+      testBuilders.paragraph("World"),
+    ),
+  ),
+);
 
 const steps = [
   {
@@ -64,7 +215,7 @@ const inverseSteps = [
 
 describe("lift multiple nodes through all levels in a multi-level wrap | [ReplaceAroundStep]", () => {
   it("should lift two paragraphs out of all blockquotes by applying 1 ReplaceAround step", () => {
-    assertDocumentChanged(initialState, finalState, applySteps(steps, true));
+    assertDocumentChanged(initialState, finalState, applySteps(steps));
   });
 
   it("should revert the lift by applying 1 inverse ReplaceAround step", () => {
