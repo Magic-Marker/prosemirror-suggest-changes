@@ -19,7 +19,116 @@ const finalState = testBuilders.doc(
   ),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.structure(
+    {
+      id: 1,
+      type: "structure",
+      data: {
+        value: "from",
+        position: "start",
+        gapFromOffset: 3,
+        type: "replaceAround",
+        slice: null,
+        insert: 0,
+        structure: true,
+        debug: {
+          inverseFrom: 0,
+          inverseTo: 20,
+          inverseGapFrom: 3,
+          inverseGapTo: 17,
+          gapFromOffset: 3,
+          gapToOffset: 3,
+          fromOffset: 3,
+          toOffset: 3,
+        },
+      },
+    },
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "to",
+          position: "end",
+          gapToOffset: 3,
+          type: "replaceAround",
+          slice: null,
+          insert: 0,
+          structure: true,
+          debug: {
+            inverseFrom: 0,
+            inverseTo: 20,
+            inverseGapFrom: 3,
+            inverseGapTo: 17,
+            gapFromOffset: 3,
+            gapToOffset: 3,
+            fromOffset: 3,
+            toOffset: 3,
+          },
+        },
+      },
+      testBuilders.blockquote(
+        testBuilders.blockquote(
+          testBuilders.blockquote(
+            testBuilders.structure(
+              {
+                id: 1,
+                type: "structure",
+                data: {
+                  value: "gapFrom",
+                  position: "start",
+                  fromOffset: 3,
+                  type: "replaceAround",
+                  slice: null,
+                  insert: 0,
+                  structure: true,
+                  debug: {
+                    inverseFrom: 0,
+                    inverseTo: 20,
+                    inverseGapFrom: 3,
+                    inverseGapTo: 17,
+                    gapFromOffset: 3,
+                    gapToOffset: 3,
+                    fromOffset: 3,
+                    toOffset: 3,
+                  },
+                },
+              },
+              testBuilders.paragraph("Hello"),
+            ),
+            testBuilders.structure(
+              {
+                id: 1,
+                type: "structure",
+                data: {
+                  value: "gapTo",
+                  position: "end",
+                  toOffset: 3,
+                  type: "replaceAround",
+                  slice: null,
+                  insert: 0,
+                  structure: true,
+                  debug: {
+                    inverseFrom: 0,
+                    inverseTo: 20,
+                    inverseGapFrom: 3,
+                    inverseGapTo: 17,
+                    gapFromOffset: 3,
+                    gapToOffset: 3,
+                    fromOffset: 3,
+                    toOffset: 3,
+                  },
+                },
+              },
+              testBuilders.paragraph("World"),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+);
 
 const steps = [
   {
@@ -60,7 +169,7 @@ const inverseSteps = [
 
 describe("wrap multiple nodes with three nested blockquotes | [ReplaceAroundStep]", () => {
   it("should wrap two paragraphs in three blockquotes by applying 1 ReplaceAround step", () => {
-    assertDocumentChanged(initialState, finalState, applySteps(steps, true));
+    assertDocumentChanged(initialState, finalState, applySteps(steps));
   });
 
   it("should revert the wrap of two paragraphs in three blockquotes by applying 1 inverse ReplaceAround step", () => {

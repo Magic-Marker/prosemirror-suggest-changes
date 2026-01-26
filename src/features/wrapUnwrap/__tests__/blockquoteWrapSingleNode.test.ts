@@ -9,7 +9,111 @@ const finalState = testBuilders.doc(
   testBuilders.blockquote(testBuilders.paragraph("Hello World")),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.structure(
+    {
+      id: 1,
+      type: "structure",
+      data: {
+        value: "from",
+        position: "start",
+        gapFromOffset: 1,
+        type: "replaceAround",
+        slice: null,
+        insert: 0,
+        structure: true,
+        debug: {
+          inverseFrom: 0,
+          inverseTo: 15,
+          inverseGapFrom: 1,
+          inverseGapTo: 14,
+          gapFromOffset: 1,
+          gapToOffset: 1,
+          fromOffset: 1,
+          toOffset: 1,
+        },
+      },
+    },
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "to",
+          position: "end",
+          gapToOffset: 1,
+          type: "replaceAround",
+          slice: null,
+          insert: 0,
+          structure: true,
+          debug: {
+            inverseFrom: 0,
+            inverseTo: 15,
+            inverseGapFrom: 1,
+            inverseGapTo: 14,
+            gapFromOffset: 1,
+            gapToOffset: 1,
+            fromOffset: 1,
+            toOffset: 1,
+          },
+        },
+      },
+      testBuilders.blockquote(
+        testBuilders.structure(
+          {
+            id: 1,
+            type: "structure",
+            data: {
+              value: "gapFrom",
+              position: "start",
+              fromOffset: 1,
+              type: "replaceAround",
+              slice: null,
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 0,
+                inverseTo: 15,
+                inverseGapFrom: 1,
+                inverseGapTo: 14,
+                gapFromOffset: 1,
+                gapToOffset: 1,
+                fromOffset: 1,
+                toOffset: 1,
+              },
+            },
+          },
+          testBuilders.structure(
+            {
+              id: 1,
+              type: "structure",
+              data: {
+                value: "gapTo",
+                position: "end",
+                toOffset: 1,
+                type: "replaceAround",
+                slice: null,
+                insert: 0,
+                structure: true,
+                debug: {
+                  inverseFrom: 0,
+                  inverseTo: 15,
+                  inverseGapFrom: 1,
+                  inverseGapTo: 14,
+                  gapFromOffset: 1,
+                  gapToOffset: 1,
+                  fromOffset: 1,
+                  toOffset: 1,
+                },
+              },
+            },
+            testBuilders.paragraph("Hello World"),
+          ),
+        ),
+      ),
+    ),
+  ),
+);
 
 const steps = [
   {
@@ -49,7 +153,7 @@ describe("wrap a single node with a blockquote | [ReplaceAroundStep]", () => {
     );
   });
 
-  it("should revert the wrap of a paragraph in a blockquote by reverting a structure suggestion", async () => {
+  it("should revert the wrap of a paragraph in a blockquote by reverting a structure suggestion", () => {
     assertDocumentChanged(
       finalStateWithMarks,
       initialState,

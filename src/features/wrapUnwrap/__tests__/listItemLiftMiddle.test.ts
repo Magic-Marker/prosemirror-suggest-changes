@@ -178,7 +178,7 @@ const inverseSteps = [
 
 describe("middle list item lift | [ReplaceAroundStep]", () => {
   it("should lift middle list item out of ordered list by applying 1 ReplaceAround step", () => {
-    assertDocumentChanged(initialState, finalState, applySteps(steps, true));
+    assertDocumentChanged(initialState, finalState, applySteps(steps));
   });
 
   it("should revert the lift by applying 1 inverse ReplaceAround step", () => {

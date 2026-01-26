@@ -236,7 +236,7 @@ const inverseSteps = [
 
 describe("lift multiple list items to the top, splitting the list in half | [ReplaceStep, ReplaceAroundStep]", () => {
   it("should lift multiple list items out of ordered list by applying 2 steps", () => {
-    assertDocumentChanged(initialState, finalState, applySteps(steps, true));
+    assertDocumentChanged(initialState, finalState, applySteps(steps));
   });
 
   it("should revert the lift by applying 2 inverse steps", () => {
