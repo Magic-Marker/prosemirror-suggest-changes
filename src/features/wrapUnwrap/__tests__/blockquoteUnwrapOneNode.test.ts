@@ -15,7 +15,112 @@ const finalState = testBuilders.doc(
   testBuilders.paragraph("World"),
 );
 
-const finalStateWithMarks = finalState;
+const finalStateWithMarks = testBuilders.doc(
+  testBuilders.blockquote(
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "from",
+          position: "end",
+          gapFromOffset: 1,
+          type: "replaceAround",
+          slice: { content: [{ type: "blockquote" }], openStart: 1 },
+          insert: 0,
+          structure: true,
+          debug: {
+            inverseFrom: 8,
+            inverseTo: 16,
+            inverseGapFrom: 9,
+            inverseGapTo: 16,
+            gapFromOffset: 1,
+            gapToOffset: 0,
+            fromOffset: 1,
+            toOffset: 0,
+          },
+        },
+      },
+      testBuilders.paragraph("Hello"),
+    ),
+  ),
+  testBuilders.structure(
+    {
+      id: 1,
+      type: "structure",
+      data: {
+        value: "gapFrom",
+        position: "start",
+        fromOffset: 1,
+        type: "replaceAround",
+        slice: { content: [{ type: "blockquote" }], openStart: 1 },
+        insert: 0,
+        structure: true,
+        debug: {
+          inverseFrom: 8,
+          inverseTo: 16,
+          inverseGapFrom: 9,
+          inverseGapTo: 16,
+          gapFromOffset: 1,
+          gapToOffset: 0,
+          fromOffset: 1,
+          toOffset: 0,
+        },
+      },
+    },
+    testBuilders.structure(
+      {
+        id: 1,
+        type: "structure",
+        data: {
+          value: "gapTo",
+          position: "end",
+          toOffset: 0,
+          type: "replaceAround",
+          slice: { content: [{ type: "blockquote" }], openStart: 1 },
+          insert: 0,
+          structure: true,
+          debug: {
+            inverseFrom: 8,
+            inverseTo: 16,
+            inverseGapFrom: 9,
+            inverseGapTo: 16,
+            gapFromOffset: 1,
+            gapToOffset: 0,
+            fromOffset: 1,
+            toOffset: 0,
+          },
+        },
+      },
+      testBuilders.structure(
+        {
+          id: 1,
+          type: "structure",
+          data: {
+            value: "to",
+            position: "end",
+            gapToOffset: 0,
+            type: "replaceAround",
+            slice: { content: [{ type: "blockquote" }], openStart: 1 },
+            insert: 0,
+            structure: true,
+            debug: {
+              inverseFrom: 8,
+              inverseTo: 16,
+              inverseGapFrom: 9,
+              inverseGapTo: 16,
+              gapFromOffset: 1,
+              gapToOffset: 0,
+              fromOffset: 1,
+              toOffset: 0,
+            },
+          },
+        },
+        testBuilders.paragraph("World"),
+      ),
+    ),
+  ),
+);
 
 const steps = [
   {
@@ -63,7 +168,7 @@ describe("unwrap one node from a blockquote with multiple nodes | [ReplaceAround
     );
   });
 
-  it("should revert the unwrap of one paragraph from a blockquote with multiple paragraphs by reverting a structure suggestion", async () => {
+  it("should revert the unwrap of one paragraph from a blockquote with multiple paragraphs by reverting a structure suggestion", () => {
     assertDocumentChanged(
       finalStateWithMarks,
       initialState,
