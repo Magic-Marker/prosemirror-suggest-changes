@@ -4,7 +4,21 @@ import { type Node } from "prosemirror-model";
 import { type Command, EditorState, TextSelection } from "prosemirror-state";
 import { Step } from "prosemirror-transform";
 import { eq } from "prosemirror-test-builder";
-import { assert } from "vitest";
+import { assert, expect } from "vitest";
+
+export function assertCommandThrows(
+  doc: Node,
+  command: Command,
+  errorMessage: string,
+) {
+  const editorState = EditorState.create({
+    doc,
+    selection: TextSelection.atEnd(doc),
+  });
+  expect(() => {
+    command(editorState);
+  }).toThrow(errorMessage);
+}
 
 export function assertDocumentChanged(
   docA: Node,
