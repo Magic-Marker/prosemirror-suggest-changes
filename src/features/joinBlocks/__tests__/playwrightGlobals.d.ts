@@ -33,6 +33,7 @@ declare global {
       clearTransactions: () => void;
       logState: () => void;
       replaceDoc: (doc: unknown) => void;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }

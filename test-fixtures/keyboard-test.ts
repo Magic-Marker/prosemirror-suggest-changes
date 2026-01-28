@@ -1,34 +1,15 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { type Mark, Schema } from "prosemirror-model";
-import { nodes, marks } from "prosemirror-schema-basic";
+import { type Mark } from "prosemirror-model";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
-import {
-  bulletList,
-  orderedList,
-  listItem,
-  splitListItem,
-} from "prosemirror-schema-list";
-import { addSuggestionMarks } from "../src/schema.js";
+import { splitListItem } from "prosemirror-schema-list";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
-
-// Create schema with suggestion marks and list support
-const schema = new Schema({
-  nodes: {
-    ...nodes,
-    ordered_list: { ...orderedList, group: "block", content: "list_item+" },
-    bullet_list: { ...bulletList, group: "block", content: "list_item+" },
-    list_item: {
-      ...listItem,
-      content: "block+",
-      marks: "insertion deletion modification",
-    },
-  },
-  marks: addSuggestionMarks(marks),
-});
+import { schema } from "../src/testing/testBuilders.js";
+import * as wrapUnwrap from "../src/features/wrapUnwrap/revertStructureSuggestion.js";
+import { type SuggestionId } from "../src/generateId.js";
 
 // Transaction logging
 const transactions: {
@@ -139,6 +120,7 @@ declare global {
       getTransactions: () => typeof transactions;
       clearTransactions: () => void;
       logState: () => void;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
@@ -254,6 +236,11 @@ window.pmEditor = {
     );
     console.log("Doc JSON:", view.state.doc.toJSON());
     console.log("===================");
+  },
+
+  revertStructureSuggestion(suggestionId: SuggestionId) {
+    const command = wrapUnwrap.revertStructureSuggestion(suggestionId);
+    command(view.state, view.dispatch);
   },
 };
 
