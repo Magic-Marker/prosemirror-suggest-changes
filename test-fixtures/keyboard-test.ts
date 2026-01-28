@@ -1,21 +1,15 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { type Mark, Schema } from "prosemirror-model";
-import { nodes, marks } from "prosemirror-schema-basic";
+import { type Mark } from "prosemirror-model";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
-import {
-  bulletList,
-  orderedList,
-  listItem,
-  splitListItem,
-} from "prosemirror-schema-list";
-import { addSuggestionMarks } from "../src/schema.js";
+import { splitListItem } from "prosemirror-schema-list";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
 import { experimental_ensureSelection } from "../src/index.js";
+/*
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -47,6 +41,10 @@ const schema = new Schema({
     experimental_deletions: deletionMarksVisibility,
   }),
 });
+*/
+import { schema } from "../src/testing/testBuilders.js";
+import * as wrapUnwrap from "../src/features/wrapUnwrap/revertStructureSuggestion.js";
+import { type SuggestionId } from "../src/generateId.js";
 
 // Transaction logging
 const transactions: {
@@ -175,6 +173,7 @@ declare global {
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
@@ -310,6 +309,11 @@ window.pmEditor = {
 
   getDOMTextContentOfChildAtIndex(index: number) {
     return view.dom.childNodes[index].textContent ?? "";
+  },
+
+  revertStructureSuggestion(suggestionId: SuggestionId) {
+    const command = wrapUnwrap.revertStructureSuggestion(suggestionId);
+    command(view.state, view.dispatch);
   },
 };
 
