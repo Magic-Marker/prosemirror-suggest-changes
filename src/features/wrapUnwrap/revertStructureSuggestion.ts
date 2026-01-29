@@ -1,4 +1,4 @@
-import { type Command } from "prosemirror-state";
+import { type Transaction, type Command } from "prosemirror-state";
 import { suggestChangesKey } from "../../plugin.js";
 import { getSuggestionMarks } from "../../utils.js";
 import { type SuggestionId } from "../../generateId.js";
@@ -9,59 +9,86 @@ import {
   type Transform,
 } from "prosemirror-transform";
 
+export function revertAllStructureSuggestions(doc: Node, tr: Transaction) {
+  const { structure } = getSuggestionMarks(doc.type.schema);
+
+  // find structure mark in the doc
+  // if found, revert it, produce a new doc
+  // find next structure mark in the new doc
+  // easier than going nodesBetween on the original doc,
+  //    and then mapping the position, figuring out if the node is present in the new doc or was deleted
+
+  const findStructureMark = (doc: Node) => {
+    let structureMark = null as Mark | null;
+    doc.nodesBetween(0, doc.content.size, (node) => {
+      structureMark = structureMark ?? structure.isInSet(node.marks) ?? null;
+      return structureMark === null;
+    });
+    return structureMark;
+  };
+
+  let curDoc = doc;
+  let structureMark = findStructureMark(doc);
+
+  while (structureMark !== null) {
+    const suggestionId = structureMark.attrs["id"] as SuggestionId;
+    performStructureRevert(suggestionId, tr);
+    curDoc = tr.doc;
+    structureMark = findStructureMark(curDoc);
+  }
+}
+
 export function revertStructureSuggestion(suggestionId: SuggestionId): Command {
   return (state, dispatch) => {
-    const { structure } = getSuggestionMarks(state.schema);
     const tr = state.tr;
-
-    // find main suggestion from and to
-    const { markFrom, markTo } = findStructureMarkGroupBySuggestionId(
-      suggestionId,
-      tr,
-    );
-
-    const from = getPosFromMark(markFrom.mark, markFrom.pos, markFrom.node);
-    const to = getPosFromMark(markTo.mark, markTo.pos, markTo.node);
-
-    if (from == null || to == null) {
-      throw new Error(`Could not find all positions for suggestion`);
-    }
-
-    // find all other structure suggestions within from and to interval of the main suggestion
-    const structureMarkGroups = new Set<SuggestionId>();
-    structureMarkGroups.add(suggestionId);
-
-    tr.doc.nodesBetween(from, to, (node) => {
-      node.marks.forEach((mark) => {
-        if (mark.type !== structure) return;
-
-        const markData = mark.attrs["data"] as { value?: string } | null;
-        if (!markData) return;
-
-        const id = mark.attrs["id"] as SuggestionId;
-        if (id === suggestionId) return;
-
-        structureMarkGroups.add(id);
-      });
-    });
-
-    // revert structure mark groups in decreasing order of their ids
-    const markIds = Array.from(structureMarkGroups.values()).sort(
-      (a, b) => Number(b) - Number(a),
-    );
-
-    markIds.forEach((id) => {
-      const group = findStructureMarkGroupBySuggestionId(id, tr);
-      revertStructureMarkGroup(group, tr);
-    });
-
+    performStructureRevert(suggestionId, tr);
     if (!tr.steps.length) return false;
-
     tr.setMeta(suggestChangesKey, { skip: true });
     dispatch?.(tr);
-
     return true;
   };
+}
+
+function performStructureRevert(suggestionId: SuggestionId, tr: Transform) {
+  const { structure } = getSuggestionMarks(tr.doc.type.schema);
+
+  // find main suggestion from and to
+  const { markFrom, markTo } = findStructureMarkGroupBySuggestionId(
+    suggestionId,
+    tr,
+  );
+
+  const from = getPosFromMark(markFrom.mark, markFrom.pos, markFrom.node);
+  const to = getPosFromMark(markTo.mark, markTo.pos, markTo.node);
+
+  if (from == null || to == null) {
+    throw new Error(`Could not find all positions for suggestion`);
+  }
+
+  // find all other structure suggestions within from and to interval of the main suggestion
+  const structureMarkGroups = new Set<SuggestionId>();
+  structureMarkGroups.add(suggestionId);
+
+  tr.doc.nodesBetween(from, to, (node) => {
+    node.marks.forEach((mark) => {
+      if (mark.type !== structure) return;
+      const markData = mark.attrs["data"] as { value?: string } | null;
+      if (!markData) return;
+      const id = mark.attrs["id"] as SuggestionId;
+      if (id === suggestionId) return;
+      structureMarkGroups.add(id);
+    });
+  });
+
+  // revert structure mark groups in decreasing order of their ids
+  const markIds = Array.from(structureMarkGroups.values()).sort(
+    (a, b) => Number(b) - Number(a),
+  );
+
+  markIds.forEach((id) => {
+    const group = findStructureMarkGroupBySuggestionId(id, tr);
+    revertStructureMarkGroup(group, tr);
+  });
 }
 
 function getPosFromMark(mark: Mark, pos: number, node: Node) {
@@ -92,6 +119,12 @@ function revertStructureMarkGroup(
       },
   tr: Transform,
 ) {
+  console.groupCollapsed(
+    "revert structure group, id = ",
+    group.markFrom.mark.attrs["id"],
+  );
+  console.log({ group });
+
   if (group.type === "replace") {
     const { markFrom, markTo } = group;
     // extract positions from, to, gapFrom and gapTo from marks
@@ -124,11 +157,14 @@ function revertStructureMarkGroup(
     // reconstruct the step
     // this is the inverse step of the step that created this change
     const step = new ReplaceStep(from, to, slice, isStepStructural);
+    console.log({ step });
 
     tr.removeNodeMark(markFrom.pos, markFrom.mark);
     tr.removeNodeMark(markTo.pos, markTo.mark);
 
     tr.step(step);
+
+    console.groupEnd();
 
     return;
   }
@@ -182,6 +218,7 @@ function revertStructureMarkGroup(
     insert,
     isStepStructural,
   );
+  console.log({ step });
 
   tr.removeNodeMark(markFrom.pos, markFrom.mark);
   tr.removeNodeMark(markTo.pos, markTo.mark);
@@ -189,6 +226,8 @@ function revertStructureMarkGroup(
   tr.removeNodeMark(markGapTo.pos, markGapTo.mark);
 
   tr.step(step);
+
+  console.groupEnd();
 }
 
 function findStructureMarkGroupBySuggestionId(

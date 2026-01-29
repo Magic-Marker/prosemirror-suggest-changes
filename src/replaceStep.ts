@@ -17,6 +17,7 @@ import {
   joinNodesAndMarkJoinPoints,
   removeZWSPDeletions,
 } from "./features/joinOnDelete/index.js";
+import { handleStructureStep } from "./features/wrapUnwrap/handleStructureStep.js";
 
 /**
  * Transform a replace step into its equivalent tracked steps.
@@ -56,6 +57,18 @@ export function suggestReplaceStep(
   prevSteps: Step[],
   suggestionId: SuggestionId,
 ) {
+  const handled = handleStructureStep(
+    trackedTransaction,
+    state,
+    step,
+    prevSteps,
+    suggestionId,
+  );
+
+  if (handled) {
+    return true;
+  }
+
   const { deletion, insertion } = getSuggestionMarks(state.schema);
 
   // Check for insertion and deletion marks directly
