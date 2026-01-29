@@ -689,4 +689,379 @@ describe("wrap a single node with a blockquote | [ReplaceAroundStep]", () => {
       revertStructureSuggestion(1),
     );
   });
+
+  it("(tracked insertion inside the gap) should revert the wrap after inserting tracked text inside the paragraph", () => {
+    const finalStateWithChange = testBuilders.doc(
+      testBuilders.structure(
+        {
+          id: 1,
+          type: "structure",
+          data: {
+            value: "from",
+            position: "start",
+            gapFromOffset: 1,
+            type: "replaceAround",
+            slice: null,
+            insert: 0,
+            structure: true,
+            debug: {
+              inverseFrom: 0,
+              inverseTo: 15,
+              inverseGapFrom: 1,
+              inverseGapTo: 14,
+              gapFromOffset: 1,
+              gapToOffset: 1,
+              fromOffset: 1,
+              toOffset: 1,
+            },
+          },
+        },
+        testBuilders.structure(
+          {
+            id: 1,
+            type: "structure",
+            data: {
+              value: "to",
+              position: "end",
+              gapToOffset: 1,
+              type: "replaceAround",
+              slice: null,
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 0,
+                inverseTo: 15,
+                inverseGapFrom: 1,
+                inverseGapTo: 14,
+                gapFromOffset: 1,
+                gapToOffset: 1,
+                fromOffset: 1,
+                toOffset: 1,
+              },
+            },
+          },
+          testBuilders.blockquote(
+            testBuilders.structure(
+              {
+                id: 1,
+                type: "structure",
+                data: {
+                  value: "gapFrom",
+                  position: "start",
+                  fromOffset: 1,
+                  type: "replaceAround",
+                  slice: null,
+                  insert: 0,
+                  structure: true,
+                  debug: {
+                    inverseFrom: 0,
+                    inverseTo: 15,
+                    inverseGapFrom: 1,
+                    inverseGapTo: 14,
+                    gapFromOffset: 1,
+                    gapToOffset: 1,
+                    fromOffset: 1,
+                    toOffset: 1,
+                  },
+                },
+              },
+              testBuilders.structure(
+                {
+                  id: 1,
+                  type: "structure",
+                  data: {
+                    value: "gapTo",
+                    position: "end",
+                    toOffset: 1,
+                    type: "replaceAround",
+                    slice: null,
+                    insert: 0,
+                    structure: true,
+                    debug: {
+                      inverseFrom: 0,
+                      inverseTo: 15,
+                      inverseGapFrom: 1,
+                      inverseGapTo: 14,
+                      gapFromOffset: 1,
+                      gapToOffset: 1,
+                      fromOffset: 1,
+                      toOffset: 1,
+                    },
+                  },
+                },
+                testBuilders.paragraph(
+                  "Hello ",
+                  testBuilders.insertion({ id: 2 }, "INSERTED "),
+                  "World",
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const expectedAfterRevert = testBuilders.doc(
+      testBuilders.paragraph(
+        "Hello ",
+        testBuilders.insertion({ id: 2 }, "INSERTED "),
+        "World",
+      ),
+    );
+
+    assertDocumentChanged(
+      finalStateWithChange,
+      expectedAfterRevert,
+      revertStructureSuggestion(1),
+    );
+  });
+
+  it("(tracked deletion inside the gap) should revert the wrap after deleting tracked text inside the paragraph", () => {
+    const finalStateWithChange = testBuilders.doc(
+      testBuilders.structure(
+        {
+          id: 1,
+          type: "structure",
+          data: {
+            value: "from",
+            position: "start",
+            gapFromOffset: 1,
+            type: "replaceAround",
+            slice: null,
+            insert: 0,
+            structure: true,
+            debug: {
+              inverseFrom: 0,
+              inverseTo: 15,
+              inverseGapFrom: 1,
+              inverseGapTo: 14,
+              gapFromOffset: 1,
+              gapToOffset: 1,
+              fromOffset: 1,
+              toOffset: 1,
+            },
+          },
+        },
+        testBuilders.structure(
+          {
+            id: 1,
+            type: "structure",
+            data: {
+              value: "to",
+              position: "end",
+              gapToOffset: 1,
+              type: "replaceAround",
+              slice: null,
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 0,
+                inverseTo: 15,
+                inverseGapFrom: 1,
+                inverseGapTo: 14,
+                gapFromOffset: 1,
+                gapToOffset: 1,
+                fromOffset: 1,
+                toOffset: 1,
+              },
+            },
+          },
+          testBuilders.blockquote(
+            testBuilders.structure(
+              {
+                id: 1,
+                type: "structure",
+                data: {
+                  value: "gapFrom",
+                  position: "start",
+                  fromOffset: 1,
+                  type: "replaceAround",
+                  slice: null,
+                  insert: 0,
+                  structure: true,
+                  debug: {
+                    inverseFrom: 0,
+                    inverseTo: 15,
+                    inverseGapFrom: 1,
+                    inverseGapTo: 14,
+                    gapFromOffset: 1,
+                    gapToOffset: 1,
+                    fromOffset: 1,
+                    toOffset: 1,
+                  },
+                },
+              },
+              testBuilders.structure(
+                {
+                  id: 1,
+                  type: "structure",
+                  data: {
+                    value: "gapTo",
+                    position: "end",
+                    toOffset: 1,
+                    type: "replaceAround",
+                    slice: null,
+                    insert: 0,
+                    structure: true,
+                    debug: {
+                      inverseFrom: 0,
+                      inverseTo: 15,
+                      inverseGapFrom: 1,
+                      inverseGapTo: 14,
+                      gapFromOffset: 1,
+                      gapToOffset: 1,
+                      fromOffset: 1,
+                      toOffset: 1,
+                    },
+                  },
+                },
+                testBuilders.paragraph(
+                  "Hello ",
+                  testBuilders.deletion(
+                    { id: 2, type: null, data: null },
+                    "DELETED ",
+                  ),
+                  "World",
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const expectedAfterRevert = testBuilders.doc(
+      testBuilders.paragraph(
+        "Hello ",
+        testBuilders.deletion({ id: 2 }, "DELETED "),
+        "World",
+      ),
+    );
+
+    assertDocumentChanged(
+      finalStateWithChange,
+      expectedAfterRevert,
+      revertStructureSuggestion(1),
+    );
+  });
+
+  it("(tracked block insertion inside the gap) should throw when trying to revert after adding a tracked paragraph inside the gap", () => {
+    const finalStateWithChange = testBuilders.doc(
+      testBuilders.structure(
+        {
+          id: 1,
+          type: "structure",
+          data: {
+            value: "from",
+            position: "start",
+            gapFromOffset: 1,
+            type: "replaceAround",
+            slice: null,
+            insert: 0,
+            structure: true,
+            debug: {
+              inverseFrom: 0,
+              inverseTo: 15,
+              inverseGapFrom: 1,
+              inverseGapTo: 14,
+              gapFromOffset: 1,
+              gapToOffset: 1,
+              fromOffset: 1,
+              toOffset: 1,
+            },
+          },
+        },
+        testBuilders.structure(
+          {
+            id: 1,
+            type: "structure",
+            data: {
+              value: "to",
+              position: "end",
+              gapToOffset: 1,
+              type: "replaceAround",
+              slice: null,
+              insert: 0,
+              structure: true,
+              debug: {
+                inverseFrom: 0,
+                inverseTo: 15,
+                inverseGapFrom: 1,
+                inverseGapTo: 14,
+                gapFromOffset: 1,
+                gapToOffset: 1,
+                fromOffset: 1,
+                toOffset: 1,
+              },
+            },
+          },
+          testBuilders.blockquote(
+            testBuilders.structure(
+              {
+                id: 1,
+                type: "structure",
+                data: {
+                  value: "gapFrom",
+                  position: "start",
+                  fromOffset: 1,
+                  type: "replaceAround",
+                  slice: null,
+                  insert: 0,
+                  structure: true,
+                  debug: {
+                    inverseFrom: 0,
+                    inverseTo: 15,
+                    inverseGapFrom: 1,
+                    inverseGapTo: 14,
+                    gapFromOffset: 1,
+                    gapToOffset: 1,
+                    fromOffset: 1,
+                    toOffset: 1,
+                  },
+                },
+              },
+              testBuilders.structure(
+                {
+                  id: 1,
+                  type: "structure",
+                  data: {
+                    value: "gapTo",
+                    position: "end",
+                    toOffset: 1,
+                    type: "replaceAround",
+                    slice: null,
+                    insert: 0,
+                    structure: true,
+                    debug: {
+                      inverseFrom: 0,
+                      inverseTo: 15,
+                      inverseGapFrom: 1,
+                      inverseGapTo: 14,
+                      gapFromOffset: 1,
+                      gapToOffset: 1,
+                      fromOffset: 1,
+                      toOffset: 1,
+                    },
+                  },
+                },
+                testBuilders.paragraph("Hello World"),
+              ),
+            ),
+            // New tracked paragraph AFTER gapTo but before "to" (inside blockquote)
+            testBuilders.insertion(
+              { id: 2 },
+              testBuilders.paragraph("NEW TRACKED PARAGRAPH"),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Should throw because content exists outside gap but inside range
+    assertCommandThrows(
+      finalStateWithChange,
+      revertStructureSuggestion(1),
+      "Structure gap-replace would overwrite content",
+    );
+  });
 });
