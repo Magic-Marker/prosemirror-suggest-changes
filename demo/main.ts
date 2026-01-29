@@ -21,21 +21,16 @@ import {
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
-import { nodes, marks } from "prosemirror-schema-basic";
 import {
-  bulletList,
   liftListItem,
-  listItem,
-  orderedList,
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
-import { addSuggestionMarks } from "../src/index.js";
-import { Schema } from "prosemirror-model";
 import "./main.css";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 
+/*
 export const schema = new Schema({
   nodes: {
     ...nodes,
@@ -63,6 +58,8 @@ export const schema = new Schema({
     experimental_deletions: "hidden",
   }),
 });
+*/
+import { schema } from "../src/testing/testBuilders.js";
 
 const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   schema,
@@ -72,13 +69,13 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
       level: node.depth,
     })),
     code(node) {
-      return schema.nodes.code_block.create({}, schema.text(node.value));
+      return schema.nodes.codeBlock.create({}, schema.text(node.value));
     },
     image: toPmNode(schema.nodes.image, (node) => ({
       url: node.url,
     })),
-    list: toPmNode(schema.nodes.bullet_list),
-    listItem: toPmNode(schema.nodes.list_item),
+    list: toPmNode(schema.nodes.bulletList),
+    listItem: toPmNode(schema.nodes.listItem),
     emphasis: toPmMark(schema.marks.em),
     strong: toPmMark(schema.marks.strong),
     inlineCode(node) {
@@ -135,8 +132,8 @@ const editorState = EditorState.create({
     }),
     inputRules({
       rules: [
-        wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes.bullet_list),
-        wrappingInputRule(/^\s*([0-9]+\.)\s$/, schema.nodes.ordered_list),
+        wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes.bulletList),
+        wrappingInputRule(/^\s*([0-9]+\.)\s$/, schema.nodes.orderedList),
       ],
     }),
     history(),

@@ -18,6 +18,7 @@ import {
   removeZWSPDeletions,
 } from "./features/joinOnDelete/index.js";
 import { adjustForStartToStartTextblockDeletion } from "./features/startToStartTextblockDeletion/index.js";
+import { handleStructureStep } from "./features/wrapUnwrap/handleStructureStep.js";
 
 /**
  * Transform a replace step into its equivalent tracked steps.
@@ -57,6 +58,18 @@ export function suggestReplaceStep(
   prevSteps: Step[],
   suggestionId: SuggestionId,
 ) {
+  const handled = handleStructureStep(
+    trackedTransaction,
+    state,
+    step,
+    prevSteps,
+    suggestionId,
+  );
+
+  if (handled) {
+    return true;
+  }
+
   const { deletion, insertion } = getSuggestionMarks(state.schema);
   const semanticStep = adjustForStartToStartTextblockDeletion(
     state.selection,
