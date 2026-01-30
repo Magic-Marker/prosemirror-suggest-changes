@@ -1,9 +1,13 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { type Mark } from "prosemirror-model";
-import { baseKeymap, chainCommands } from "prosemirror-commands";
+import { baseKeymap, chainCommands, lift, wrapIn } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
-import { splitListItem } from "prosemirror-schema-list";
+import {
+  liftListItem,
+  sinkListItem,
+  splitListItem,
+} from "prosemirror-schema-list";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
@@ -44,10 +48,15 @@ let state = EditorState.create({
       ...baseKeymap,
       // Handle Enter key for list items
       Enter: chainCommands(
-        splitListItem(schema.nodes.list_item),
+        splitListItem(schema.nodes.listItem),
         baseKeymap["Enter"] ?? (() => false),
       ),
       "Shift-Enter": enterCommand,
+      // handle lift and sink for list items
+      Tab: sinkListItem(schema.nodes.listItem),
+      "Shift-Tab": liftListItem(schema.nodes.listItem),
+      "Mod-u": wrapIn(schema.nodes.blockquote),
+      "Mod-l": lift,
     }),
     suggestChanges(),
   ],
