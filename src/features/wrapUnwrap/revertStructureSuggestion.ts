@@ -100,6 +100,12 @@ function getPosFromMark(mark: Mark, pos: number, node: Node) {
   if (markData.position === "end") {
     return pos + node.nodeSize;
   }
+  if (markData.position === "innerStart") {
+    return pos + 1;
+  }
+  if (markData.position === "innerEnd") {
+    return pos + node.nodeSize - 1;
+  }
   return null;
 }
 
