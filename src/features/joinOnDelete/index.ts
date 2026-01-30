@@ -173,7 +173,7 @@ export function joinNodesAndMarkJoinPoints(
 
     const endOfNode = pos + node.nodeSize;
     // make sure the node ends within the range
-    if (endOfNode >= blockRange.$to.pos) return false;
+    if (endOfNode >= blockRange.$to.pos) return true;
 
     const $endOfNode = doc.resolve(endOfNode);
     // make sure we are between two nodes
