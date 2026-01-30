@@ -4,7 +4,13 @@ import {
   toPmMark,
   toPmNode,
 } from "@handlewithcare/remark-prosemirror";
-import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
+import {
+  baseKeymap,
+  chainCommands,
+  toggleMark,
+  wrapIn,
+  lift,
+} from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
@@ -160,6 +166,8 @@ const plugins = [
     "Mod-z": undo,
     "Mod-Shift-z": redo,
     "Mod-y": redo,
+    "Mod-u": wrapIn(schema.nodes.blockquote),
+    "Mod-l": lift,
   }),
   suggestChangesUiPlugin,
 ];
