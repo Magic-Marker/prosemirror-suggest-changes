@@ -4,7 +4,15 @@ import {
   toPmMark,
   toPmNode,
 } from "@handlewithcare/remark-prosemirror";
-import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
+import {
+  baseKeymap,
+  chainCommands,
+  toggleMark,
+  /* todo: check
+  wrapIn,
+  lift,
+  */
+} from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
@@ -30,7 +38,7 @@ import "./main.css";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 
-/*
+/* todo: check
 export const schema = new Schema({
   nodes: {
     ...nodes,
