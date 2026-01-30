@@ -152,6 +152,10 @@ function handleReplaceAroundStep(
     inverseBlockRange.start,
     inverseBlockRange.end,
     (node, pos) => {
+      if (node.isInline) return true;
+
+      let localGapFromFound = false;
+
       // inverseGapFrom is at start of this node?
       if (!gapFromFound && pos === inverseGapFrom) {
         addStructureMark(pos, {
@@ -159,16 +163,34 @@ function handleReplaceAroundStep(
           position: "start",
           fromOffset,
         });
-        gapFromFound = true;
+        gapFromFound = localGapFromFound = true;
         console.log("gapFrom at start of node", {
           inverseGapFrom,
           node,
           pos,
         });
+      }
+
+      // inverseGapFrom is at inner start of this node?
+      if (!gapFromFound && pos + 1 === inverseGapFrom) {
+        addStructureMark(pos, {
+          value: "gapFrom",
+          position: "innerStart",
+          fromOffset,
+        });
+        gapFromFound = localGapFromFound = true;
+        console.log("gapFrom at inner start of node", {
+          inverseGapFrom,
+          node,
+          pos: pos + 1,
+        });
+      }
 
         // if inverseGapFrom is at start of this node, maybe inverseGapTo is at the end of this node?
         // this way the case when both gapFrom and gapTo can be indicated by the same node is prioritized
-        if (!gapToFound && pos + node.nodeSize === inverseGapTo) {
+      if (localGapFromFound && !gapToFound) {
+        // inverseGapTo is at end of this node?
+        if (pos + node.nodeSize === inverseGapTo) {
           addStructureMark(pos, {
             value: "gapTo",
             position: "end",
@@ -179,6 +201,21 @@ function handleReplaceAroundStep(
             inverseGapTo,
             node,
             pos: pos + node.nodeSize,
+          });
+        }
+
+        // inverseGapTo is at inner end of this node?
+        if (pos + node.nodeSize - 1 === inverseGapTo) {
+          addStructureMark(pos, {
+            value: "gapTo",
+            position: "innerEnd",
+            toOffset,
+          });
+          gapToFound = true;
+          console.log("ALSO gapTo at inner end of node", {
+            inverseGapTo,
+            node,
+            pos: pos + node.nodeSize - 1,
           });
         }
       }
@@ -194,6 +231,21 @@ function handleReplaceAroundStep(
         console.log("gapTo at start of node", { inverseGapTo, node, pos });
       }
 
+      // inverseGapTo is at inner start of this node?
+      if (!gapToFound && pos + 1 === inverseGapTo) {
+        addStructureMark(pos, {
+          value: "gapTo",
+          position: "innerStart",
+          toOffset,
+        });
+        gapToFound = true;
+        console.log("gapTo at inner start of node", {
+          inverseGapTo,
+          node,
+          pos: pos + 1,
+        });
+      }
+
       return true;
     },
   );
@@ -203,6 +255,8 @@ function handleReplaceAroundStep(
     inverseBlockRange.start,
     inverseBlockRange.end,
     (node, pos) => {
+      if (node.isInline) return true;
+
       // inverseGapFrom is at end of this node?
       if (!gapFromFound && pos + node.nodeSize === inverseGapFrom) {
         addStructureMark(pos, {
@@ -215,6 +269,21 @@ function handleReplaceAroundStep(
           inverseGapFrom,
           node,
           pos: pos + node.nodeSize,
+        });
+      }
+
+      // inverseGapFrom is at inner end of this node?
+      if (!gapFromFound && pos + node.nodeSize - 1 === inverseGapFrom) {
+        addStructureMark(pos, {
+          value: "gapFrom",
+          position: "innerEnd",
+          fromOffset,
+        });
+        gapFromFound = true;
+        console.log("gapFrom at inner end of node", {
+          inverseGapFrom,
+          node,
+          pos: pos + node.nodeSize - 1,
         });
       }
 
@@ -233,6 +302,21 @@ function handleReplaceAroundStep(
         });
       }
 
+      // inverseGapTo is at inner end of this node?
+      if (!gapToFound && pos + node.nodeSize - 1 === inverseGapTo) {
+        addStructureMark(pos, {
+          value: "gapTo",
+          position: "innerEnd",
+          toOffset,
+        });
+        gapToFound = true;
+        console.log("gapTo at inner end of node", {
+          inverseGapTo,
+          node,
+          pos: pos + node.nodeSize - 1,
+        });
+      }
+
       return true;
     },
   );
@@ -242,6 +326,10 @@ function handleReplaceAroundStep(
     inverseBlockRange.start,
     inverseBlockRange.end,
     (node, pos) => {
+      if (node.isInline) return true;
+
+      let localFromFound = false;
+
       // inverseFrom is at start of this node?
       if (!fromFound && pos === inverseFrom) {
         addStructureMark(pos, {
@@ -249,12 +337,30 @@ function handleReplaceAroundStep(
           position: "start",
           gapFromOffset,
         });
-        fromFound = true;
+        fromFound = localFromFound = true;
         console.log("from at start of node", { inverseFrom, node, pos });
+      }
+
+      // inverseFrom is at inner start of this node?
+      if (!fromFound && pos + 1 === inverseFrom) {
+        addStructureMark(pos, {
+          value: "from",
+          position: "innerStart",
+          gapFromOffset,
+        });
+        fromFound = localFromFound = true;
+        console.log("from at inner start of node", {
+          inverseFrom,
+          node,
+          pos: pos + 1,
+        });
+      }
 
         // if inverseFrom is at start of this node, maybe inverseTo is at the end of this node?
         // this way the case when both from and to can be indicated by the same node is prioritized
-        if (!toFound && pos + node.nodeSize === inverseTo) {
+      if (localFromFound && !toFound) {
+        // inverseTo is at end of this node?
+        if (pos + node.nodeSize === inverseTo) {
           addStructureMark(pos, {
             value: "to",
             position: "end",
@@ -265,6 +371,21 @@ function handleReplaceAroundStep(
             inverseTo,
             node,
             pos: pos + node.nodeSize,
+          });
+        }
+
+        // inverseTo is at inner end of this node?
+        if (pos + node.nodeSize - 1 === inverseTo) {
+          addStructureMark(pos, {
+            value: "to",
+            position: "innerEnd",
+            gapToOffset,
+          });
+          toFound = true;
+          console.log("ALSO found to at inner end of node", {
+            inverseTo,
+            node,
+            pos: pos + node.nodeSize - 1,
           });
         }
       }
@@ -280,6 +401,21 @@ function handleReplaceAroundStep(
         console.log("to at start of node", { inverseTo, node, pos });
       }
 
+      // inverseTo is at inner start of this node?
+      if (!toFound && pos + 1 === inverseTo) {
+        addStructureMark(pos, {
+          value: "to",
+          position: "innerStart",
+          gapToOffset,
+        });
+        toFound = true;
+        console.log("to at inner start of node", {
+          inverseTo,
+          node,
+          pos: pos + 1,
+        });
+      }
+
       return true;
     },
   );
@@ -289,6 +425,8 @@ function handleReplaceAroundStep(
     inverseBlockRange.start,
     inverseBlockRange.end,
     (node, pos) => {
+      if (node.isInline) return true;
+
       // inverseFrom is at end of this node?
       if (!fromFound && pos + node.nodeSize === inverseFrom) {
         addStructureMark(pos, {
@@ -301,6 +439,21 @@ function handleReplaceAroundStep(
           inverseFrom,
           node,
           pos: pos + node.nodeSize,
+        });
+      }
+
+      // inverseFrom is at inner end of this node?
+      if (!fromFound && pos + node.nodeSize - 1 === inverseFrom) {
+        addStructureMark(pos, {
+          value: "from",
+          position: "innerEnd",
+          gapFromOffset,
+        });
+        fromFound = true;
+        console.log("from at inner end of node", {
+          inverseFrom,
+          node,
+          pos: pos + node.nodeSize - 1,
         });
       }
 
@@ -319,6 +472,21 @@ function handleReplaceAroundStep(
         });
       }
 
+      // inverseTo is at inner end of this node?
+      if (!toFound && pos + node.nodeSize - 1 === inverseTo) {
+        addStructureMark(pos, {
+          value: "to",
+          position: "innerEnd",
+          gapToOffset,
+        });
+        toFound = true;
+        console.log("found to at inner end of node", {
+          inverseTo,
+          node,
+          pos: pos + node.nodeSize - 1,
+        });
+      }
+
       return true;
     },
   );
@@ -326,7 +494,11 @@ function handleReplaceAroundStep(
   if (gapFromFound && gapToFound && fromFound && toFound) {
     console.log("all points found");
   } else {
-    console.log("not all points found");
+    console.log("not all points found", {
+      step,
+      inverseStep,
+      rebasedStep,
+    });
   }
 
   console.groupEnd();
@@ -413,18 +585,38 @@ function handleReplaceStep(
     inverseBlockRange.start,
     inverseBlockRange.end,
     (node, pos) => {
+      if (node.isInline) return true;
+
+      let localFromFound = false;
+
       // inverseFrom is at start of this node?
       if (!fromFound && pos === inverseFrom) {
         addStructureMark(pos, {
           value: "from",
           position: "start",
         });
-        fromFound = true;
+        fromFound = localFromFound = true;
         console.log("from at start of node", { inverseFrom, node, pos });
+      }
 
-        // if inverseFrom is at start of this node, maybe inverseTo is at the end of this node?
+      // inverseFrom is at inner start of this node?
+      if (!fromFound && pos + 1 === inverseFrom) {
+        addStructureMark(pos, {
+          value: "from",
+          position: "innerStart",
+        });
+        fromFound = localFromFound = true;
+        console.log("from at inner start of node", {
+          inverseFrom,
+          node,
+          pos: pos + 1,
+        });
+      }
+
+      // if inverseFrom is at start or innerStart of this node, maybe inverseTo is at the end or innerEnd of this node?
         // this way the case when both from and to can be indicated by the same node is prioritized
-        if (!toFound && pos + node.nodeSize === inverseTo) {
+      if (localFromFound && !toFound) {
+        if (pos + node.nodeSize === inverseTo) {
           addStructureMark(pos, {
             value: "to",
             position: "end",
@@ -434,6 +626,17 @@ function handleReplaceStep(
             inverseTo,
             node,
             pos: pos + node.nodeSize,
+          });
+        } else if (pos + node.nodeSize - 1 === inverseTo) {
+          addStructureMark(pos, {
+            value: "to",
+            position: "innerEnd",
+          });
+          toFound = true;
+          console.log("ALSO found to at inner end of node", {
+            inverseTo,
+            node,
+            pos: pos + node.nodeSize - 1,
           });
         }
       }
@@ -448,6 +651,20 @@ function handleReplaceStep(
         console.log("to at start of node", { inverseTo, node, pos });
       }
 
+      // inverseTo is at inner start of this node?
+      if (!toFound && pos + 1 === inverseTo) {
+        addStructureMark(pos, {
+          value: "to",
+          position: "innerStart",
+        });
+        toFound = true;
+        console.log("to at inner start of node", {
+          inverseTo,
+          node,
+          pos: pos + 1,
+        });
+      }
+
       return true;
     },
   );
@@ -457,6 +674,8 @@ function handleReplaceStep(
     inverseBlockRange.start,
     inverseBlockRange.end,
     (node, pos) => {
+      if (node.isInline) return true;
+
       // inverseFrom is at end of this node?
       if (!fromFound && pos + node.nodeSize === inverseFrom) {
         addStructureMark(pos, {
@@ -468,6 +687,20 @@ function handleReplaceStep(
           inverseFrom,
           node,
           pos: pos + node.nodeSize,
+        });
+      }
+
+      // inverseFrom is at inner end of this node?
+      if (!fromFound && pos + node.nodeSize - 1 === inverseFrom) {
+        addStructureMark(pos, {
+          value: "from",
+          position: "innerEnd",
+        });
+        fromFound = true;
+        console.log("from at inner end of node", {
+          inverseFrom,
+          node,
+          pos: pos + node.nodeSize - 1,
         });
       }
 
@@ -485,6 +718,20 @@ function handleReplaceStep(
         });
       }
 
+      // inverseTo is at inner end of this node?
+      if (!toFound && pos + node.nodeSize - 1 === inverseTo) {
+        addStructureMark(pos, {
+          value: "to",
+          position: "innerEnd",
+        });
+        toFound = true;
+        console.log("found to at inner end of node", {
+          inverseTo,
+          node,
+          pos: pos + node.nodeSize - 1,
+        });
+      }
+
       return true;
     },
   );
@@ -492,7 +739,7 @@ function handleReplaceStep(
   if (fromFound && toFound) {
     console.log("all points found");
   } else {
-    console.log("not all points found");
+    console.log("not all points found", { step, rebasedStep, inverseStep });
   }
 
   console.groupEnd();
