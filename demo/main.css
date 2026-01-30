@@ -26,6 +26,7 @@ del,
 [data-node-deletion] {
   color: #9f003e;
   background-color: #ffb7dc;
+  display: none;
 }
 
 .menu {
