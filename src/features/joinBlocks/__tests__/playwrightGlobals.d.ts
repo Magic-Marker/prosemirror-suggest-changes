@@ -34,6 +34,7 @@ declare global {
       logState: () => void;
       replaceDoc: (doc: unknown) => void;
       revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      revertSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
