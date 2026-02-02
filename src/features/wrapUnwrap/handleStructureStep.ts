@@ -1,6 +1,7 @@
 import {
   ReplaceAroundStep,
   ReplaceStep,
+  Transform,
   type Step,
 } from "prosemirror-transform";
 import { contentBetween } from "../../contentBetween.js";
@@ -186,8 +187,8 @@ function handleReplaceAroundStep(
         });
       }
 
-        // if inverseGapFrom is at start of this node, maybe inverseGapTo is at the end of this node?
-        // this way the case when both gapFrom and gapTo can be indicated by the same node is prioritized
+      // if inverseGapFrom is at start of this node, maybe inverseGapTo is at the end of this node?
+      // this way the case when both gapFrom and gapTo can be indicated by the same node is prioritized
       if (localGapFromFound && !gapToFound) {
         // inverseGapTo is at end of this node?
         if (pos + node.nodeSize === inverseGapTo) {
@@ -356,8 +357,8 @@ function handleReplaceAroundStep(
         });
       }
 
-        // if inverseFrom is at start of this node, maybe inverseTo is at the end of this node?
-        // this way the case when both from and to can be indicated by the same node is prioritized
+      // if inverseFrom is at start of this node, maybe inverseTo is at the end of this node?
+      // this way the case when both from and to can be indicated by the same node is prioritized
       if (localFromFound && !toFound) {
         // inverseTo is at end of this node?
         if (pos + node.nodeSize === inverseTo) {
@@ -532,6 +533,43 @@ function handleReplaceStep(
     throw new Error("Failed to rebase replace step: unexpected step type");
   }
 
+  const transform = new Transform(trackedTransaction.doc);
+  const $stepFromBefore = trackedTransaction.doc.resolve(rebasedStep.from);
+  const $stepToBefore = trackedTransaction.doc.resolve(rebasedStep.to);
+  console.log({ $stepFromBefore, $stepToBefore });
+
+  transform.step(rebasedStep);
+
+  const $stepFromAfter = transform.doc.resolve(
+    transform.mapping.map($stepFromBefore.pos),
+  );
+  const $stepToAfter = transform.doc.resolve(
+    transform.mapping.map($stepToBefore.pos),
+  );
+  console.log({ $stepFromAfter, $stepToAfter });
+
+  // detect join inside textblock so we can bail out
+  // those are not handled with structure marks, those are handled with a ZWSP deletion mark
+  if (
+    !$stepFromBefore.sameParent($stepToBefore) &&
+    $stepFromAfter.sameParent($stepToAfter) &&
+    $stepFromAfter.pos === $stepToAfter.pos &&
+    $stepFromAfter.parent.isTextblock
+  ) {
+    console.log("this is a join inside textblock");
+    console.groupEnd();
+    return false;
+  }
+
+  if (
+    !$stepFromBefore.sameParent($stepToBefore) &&
+    $stepFromAfter.sameParent($stepToAfter) &&
+    $stepFromAfter.pos === $stepToAfter.pos &&
+    !$stepFromAfter.parent.isTextblock
+  ) {
+    console.log("this is a join inside non-textblock");
+  }
+
   const docBeforeStep = trackedTransaction.doc;
   trackedTransaction.step(rebasedStep);
 
@@ -614,7 +652,7 @@ function handleReplaceStep(
       }
 
       // if inverseFrom is at start or innerStart of this node, maybe inverseTo is at the end or innerEnd of this node?
-        // this way the case when both from and to can be indicated by the same node is prioritized
+      // this way the case when both from and to can be indicated by the same node is prioritized
       if (localFromFound && !toFound) {
         if (pos + node.nodeSize === inverseTo) {
           addStructureMark(pos, {
