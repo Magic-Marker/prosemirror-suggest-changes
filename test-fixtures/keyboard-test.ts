@@ -49,6 +49,7 @@ const schema = new Schema({
 import { schema } from "../src/testing/testBuilders.js";
 import * as wrapUnwrap from "../src/features/wrapUnwrap/revertStructureSuggestion.js";
 import { type SuggestionId } from "../src/generateId.js";
+import * as commands from "../src/commands.js";
 
 // Transaction logging
 const transactions: {
@@ -183,6 +184,7 @@ declare global {
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
       revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      revertSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
@@ -322,6 +324,11 @@ window.pmEditor = {
 
   revertStructureSuggestion(suggestionId: SuggestionId) {
     const command = wrapUnwrap.revertStructureSuggestion(suggestionId);
+    command(view.state, view.dispatch);
+  },
+
+  revertSuggestion(suggestionId: SuggestionId) {
+    const command = commands.revertSuggestion(suggestionId);
     command(view.state, view.dispatch);
   },
 };

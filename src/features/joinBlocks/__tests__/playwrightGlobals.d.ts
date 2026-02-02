@@ -38,6 +38,7 @@ declare global {
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
       revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      revertSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
