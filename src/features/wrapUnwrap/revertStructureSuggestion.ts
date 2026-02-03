@@ -49,6 +49,21 @@ export function revertStructureSuggestion(suggestionId: SuggestionId): Command {
   };
 }
 
+export function revertStructureSuggestions(
+  suggestionIds: SuggestionId[],
+): Command {
+  return (state, dispatch) => {
+    const tr = state.tr;
+    suggestionIds.forEach((suggestionId) => {
+      performStructureRevert(suggestionId, tr);
+    });
+    if (!tr.steps.length) return false;
+    tr.setMeta(suggestChangesKey, { skip: true });
+    dispatch?.(tr);
+    return true;
+  };
+}
+
 function performStructureRevert(suggestionId: SuggestionId, tr: Transform) {
   console.groupCollapsed(
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions

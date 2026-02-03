@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { revertStructureSuggestion } from "../revertStructureSuggestion.js";
+import { revertStructureSuggestions } from "../revertStructureSuggestion.js";
 import { applySteps, assertDocumentChanged } from "./testUtils.js";
 import {
   initialDoc,
@@ -26,7 +26,7 @@ describe("lift multiple list items to the top, splitting the list in half | [Rep
     assertDocumentChanged(
       finalDocWithMarks,
       initialDoc,
-      revertStructureSuggestion(2),
+      revertStructureSuggestions([2, 1]),
     );
   });
 });

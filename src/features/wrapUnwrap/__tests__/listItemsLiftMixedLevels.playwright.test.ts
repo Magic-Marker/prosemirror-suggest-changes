@@ -29,6 +29,10 @@ test.describe("lift list items mixed levels | [ReplaceStep, ReplaceAroundStep]",
       window.pmEditor.revertStructureSuggestion(2);
     });
 
+    await page.evaluate(() => {
+      window.pmEditor.revertStructureSuggestion(1);
+    });
+
     const finalDocJSON = await page.evaluate(() =>
       window.pmEditor.getDocJSON(),
     );

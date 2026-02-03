@@ -29,6 +29,10 @@ test.describe("lift nested list item to outer list | [ReplaceAroundStep, Replace
       window.pmEditor.revertStructureSuggestion(2);
     });
 
+    await page.evaluate(() => {
+      window.pmEditor.revertStructureSuggestion(1);
+    });
+
     const finalDocJSON = await page.evaluate(() =>
       window.pmEditor.getDocJSON(),
     );
