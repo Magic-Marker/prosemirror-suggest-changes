@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { revertStructureSuggestion } from "../revertStructureSuggestion.js";
+import { revertStructureSuggestions } from "../revertStructureSuggestion.js";
 import { applySteps, assertDocumentChanged } from "./testUtils.js";
 import {
   finalDoc,
@@ -26,7 +26,7 @@ describe("lift multiple list items from different levels | [ReplaceAroundStep, R
     assertDocumentChanged(
       finalDocWithMarks,
       initialDoc,
-      revertStructureSuggestion(2),
+      revertStructureSuggestions([3, 2, 1]),
     );
   });
 });

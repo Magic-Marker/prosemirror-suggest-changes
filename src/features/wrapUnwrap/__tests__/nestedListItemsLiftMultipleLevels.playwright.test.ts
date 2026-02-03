@@ -26,7 +26,15 @@ test.describe("lift multiple list items from different levels | [ReplaceAroundSt
     expect(eq(currentDoc, finalDocWithMarks)).toBeTruthy();
 
     await page.evaluate(() => {
+      window.pmEditor.revertStructureSuggestion(3);
+    });
+
+    await page.evaluate(() => {
       window.pmEditor.revertStructureSuggestion(2);
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.revertStructureSuggestion(1);
     });
 
     const finalDocJSON = await page.evaluate(() =>
