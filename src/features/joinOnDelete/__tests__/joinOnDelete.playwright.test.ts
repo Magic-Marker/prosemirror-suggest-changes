@@ -473,4 +473,71 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       expect(finalState.marks[1]?.type).toEqual(deletion);
     });
   });
+
+  test.describe("Lists: join nodes inside lists and list items", () => {
+    test("should revert document to original state after joining two paragraphs inside a list item and then splitting them again", async ({
+      page,
+    }) => {
+      const { initialState } = await setupDocFromJSON(page, {
+        type: "doc",
+        content: [
+          {
+            type: "ordered_list",
+            content: [
+              {
+                type: "list_item",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Hello" }],
+                  },
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "World" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      await page.evaluate(() => {
+        window.pmEditor.setCursorToEnd();
+      });
+
+      let state = await page.evaluate(() => window.pmEditor.getState());
+      expect(state.marks.length).toBe(0);
+      expect(state.textContent).toBe(initialState.textContent);
+
+      await page.keyboard.press("Home");
+      await page.waitForTimeout(50);
+
+      await page.keyboard.press("Backspace");
+      await page.waitForTimeout(50);
+
+      state = await page.evaluate(() => window.pmEditor.getState());
+      expect(state.marks.length).toBe(1);
+      expect(state.textContent).not.toBe(initialState.textContent);
+
+      await page.keyboard.down("Shift");
+      await page.waitForTimeout(50);
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(50);
+      await page.keyboard.up("Shift");
+      await page.waitForTimeout(50);
+
+      state = await page.evaluate(() => window.pmEditor.getState());
+      expect(state.marks.length).toBe(0);
+      expect(state.textContent).toBe(initialState.textContent);
+      expect(
+        state.cursorFrom,
+        "Cursor is not at the start of the second node after the split",
+      ).toBe(10);
+      expect(
+        state.cursorTo,
+        "Cursor is not at the start of the second node after the split",
+      ).toBe(10);
+    });
+  });
 });

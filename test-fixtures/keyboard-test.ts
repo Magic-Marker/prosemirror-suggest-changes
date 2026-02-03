@@ -49,6 +49,11 @@ const doc = schema.nodeFromJSON({
   ],
 });
 
+const enterCommand = baseKeymap["Enter"];
+
+if (!enterCommand) {
+  throw new Error("Missing enter command");
+}
 // Create editor state with list item support
 let state = EditorState.create({
   doc,
@@ -61,6 +66,7 @@ let state = EditorState.create({
         splitListItem(schema.nodes.list_item),
         baseKeymap["Enter"] ?? (() => false),
       ),
+      "Shift-Enter": enterCommand,
     }),
     suggestChanges(),
   ],
