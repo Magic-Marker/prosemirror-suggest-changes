@@ -173,11 +173,15 @@ export function joinNodesAndMarkJoinPoints(
 
     const endOfNode = pos + node.nodeSize;
     // make sure the node ends within the range
-    if (endOfNode >= blockRange.$to.pos) return false;
+    if (endOfNode >= blockRange.$to.pos) return true;
 
     const $endOfNode = doc.resolve(endOfNode);
     // make sure we are between two nodes
     if (!$endOfNode.nodeBefore || !$endOfNode.nodeAfter) return false;
+
+    // we cannot insert zwsp text nodes into non-textblock nodes
+    if (!$endOfNode.nodeBefore.isTextblock || !$endOfNode.nodeAfter.isTextblock)
+      return true;
 
     const mappedEndOfNode = transform.mapping.map(endOfNode);
     const $mappedEndOfNode = transform.doc.resolve(mappedEndOfNode);

@@ -303,7 +303,7 @@ describe("handleJoinOnDelete", () => {
     );
   });
 
-  it("should join two list items by deleting a selection across node boundary (legacy behavior", () => {
+  it("should join two list items by deleting a selection across node boundary (legacy behavior)", () => {
     const doc = testBuilders.doc(
       testBuilders.bulletList(
         testBuilders.listItem(testBuilders.paragraph("first paragr<a>aph")),
@@ -340,6 +340,60 @@ describe("handleJoinOnDelete", () => {
           testBuilders.paragraph(
             testBuilders.deletion({ id: 1 }, `sec`),
             "ond paragraph",
+          ),
+        ),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should join two paragraphs in one list item by deleting a boundary between paragraphs", () => {
+    const doc = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(
+          testBuilders.paragraph("first paragraph<a>"),
+          testBuilders.paragraph("<b>second paragraph"),
+        ),
+      ),
+    ) as TaggedNode;
+
+    const tagA = doc.tag["a"];
+    const tagB = doc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const step = createJoinStep(tagA, tagB, true);
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const tr = editorState.tr;
+    suggestReplaceStep(tr, editorState, doc, step, [], 1);
+
+    const newState = editorState.apply(tr);
+
+    const expected = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(
+          testBuilders.paragraph(
+            "first paragraph",
+            testBuilders.deletion(
+              {
+                id: 1,
+                type: "join",
+                data: {
+                  leftNode: { type: "paragraph", attrs: {}, marks: [] },
+                  rightNode: { type: "paragraph", attrs: {}, marks: [] },
+                },
+              },
+              ZWSP,
+            ),
+            "second paragraph",
           ),
         ),
       ),
