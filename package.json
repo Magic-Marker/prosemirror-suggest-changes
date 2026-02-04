@@ -1,6 +1,6 @@
 {
-  "name": "@handlewithcare/prosemirror-suggest-changes",
-  "version": "0.1.11",
+  "name": "@magic-marker/prosemirror-suggest-changes",
+  "version": "0.2.0",
   "license": "MIT",
   "type": "module",
   "module": "dist/index.js",
@@ -17,7 +17,7 @@
     "dist"
   ],
   "scripts": {
-    "build:esm": "swc ./src --strip-leading-paths --ignore **/__tests__/**,**/testing/** -d ./dist/",
+    "build:esm": "swc ./src --strip-leading-paths --ignore \"**/__tests__/**,**/testing/**\" -d ./dist/",
     "build:types": "tsc -p tsconfig.build.json",
     "build": "rimraf dist && concurrently -P 'npm:build:* {@}' --",
     "check:format": "prettier --check .",
