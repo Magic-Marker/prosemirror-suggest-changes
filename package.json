@@ -1,6 +1,6 @@
 {
   "name": "@magic-marker/prosemirror-suggest-changes",
-  "version": "0.2.0",
+  "version": "0.2.1-0-rc-block-join.1",
   "license": "MIT",
   "type": "module",
   "module": "dist/index.js",
@@ -79,5 +79,6 @@
     "prosemirror-state": "^1.0.0",
     "prosemirror-transform": "^1.0.0",
     "prosemirror-view": "^1.0.0"
-  }
+  },
+  "stableVersion": "0.2.0"
 }
