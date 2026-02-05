@@ -2,10 +2,7 @@ import { expect, test } from "@playwright/test";
 import { eq } from "prosemirror-test-builder";
 import { schema } from "../../../testing/testBuilders.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
-import {
-  finalDocWithMarks,
-  initialDoc,
-} from "./tripleBlockquoteWrap.data.js";
+import { finalDocWithMarks, initialDoc } from "./tripleBlockquoteWrap.data.js";
 
 test.describe("wrap a single node with three nested blockquotes | [ReplaceAroundStep]", () => {
   test.beforeEach(async ({ page }) => {

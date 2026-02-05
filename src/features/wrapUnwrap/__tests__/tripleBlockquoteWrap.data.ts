@@ -1,6 +1,8 @@
 import { testBuilders } from "../../../testing/testBuilders.js";
 
-export const initialDoc = testBuilders.doc(testBuilders.paragraph("Hello World"));
+export const initialDoc = testBuilders.doc(
+  testBuilders.paragraph("Hello World"),
+);
 
 export const finalDoc = testBuilders.doc(
   testBuilders.blockquote(
@@ -110,14 +112,14 @@ export const finalDocWithMarks = testBuilders.doc(
                     },
                   },
                 },
-                testBuilders.paragraph("Hello World")
-              )
-            )
-          )
-        )
-      )
-    )
-  )
+                testBuilders.paragraph("Hello World"),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
 );
 
 export const steps = [
