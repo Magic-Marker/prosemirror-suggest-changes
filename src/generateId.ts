@@ -14,7 +14,8 @@ export function parseSuggestionId(id: string): SuggestionId {
 }
 
 export function generateNextNumberId(schema: Schema, doc?: Node) {
-  const { deletion, insertion, modification } = getSuggestionMarks(schema);
+  const { deletion, insertion, modification, structure } =
+    getSuggestionMarks(schema);
   // Find the highest change id in the document so far,
   // and use that as the starting point for new changes
   let suggestionId = 0;
@@ -23,7 +24,8 @@ export function generateNextNumberId(schema: Schema, doc?: Node) {
       (mark) =>
         mark.type === insertion ||
         mark.type === deletion ||
-        mark.type === modification,
+        mark.type === modification ||
+        mark.type === structure,
     );
     if (mark) {
       suggestionId = Math.max(suggestionId, mark.attrs["id"] as number);

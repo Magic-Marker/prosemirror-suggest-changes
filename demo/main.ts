@@ -4,7 +4,13 @@ import {
   toPmMark,
   toPmNode,
 } from "@handlewithcare/remark-prosemirror";
-import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
+import {
+  baseKeymap,
+  chainCommands,
+  toggleMark,
+  wrapIn,
+  lift,
+} from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
@@ -20,46 +26,15 @@ import {
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
-import { nodes, marks } from "prosemirror-schema-basic";
 import {
-  bulletList,
   liftListItem,
-  listItem,
-  orderedList,
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
-import { addSuggestionMarks } from "../src/index.js";
-import { Schema } from "prosemirror-model";
 import "./main.css";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
-
-export const schema = new Schema({
-  nodes: {
-    ...nodes,
-    image: { ...nodes.image, group: "block", inline: false },
-    doc: { ...nodes.doc, marks: "insertion deletion modification" },
-    ordered_list: {
-      ...orderedList,
-      group: "block",
-      content: "list_item+",
-      marks: "insertion deletion modification",
-    },
-    bullet_list: {
-      ...bulletList,
-      group: "block",
-      content: "list_item+",
-      marks: "insertion deletion modification",
-    },
-    list_item: {
-      ...listItem,
-      content: "block+",
-      marks: "insertion deletion modification",
-    },
-  },
-  marks: addSuggestionMarks(marks),
-});
+import { schema } from "../src/testing/testBuilders.js";
 
 const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   schema,
@@ -69,13 +44,13 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
       level: node.depth,
     })),
     code(node) {
-      return schema.nodes.code_block.create({}, schema.text(node.value));
+      return schema.nodes.codeBlock.create({}, schema.text(node.value));
     },
     image: toPmNode(schema.nodes.image, (node) => ({
       url: node.url,
     })),
-    list: toPmNode(schema.nodes.bullet_list),
-    listItem: toPmNode(schema.nodes.list_item),
+    list: toPmNode(schema.nodes.bulletList),
+    listItem: toPmNode(schema.nodes.listItem),
     emphasis: toPmMark(schema.marks.em),
     strong: toPmMark(schema.marks.strong),
     inlineCode(node) {
@@ -113,8 +88,8 @@ const editorState = EditorState.create({
   plugins: [
     inputRules({
       rules: [
-        wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes.bullet_list),
-        wrappingInputRule(/^\s*([0-9]+\.)\s$/, schema.nodes.ordered_list),
+        wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes.bulletList),
+        wrappingInputRule(/^\s*([0-9]+\.)\s$/, schema.nodes.orderedList),
       ],
     }),
     history(),
@@ -181,16 +156,18 @@ if (!enterCommand) {
 const plugins = [
   keymap({
     ...baseKeymap,
-    Enter: chainCommands(splitListItem(schema.nodes.list_item), enterCommand),
+    Enter: chainCommands(splitListItem(schema.nodes.listItem), enterCommand),
     "Shift-Enter": enterCommand,
-    Tab: sinkListItem(schema.nodes.list_item),
-    "Shift-Tab": liftListItem(schema.nodes.list_item),
+    Tab: sinkListItem(schema.nodes.listItem),
+    "Shift-Tab": liftListItem(schema.nodes.listItem),
     "Mod-i": toggleMark(schema.marks.em),
     "Mod-b": toggleMark(schema.marks.strong),
     "Mod-Shift-c": toggleMark(schema.marks.code),
     "Mod-z": undo,
     "Mod-Shift-z": redo,
     "Mod-y": redo,
+    "Mod-u": wrapIn(schema.nodes.blockquote),
+    "Mod-l": lift,
   }),
   suggestChangesUiPlugin,
 ];

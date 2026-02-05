@@ -1,34 +1,20 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { Schema } from "prosemirror-model";
-import { nodes, marks } from "prosemirror-schema-basic";
-import { baseKeymap, chainCommands } from "prosemirror-commands";
+import { type Mark } from "prosemirror-model";
+import { baseKeymap, chainCommands, lift, wrapIn } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import {
-  bulletList,
-  orderedList,
-  listItem,
+  liftListItem,
+  sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
-import { addSuggestionMarks } from "../src/schema.js";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
-
-// Create schema with suggestion marks and list support
-const schema = new Schema({
-  nodes: {
-    ...nodes,
-    ordered_list: { ...orderedList, group: "block", content: "list_item+" },
-    bullet_list: { ...bulletList, group: "block", content: "list_item+" },
-    list_item: {
-      ...listItem,
-      content: "block+",
-      marks: "insertion deletion modification",
-    },
-  },
-  marks: addSuggestionMarks(marks),
-});
+import { schema } from "../src/testing/testBuilders.js";
+import * as wrapUnwrap from "../src/features/wrapUnwrap/revertStructureSuggestion.js";
+import { type SuggestionId } from "../src/generateId.js";
+import * as commands from "../src/commands.js";
 
 // Transaction logging
 const transactions: {
@@ -49,6 +35,11 @@ const doc = schema.nodeFromJSON({
   ],
 });
 
+const enterCommand = baseKeymap["Enter"];
+
+if (!enterCommand) {
+  throw new Error("Missing enter command");
+}
 // Create editor state with list item support
 let state = EditorState.create({
   doc,
@@ -58,9 +49,15 @@ let state = EditorState.create({
       ...baseKeymap,
       // Handle Enter key for list items
       Enter: chainCommands(
-        splitListItem(schema.nodes.list_item),
+        splitListItem(schema.nodes.listItem),
         baseKeymap["Enter"] ?? (() => false),
       ),
+      "Shift-Enter": enterCommand,
+      // handle lift and sink for list items
+      Tab: sinkListItem(schema.nodes.listItem),
+      "Shift-Tab": liftListItem(schema.nodes.listItem),
+      "Mod-u": wrapIn(schema.nodes.blockquote),
+      "Mod-l": lift,
     }),
     suggestChanges(),
   ],
@@ -70,26 +67,23 @@ let state = EditorState.create({
 state = state.apply(state.tr.setMeta(suggestChangesKey, { enabled: true }));
 
 // Custom dispatch with logging
-const dispatch = withSuggestChanges(
-  function (this: EditorView, tr) {
-    const docBefore = this.state.doc.textContent;
-    const newState = this.state.apply(tr);
+const dispatch = withSuggestChanges(function (this: EditorView, tr) {
+  const docBefore = this.state.doc.textContent;
+  const newState = this.state.apply(tr);
 
-    transactions.push({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      steps: tr.steps.map((s) => s.toJSON()),
-      selection: { from: tr.selection.from, to: tr.selection.to },
-      docBefore,
-      docAfter: newState.doc.textContent,
-    });
+  transactions.push({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    steps: tr.steps.map((s) => s.toJSON()),
+    selection: { from: tr.selection.from, to: tr.selection.to },
+    docBefore,
+    docAfter: newState.doc.textContent,
+  });
 
-    this.updateState(newState);
+  this.updateState(newState);
 
-    // Update status display
-    updateStatus();
-  },
-  () => 1,
-);
+  // Update status display
+  updateStatus();
+});
 
 // Create editor view
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -125,6 +119,7 @@ declare global {
         textContent: string;
         cursorFrom: number;
         cursorTo: number;
+        marks: Mark[];
       };
       getDocJSON: () => unknown;
       replaceDoc: (docJSON: unknown) => void;
@@ -141,6 +136,8 @@ declare global {
       getTransactions: () => typeof transactions;
       clearTransactions: () => void;
       logState: () => void;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      revertSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
@@ -149,12 +146,17 @@ window.pmEditor = {
   view,
 
   getState() {
+    const marks: Mark[] = [];
+    view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
+      marks.push(...node.marks);
+    });
     return {
       blockCount: view.state.doc.childCount,
       paragraphCount: view.state.doc.childCount, // Kept for backward compatibility
       textContent: view.state.doc.textContent,
       cursorFrom: view.state.selection.from,
       cursorTo: view.state.selection.to,
+      marks,
     };
   },
 
@@ -251,6 +253,16 @@ window.pmEditor = {
     );
     console.log("Doc JSON:", view.state.doc.toJSON());
     console.log("===================");
+  },
+
+  revertStructureSuggestion(suggestionId: SuggestionId) {
+    const command = wrapUnwrap.revertStructureSuggestion(suggestionId);
+    command(view.state, view.dispatch);
+  },
+
+  revertSuggestion(suggestionId: SuggestionId) {
+    const command = commands.revertSuggestion(suggestionId);
+    command(view.state, view.dispatch);
   },
 };
 
