@@ -9,6 +9,19 @@ import {
   type Transform,
 } from "prosemirror-transform";
 
+export function isStructureSuggestion(
+  suggestionId: SuggestionId,
+  tr: Transaction,
+) {
+  try {
+    findStructureMarkGroupBySuggestionId(suggestionId, tr);
+    return true;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (error: unknown) {
+    return false;
+  }
+}
+
 export function revertAllStructureSuggestions(doc: Node, tr: Transaction) {
   const { structure } = getSuggestionMarks(doc.type.schema);
 
@@ -49,6 +62,17 @@ export function revertStructureSuggestion(suggestionId: SuggestionId): Command {
   };
 }
 
+export function applyStructureSuggestion(suggestionId: SuggestionId): Command {
+  return (state, dispatch) => {
+    const tr = state.tr;
+    performStructureRevert(suggestionId, tr, "apply");
+    if (!tr.steps.length) return false;
+    tr.setMeta(suggestChangesKey, { skip: true });
+    dispatch?.(tr);
+    return true;
+  };
+}
+
 export function revertStructureSuggestions(
   suggestionIds: SuggestionId[],
 ): Command {
@@ -64,7 +88,11 @@ export function revertStructureSuggestions(
   };
 }
 
-function performStructureRevert(suggestionId: SuggestionId, tr: Transform) {
+function performStructureRevert(
+  suggestionId: SuggestionId,
+  tr: Transform,
+  direction: "apply" | "revert" = "revert",
+) {
   console.groupCollapsed(
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
     `performStructureRevert, suggestionId = ${suggestionId}`,
@@ -207,7 +235,11 @@ function performStructureRevert(suggestionId: SuggestionId, tr: Transform) {
 
   markIds.forEach((id) => {
     const group = findStructureMarkGroupBySuggestionId(id, tr);
-    revertStructureMarkGroup(group, tr);
+    if (direction === "apply") {
+      applyStructureMarkGroup(group, tr);
+    } else {
+      revertStructureMarkGroup(group, tr);
+    }
   });
 
   console.groupEnd();
@@ -229,6 +261,44 @@ function getPosFromMark(mark: Mark, pos: number, node: Node) {
     return pos + node.nodeSize - 1;
   }
   return null;
+}
+
+export function applyStructureMarkGroup(
+  group:
+    | {
+        type: "replaceAround";
+        markFrom: { pos: number; node: Node; mark: Mark };
+        markTo: { pos: number; node: Node; mark: Mark };
+        markGapFrom: { pos: number; node: Node; mark: Mark };
+        markGapTo: { pos: number; node: Node; mark: Mark };
+      }
+    | {
+        type: "replace";
+        markFrom: { pos: number; node: Node; mark: Mark };
+        markTo: { pos: number; node: Node; mark: Mark };
+      },
+  tr: Transform,
+) {
+  console.groupCollapsed(
+    "apply structure group, id = ",
+    group.markFrom.mark.attrs["id"],
+  );
+  console.log({ group });
+
+  if (group.type === "replace") {
+    const { markFrom, markTo } = group;
+    tr.removeNodeMark(markFrom.pos, markFrom.mark);
+    tr.removeNodeMark(markTo.pos, markTo.mark);
+    console.groupEnd();
+    return;
+  }
+
+  const { markFrom, markTo, markGapFrom, markGapTo } = group;
+  tr.removeNodeMark(markFrom.pos, markFrom.mark);
+  tr.removeNodeMark(markTo.pos, markTo.mark);
+  tr.removeNodeMark(markGapFrom.pos, markGapFrom.mark);
+  tr.removeNodeMark(markGapTo.pos, markGapTo.mark);
+  console.groupEnd();
 }
 
 function revertStructureMarkGroup(
