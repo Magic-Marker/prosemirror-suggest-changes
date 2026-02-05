@@ -2,10 +2,7 @@ import { expect, test } from "@playwright/test";
 import { eq } from "prosemirror-test-builder";
 import { schema } from "../../../testing/testBuilders.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
-import {
-  finalDocWithMarks,
-  initialDoc,
-} from "./listItemLiftMiddle.data.js";
+import { finalDocWithMarks, initialDoc } from "./listItemLiftMiddle.data.js";
 
 test.describe("middle list item lift | [ReplaceAroundStep]", () => {
   test.beforeEach(async ({ page }) => {
