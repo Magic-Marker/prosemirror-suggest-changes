@@ -5,6 +5,7 @@
 
 import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import { type Mark } from "prosemirror-model";
 
 export interface EditorState {
   paragraphCount: number;
@@ -12,6 +13,7 @@ export interface EditorState {
   cursorFrom: number;
   cursorTo: number;
   blockCount?: number;
+  marks: Mark[];
 }
 
 /**
