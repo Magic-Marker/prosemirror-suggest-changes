@@ -13,7 +13,12 @@ import { getSuggestionMarks } from "./utils.js";
 import { type SuggestionId } from "./generateId.js";
 import { ZWSP } from "./constants.js";
 import { maybeRevertJoinMark } from "./features/joinOnDelete/index.js";
-import { revertAllStructureSuggestions } from "./features/wrapUnwrap/revertStructureSuggestion.js";
+import {
+  applyStructureSuggestion,
+  isStructureSuggestion,
+  revertAllStructureSuggestions,
+  revertStructureSuggestion,
+} from "./features/wrapUnwrap/revertStructureSuggestion.js";
 
 /**
  * Given a node and a transform, add a set of steps to the
@@ -331,6 +336,10 @@ export function applySuggestion(
   to?: number,
 ): Command {
   return (state, dispatch) => {
+    if (isStructureSuggestion(suggestionId, state.tr)) {
+      return applyStructureSuggestion(suggestionId)(state, dispatch);
+    }
+
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     const tr = state.tr;
@@ -413,6 +422,10 @@ export function revertSuggestion(
   to?: number,
 ): Command {
   return (state, dispatch) => {
+    if (isStructureSuggestion(suggestionId, state.tr)) {
+      return revertStructureSuggestion(suggestionId)(state, dispatch);
+    }
+
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     const tr = state.tr;
