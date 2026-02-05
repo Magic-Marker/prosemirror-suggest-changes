@@ -1,6 +1,6 @@
 {
   "name": "@magic-marker/prosemirror-suggest-changes",
-  "version": "0.2.1-block-join.0",
+  "version": "0.2.1-wrap-unwrap.0",
   "license": "MIT",
   "type": "module",
   "module": "dist/index.js",
