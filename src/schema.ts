@@ -11,6 +11,7 @@ export const deletion: MarkSpec = {
     return [
       "del",
       {
+        contentEditable: "false",
         "data-id": JSON.stringify(mark.attrs["id"]),
         "data-inline": String(inline),
         ...(!inline && { style: "display: block" }),
