@@ -5,25 +5,44 @@ import {
   TextSelection,
 } from "prosemirror-state";
 import { getSuggestionDecorations } from "./decorations.js";
+import {
+  type DocumentSuggestions,
+  findSuggestions,
+} from "./findSuggestions.js";
+import { type SuggestionId } from "./generateId.js";
+import { getSuggestionMarks } from "./utils.js";
+import { Decoration, DecorationSet } from "prosemirror-view";
 
-export const suggestChangesKey = new PluginKey<{ enabled: boolean }>(
-  "@handlewithcare/prosemirror-suggest-changes",
-);
+export const suggestChangesKey = new PluginKey<{
+  enabled: boolean;
+  decorations: DecorationSet;
+}>("@handlewithcare/prosemirror-suggest-changes");
 
 export function suggestChanges() {
   return new Plugin<{ enabled: boolean }>({
     key: suggestChangesKey,
     state: {
       init() {
-        return { enabled: false };
+        return { enabled: false, decorations: DecorationSet.empty };
       },
-      apply(tr, value) {
+      apply(tr, value, state, newState) {
         const meta = tr.getMeta(suggestChangesKey) as
           | { enabled: boolean }
           | { skip: true }
           | undefined;
+
         if (meta && "enabled" in meta) return meta;
-        return value;
+
+        // Skip decoration updates for selection-only changes to prevent
+        // unnecessary DecorationSet recreation which disrupts browser selection
+        if (!tr.docChanged) {
+          return value;
+        }
+
+        const suggestions = findSuggestions(newState);
+        const nextDecorations = getDecorations(newState, suggestions);
+
+        return { ...value, decorations: nextDecorations };
       },
     },
     props: {
@@ -72,4 +91,45 @@ export function suggestChanges() {
 
 export function isSuggestChangesEnabled(state: EditorState) {
   return !!suggestChangesKey.getState(state)?.enabled;
+}
+
+function getDecorations(state: EditorState, suggestions: DocumentSuggestions) {
+  const { deletion } = getSuggestionMarks(state.schema);
+
+  const decorations: Decoration[] = [];
+
+  // Combine all suggestion IDs from deletions and insertions
+  const allSuggestionIds = new Set([
+    ...Object.keys(suggestions.deletions),
+    ...Object.keys(suggestions.insertions),
+  ]) as Set<SuggestionId>;
+
+  // Apply decorations based on collected data
+  for (const suggestionId of allSuggestionIds) {
+    const deletions = suggestions.deletions[suggestionId]?.nodes ?? [];
+
+    // Apply decorations to deletions (always hidden)
+    for (const { node, pos } of deletions) {
+      // Check if this is a ZWSP join mark - these should NOT be hidden
+      // because hiding them with display:none breaks browser backspace behavior
+      // when a character is sandwiched between two hidden elements
+      const isJoinMark =
+        node.text === "\u200B" &&
+        node.marks.some(
+          (m) => m.type.name === deletion.name && m.attrs["type"] === "join",
+        );
+
+      // Hide deletions unless showOriginal is set
+      // BUT don't hide join marks - they need to stay in DOM for backspace to work
+      if (!isJoinMark) {
+        decorations.push(
+          Decoration.inline(pos, pos + node.nodeSize, {
+            style: "display: none;",
+          }),
+        );
+      }
+    }
+  }
+
+  return DecorationSet.create(state.doc, decorations);
 }

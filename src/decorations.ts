@@ -6,6 +6,7 @@ import {
   type DecorationSource,
 } from "prosemirror-view";
 import { getSuggestionMarks } from "./utils.js";
+import { suggestChangesKey } from "./plugin.js";
 
 function pilcrow() {
   const span = document.createElement("span");
@@ -14,6 +15,9 @@ function pilcrow() {
 }
 
 export function getSuggestionDecorations(state: EditorState): DecorationSource {
+  const decorations =
+    suggestChangesKey.getState(state)?.decorations ?? DecorationSet.empty;
+
   const { deletion, insertion } = getSuggestionMarks(state.schema);
 
   const changeDecorations: Decoration[] = [];
@@ -101,5 +105,5 @@ export function getSuggestionDecorations(state: EditorState): DecorationSource {
     }
     return true;
   });
-  return DecorationSet.create(state.doc, changeDecorations);
+  return decorations.add(state.doc, changeDecorations);
 }
