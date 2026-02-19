@@ -4,6 +4,7 @@ export interface SuggestionMarks {
   insertion: MarkType;
   deletion: MarkType;
   modification: MarkType;
+  structure: MarkType;
 }
 
 /**
@@ -11,7 +12,7 @@ export interface SuggestionMarks {
  * Throws an error if any of the required marks are not found.
  */
 export function getSuggestionMarks(schema: Schema): SuggestionMarks {
-  const { insertion, deletion, modification } = schema.marks;
+  const { insertion, deletion, modification, structure } = schema.marks;
 
   if (!insertion) {
     throw new Error(
@@ -31,5 +32,11 @@ export function getSuggestionMarks(schema: Schema): SuggestionMarks {
     );
   }
 
-  return { insertion, deletion, modification };
+  if (!structure) {
+    throw new Error(
+      "Failed to find structure mark in schema. Did you forget to add it?",
+    );
+  }
+
+  return { insertion, deletion, modification, structure };
 }

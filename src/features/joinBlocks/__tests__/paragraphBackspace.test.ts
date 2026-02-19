@@ -21,6 +21,47 @@ import {
 const ZWSP = "\u200B";
 
 describe("Paragraph Backspace Behavior", () => {
+  it("should join blocks when backspacing at ZWSP with deleted character after it", () => {
+    // This tests the bug where:
+    // 1. Paragraph is split (ZWSP pair created)
+    // 2. First character after ZWSP is deleted (marked with deletion)
+    // 3. Backspace at ZWSP should join blocks, but currently doesn't
+    //
+    // Document state:
+    // - First paragraph: "test " + ZWSP (insertion mark)
+    // - Second paragraph: ZWSP (insertion mark) + "p" (deletion mark) + "aragraph"
+    const splitDoc = testBuilders.doc(
+      testBuilders.paragraph(
+        "test ",
+        testBuilders.insertion({ id: 1 }, ZWSP + "<zwsp>"),
+      ),
+      testBuilders.paragraph(
+        testBuilders.insertion({ id: 1 }, ZWSP),
+        testBuilders.deletion({ id: 2 }, "p"),
+        "aragraph",
+      ),
+    ) as TaggedNode;
+
+    const splitState = EditorState.create({ doc: splitDoc });
+    const finalState = applyBackspaceAtTag(splitDoc, splitState);
+
+    // After backspace at ZWSP, blocks should be joined
+    // Note: The deletion mark ID becomes 1 (merged with the split suggestion)
+    // because the mark merging logic unifies adjacent suggestion IDs
+    const expectedFinal = testBuilders.doc(
+      testBuilders.paragraph(
+        "test ",
+        testBuilders.deletion({ id: 1 }, "p"),
+        "aragraph",
+      ),
+    );
+
+    assert(
+      eq(finalState.doc, expectedFinal),
+      "Should join blocks when backspacing at ZWSP with deleted char after",
+    );
+  });
+
   it("should remove suggested paragraph when backspacing immediately after creation", () => {
     const splitDoc = testBuilders.doc(
       testBuilders.paragraph(
