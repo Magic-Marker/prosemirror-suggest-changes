@@ -1,9 +1,18 @@
-import { expect, test } from "@playwright/test";
+import { expect, test as base } from "@playwright/test";
 import { eq } from "prosemirror-test-builder";
 import { schema } from "../../../testing/testBuilders.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { finalDocWithMarks, initialDoc } from "./listItemSinkMultiple.data.js";
 import { ListItemSinkMultiplePage } from "./listItemSinkMultiple.page.js";
+
+// Extend basic test by providing a "listPage" fixture.
+
+const test = base.extend<{ listPage: ListItemSinkMultiplePage }>({
+  listPage: async ({ page }, use) => {
+    const listPage = new ListItemSinkMultiplePage(page);
+    await use(listPage);
+  },
+});
 
 test.describe("sink multiple list items into nested list | [ReplaceAroundStep]", () => {
   test.beforeEach(async ({ page }) => {
@@ -24,7 +33,7 @@ test.describe("sink multiple list items into nested list | [ReplaceAroundStep]",
     expect(eq(currentDoc, finalDocWithMarks)).toBeTruthy();
 
     await page.evaluate(() => {
-      window.pmEditor.revertStructureSuggestion(1);
+      window.pmEditor.revertSuggestion(1, { structure: true });
     });
 
     const finalDocJSON = await page.evaluate(() =>
@@ -34,87 +43,188 @@ test.describe("sink multiple list items into nested list | [ReplaceAroundStep]",
     expect(eq(finalDoc, initialDoc)).toBeTruthy();
   });
 
-  test("should revert 3 changes (initial state -> list item sink -> list item join -> paragraph join) in reverse order", async ({
-    page,
-  }) => {
-    const listItemSinkMultiplePage = new ListItemSinkMultiplePage(page);
+  test.describe("should revert 2 changes (initial state -> nested list sink -> list item join)", () => {
+    test.beforeEach(async ({ listPage }) => {
+      await listPage.setup();
+      await listPage.sinkNestedList();
+      await listPage.joinListItemsInNestedList({
+        joinParagraphs: false,
+      });
+    });
 
-    await listItemSinkMultiplePage.setup();
-    await listItemSinkMultiplePage.sinkMultipleListItems();
-    await listItemSinkMultiplePage.joinListItems({ joinParagraphs: true });
+    test("should revert in forward order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
 
-    await listItemSinkMultiplePage.revertSuggestion(2);
-    await listItemSinkMultiplePage.revertSuggestion(2, { structure: true });
-    await listItemSinkMultiplePage.revertSuggestion(1, { structure: true });
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
 
-    expect(await listItemSinkMultiplePage.getCurrentDocJSON()).toEqual(
-      listItemSinkMultiplePage.getInitialDocJSON(),
-    );
+    test("should revert in reverse order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
+
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
   });
 
-  test("should revert 2 changes (list item sink -> list item join) in reverse order", async ({
-    page,
-  }) => {
-    const listItemSinkMultiplePage = new ListItemSinkMultiplePage(page);
+  test.describe("should revert 3 changes (initial state -> nested list sink -> list item join -> paragraph join)", () => {
+    // the third suggestion has id=2 because it swallowed the second suggestion
+    // so first revert of id=2 is reverting a third change
+    // and second revert of id=2 is reverting a second change
 
-    await listItemSinkMultiplePage.setup();
-    await listItemSinkMultiplePage.sinkMultipleListItems();
-    await listItemSinkMultiplePage.joinListItems({ joinParagraphs: false });
+    test.beforeEach(async ({ listPage }) => {
+      await listPage.setup();
+      await listPage.sinkNestedList();
+      await listPage.joinListItemsInNestedList({
+        joinParagraphs: true,
+      });
+    });
 
-    await listItemSinkMultiplePage.revertSuggestion(2, { structure: true });
-    await listItemSinkMultiplePage.revertSuggestion(1, { structure: true });
+    test.skip("should revert in forward order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
 
-    expect(await listItemSinkMultiplePage.getCurrentDocJSON()).toEqual(
-      listItemSinkMultiplePage.getInitialDocJSON(),
-    );
+      // todo: this is not the forward order 1-2-3, but rather 1-3-2
+      // the reason is that 3rd change (join) swallows one of the marks from the 2nd change
+      // ideally trying to revert change 2 should detect that, and revert 3, then 2
+
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: false });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
+
+    test("should revert in reverse order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
+
+      await listPage.revertSuggestion(2, { structure: false });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
+
+    test("should revert in 1-3-2 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
+
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: false });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
+
+    test("should revert in 3-1-2 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
+
+      await listPage.revertSuggestion(2, { structure: false });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
+
+    test.skip("should revert in 2-3-1 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
+
+      // todo: reverting change #3 first here,
+      // cannot revert change #2 first, because change #3 swallows a mark from change #2
+      // reverting change #2 should probably detect that
+
+      await listPage.revertSuggestion(2, { structure: false });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
+
+    test.skip("should revert in 2-1-3 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
+
+      // todo: reverting change #3 first here,
+      // cannot revert change #2 first, because change #3 swallows a mark from change #2
+      // reverting change #2 should probably detect that
+
+      await listPage.revertSuggestion(2, { structure: false });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
   });
 
-  test("should revert 2 changes (initial state -> lift item sink -> list item join) in forward order", async ({
-    page,
-  }) => {
-    const listItemSinkMultiplePage = new ListItemSinkMultiplePage(page);
+  test.describe("should revert 3 changes (initial state -> nested list sink -> middle nested list item lift)", () => {
+    test.beforeEach(async ({ listPage }) => {
+      await listPage.setup();
+      await listPage.sinkNestedList();
+      await listPage.liftMiddleItemOfNestedList();
+    });
 
-    await listItemSinkMultiplePage.setup();
-    await listItemSinkMultiplePage.sinkMultipleListItems();
-    await listItemSinkMultiplePage.joinListItems({ joinParagraphs: false });
+    test("should revert in forward order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
 
-    const initialDocJSON = listItemSinkMultiplePage.getInitialDocJSON();
+      // when reverting the first change, it detects that it needs to also revert later changes #2 and #3
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
 
-    await listItemSinkMultiplePage.revertSuggestion(1, { structure: true });
-    expect(await listItemSinkMultiplePage.getCurrentDocJSON()).not.toEqual(
-      initialDocJSON,
-    );
+    test("should revert in reverse order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
 
-    await listItemSinkMultiplePage.revertSuggestion(2, { structure: true });
-    expect(await listItemSinkMultiplePage.getCurrentDocJSON()).toEqual(
-      initialDocJSON,
-    );
-  });
+      await listPage.revertSuggestion(3, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
 
-  test("should revert 3 changes (initial state -> lift item sink -> list item join -> paragraph join) in 1-3-2 order", async ({
-    page,
-  }) => {
-    const listItemSinkMultiplePage = new ListItemSinkMultiplePage(page);
+    test("should revert in 1-3-2 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
 
-    await listItemSinkMultiplePage.setup();
-    await listItemSinkMultiplePage.sinkMultipleListItems();
-    await listItemSinkMultiplePage.joinListItems({ joinParagraphs: true });
+      // when reverting the first change, it detects that it needs to also revert later changes #2 and #3
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
 
-    const initialDocJSON = listItemSinkMultiplePage.getInitialDocJSON();
+    test("should revert in 3-1-2 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
 
-    await listItemSinkMultiplePage.revertSuggestion(1, { structure: true });
-    expect(await listItemSinkMultiplePage.getCurrentDocJSON()).not.toEqual(
-      initialDocJSON,
-    );
+      await listPage.revertSuggestion(3, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      // reverting change #1 should detect that it needs to also revert change #2
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
 
-    await listItemSinkMultiplePage.revertSuggestion(2);
-    expect(await listItemSinkMultiplePage.getCurrentDocJSON()).not.toEqual(
-      initialDocJSON,
-    );
+    test("should revert in 2-3-1 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
 
-    await listItemSinkMultiplePage.revertSuggestion(2, { structure: true });
-    expect(await listItemSinkMultiplePage.getCurrentDocJSON()).toEqual(
-      initialDocJSON,
-    );
+      // reverting change #2 should detect that it needs to also revert change #3
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
+
+    test("should revert in 2-1-3 order", async ({ listPage }) => {
+      const initialDocJSON = listPage.getInitialDocJSON();
+
+      await listPage.revertSuggestion(2, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).not.toEqual(initialDocJSON);
+      // reverting change #1 should detect that it needs to also revert change #3
+      await listPage.revertSuggestion(1, { structure: true });
+      expect(await listPage.getCurrentDocJSON()).toEqual(initialDocJSON);
+    });
   });
 });

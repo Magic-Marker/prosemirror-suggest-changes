@@ -62,7 +62,6 @@ function handleReplaceAroundStep(
   const { structure } = getSuggestionMarks(state.schema);
 
   const rebasedStep = rebaseStep(step, prevSteps, trackedTransaction.steps);
-  console.log({ step, rebasedStep });
 
   if (!rebasedStep || !(rebasedStep instanceof ReplaceAroundStep)) {
     throw new Error(
@@ -73,7 +72,7 @@ function handleReplaceAroundStep(
   const docBeforeStep = trackedTransaction.doc;
   trackedTransaction.step(rebasedStep);
   const inverseStep = rebasedStep.invert(docBeforeStep);
-  console.log({ inverseStep });
+  console.log({ step, rebasedStep, inverseStep });
 
   if (!(inverseStep instanceof ReplaceAroundStep)) {
     throw new Error(
@@ -146,9 +145,16 @@ function handleReplaceAroundStep(
         },
       }),
     );
+    console.log("added structure mark", {
+      suggestionId,
+      pos,
+      data,
+      isInverseStepStructural,
+    });
   };
 
   // check if inverseGapFrom or inverseGapTo are at the start of some node in range
+  console.groupCollapsed("gapFrom & gapTo @ start ?");
   trackedTransaction.doc.nodesBetween(
     inverseBlockRange.start,
     inverseBlockRange.end,
@@ -165,8 +171,8 @@ function handleReplaceAroundStep(
           fromOffset,
         });
         gapFromFound = localGapFromFound = true;
-        console.log("gapFrom at start of node", {
-          inverseGapFrom,
+        console.log("gapFrom @ start", {
+          gapFrom: inverseGapFrom,
           node,
           pos,
         });
@@ -180,8 +186,8 @@ function handleReplaceAroundStep(
           fromOffset,
         });
         gapFromFound = localGapFromFound = true;
-        console.log("gapFrom at inner start of node", {
-          inverseGapFrom,
+        console.log("gapFrom @ inner start", {
+          gapFrom: inverseGapFrom,
           node,
           pos: pos + 1,
         });
@@ -198,8 +204,8 @@ function handleReplaceAroundStep(
             toOffset,
           });
           gapToFound = true;
-          console.log("ALSO gapTo at end of node", {
-            inverseGapTo,
+          console.log("ALSO gapTo @ end", {
+            gapTo: inverseGapTo,
             node,
             pos: pos + node.nodeSize,
           });
@@ -213,8 +219,8 @@ function handleReplaceAroundStep(
             toOffset,
           });
           gapToFound = true;
-          console.log("ALSO gapTo at inner end of node", {
-            inverseGapTo,
+          console.log("ALSO gapTo @ inner end", {
+            gapTo: inverseGapTo,
             node,
             pos: pos + node.nodeSize - 1,
           });
@@ -229,7 +235,7 @@ function handleReplaceAroundStep(
           toOffset,
         });
         gapToFound = true;
-        console.log("gapTo at start of node", { inverseGapTo, node, pos });
+        console.log("gapTo @ start", { gapTo: inverseGapTo, node, pos });
       }
 
       // inverseGapTo is at inner start of this node?
@@ -240,8 +246,8 @@ function handleReplaceAroundStep(
           toOffset,
         });
         gapToFound = true;
-        console.log("gapTo at inner start of node", {
-          inverseGapTo,
+        console.log("gapTo @ inner start", {
+          gapTo: inverseGapTo,
           node,
           pos: pos + 1,
         });
@@ -250,8 +256,10 @@ function handleReplaceAroundStep(
       return true;
     },
   );
+  console.groupEnd();
 
   // check if inverseGapFrom or inverseGapTo are at the end of some node
+  console.groupCollapsed("gapFrom & gapTo @ end ?");
   trackedTransaction.doc.nodesBetween(
     inverseBlockRange.start,
     inverseBlockRange.end,
@@ -266,8 +274,8 @@ function handleReplaceAroundStep(
           fromOffset,
         });
         gapFromFound = true;
-        console.log("gapFrom at end of node", {
-          inverseGapFrom,
+        console.log("gapFrom @ end", {
+          gapFrom: inverseGapFrom,
           node,
           pos: pos + node.nodeSize,
         });
@@ -281,8 +289,8 @@ function handleReplaceAroundStep(
           fromOffset,
         });
         gapFromFound = true;
-        console.log("gapFrom at inner end of node", {
-          inverseGapFrom,
+        console.log("gapFrom @ inner end", {
+          gapFrom: inverseGapFrom,
           node,
           pos: pos + node.nodeSize - 1,
         });
@@ -296,8 +304,8 @@ function handleReplaceAroundStep(
           toOffset,
         });
         gapToFound = true;
-        console.log("gapTo at end of node", {
-          inverseGapTo,
+        console.log("gapTo @ end", {
+          gapTo: inverseGapTo,
           node,
           pos: pos + node.nodeSize,
         });
@@ -311,8 +319,8 @@ function handleReplaceAroundStep(
           toOffset,
         });
         gapToFound = true;
-        console.log("gapTo at inner end of node", {
-          inverseGapTo,
+        console.log("gapTo @ inner end", {
+          gapTo: inverseGapTo,
           node,
           pos: pos + node.nodeSize - 1,
         });
@@ -321,8 +329,10 @@ function handleReplaceAroundStep(
       return true;
     },
   );
+  console.groupEnd();
 
   // check if inverseFrom, inverseTo are at the start of some node in range
+  console.groupCollapsed("from & to @ start ?");
   trackedTransaction.doc.nodesBetween(
     inverseBlockRange.start,
     inverseBlockRange.end,
@@ -339,7 +349,7 @@ function handleReplaceAroundStep(
           gapFromOffset,
         });
         fromFound = localFromFound = true;
-        console.log("from at start of node", { inverseFrom, node, pos });
+        console.log("from @ start", { from: inverseFrom, node, pos });
       }
 
       // inverseFrom is at inner start of this node?
@@ -350,8 +360,8 @@ function handleReplaceAroundStep(
           gapFromOffset,
         });
         fromFound = localFromFound = true;
-        console.log("from at inner start of node", {
-          inverseFrom,
+        console.log("from @ inner start", {
+          from: inverseFrom,
           node,
           pos: pos + 1,
         });
@@ -368,8 +378,8 @@ function handleReplaceAroundStep(
             gapToOffset,
           });
           toFound = true;
-          console.log("ALSO found to at end of node", {
-            inverseTo,
+          console.log("ALSO to @ end", {
+            to: inverseTo,
             node,
             pos: pos + node.nodeSize,
           });
@@ -383,8 +393,8 @@ function handleReplaceAroundStep(
             gapToOffset,
           });
           toFound = true;
-          console.log("ALSO found to at inner end of node", {
-            inverseTo,
+          console.log("ALSO to @ inner end", {
+            to: inverseTo,
             node,
             pos: pos + node.nodeSize - 1,
           });
@@ -399,7 +409,7 @@ function handleReplaceAroundStep(
           gapToOffset,
         });
         toFound = true;
-        console.log("to at start of node", { inverseTo, node, pos });
+        console.log("to @ start", { to: inverseTo, node, pos });
       }
 
       // inverseTo is at inner start of this node?
@@ -410,8 +420,8 @@ function handleReplaceAroundStep(
           gapToOffset,
         });
         toFound = true;
-        console.log("to at inner start of node", {
-          inverseTo,
+        console.log("to @ inner start", {
+          to: inverseTo,
           node,
           pos: pos + 1,
         });
@@ -420,8 +430,10 @@ function handleReplaceAroundStep(
       return true;
     },
   );
+  console.groupEnd();
 
   // check if inverseFrom, inverseTo are at the end of some node in range
+  console.groupCollapsed("from & to @ end ?");
   trackedTransaction.doc.nodesBetween(
     inverseBlockRange.start,
     inverseBlockRange.end,
@@ -436,8 +448,8 @@ function handleReplaceAroundStep(
           gapFromOffset,
         });
         fromFound = true;
-        console.log("from at end of node", {
-          inverseFrom,
+        console.log("from @ end", {
+          from: inverseFrom,
           node,
           pos: pos + node.nodeSize,
         });
@@ -451,8 +463,8 @@ function handleReplaceAroundStep(
           gapFromOffset,
         });
         fromFound = true;
-        console.log("from at inner end of node", {
-          inverseFrom,
+        console.log("from @ inner end", {
+          from: inverseFrom,
           node,
           pos: pos + node.nodeSize - 1,
         });
@@ -466,8 +478,8 @@ function handleReplaceAroundStep(
           gapToOffset,
         });
         toFound = true;
-        console.log("found to at end of node", {
-          inverseTo,
+        console.log("to @ end", {
+          to: inverseTo,
           node,
           pos: pos + node.nodeSize,
         });
@@ -481,8 +493,8 @@ function handleReplaceAroundStep(
           gapToOffset,
         });
         toFound = true;
-        console.log("found to at inner end of node", {
-          inverseTo,
+        console.log("to @ inner end", {
+          to: inverseTo,
           node,
           pos: pos + node.nodeSize - 1,
         });
@@ -491,11 +503,13 @@ function handleReplaceAroundStep(
       return true;
     },
   );
+  console.groupEnd();
 
   if (gapFromFound && gapToFound && fromFound && toFound) {
-    console.log("all points found");
+    console.log("all points found", { suggestionId });
   } else {
     console.log("not all points found", {
+      suggestionId,
       step,
       inverseStep,
       rebasedStep,
@@ -775,9 +789,14 @@ function handleReplaceStep(
   );
 
   if (fromFound && toFound) {
-    console.log("all points found");
+    console.log("all points found", { suggestionId });
   } else {
-    console.log("not all points found", { step, rebasedStep, inverseStep });
+    console.log("not all points found", {
+      step,
+      rebasedStep,
+      inverseStep,
+      suggestionId,
+    });
   }
 
   console.groupEnd();

@@ -16,6 +16,7 @@ ins,
 [data-node-insertion] {
   background-color: #baffdf;
   color: #00973c;
+  mix-blend-mode: multiply;
 }
 
 del,

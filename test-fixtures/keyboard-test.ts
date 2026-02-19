@@ -12,7 +12,6 @@ import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
 import { schema } from "../src/testing/testBuilders.js";
-import * as wrapUnwrap from "../src/features/wrapUnwrap/revertStructureSuggestion.js";
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
 
@@ -136,8 +135,11 @@ declare global {
       getTransactions: () => typeof transactions;
       clearTransactions: () => void;
       logState: () => void;
+      revertSuggestion: (
+        suggestionId: SuggestionId,
+        opts?: { structure: boolean },
+      ) => void;
       revertStructureSuggestion: (suggestionId: SuggestionId) => void;
-      revertSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
@@ -255,13 +257,23 @@ window.pmEditor = {
     console.log("===================");
   },
 
-  revertStructureSuggestion(suggestionId: SuggestionId) {
-    const command = wrapUnwrap.revertStructureSuggestion(suggestionId);
+  revertSuggestion(suggestionId: SuggestionId, opts?: { structure: boolean }) {
+    const command = commands.revertSuggestion(
+      suggestionId,
+      undefined,
+      undefined,
+      opts,
+    );
     command(view.state, view.dispatch);
   },
 
-  revertSuggestion(suggestionId: SuggestionId) {
-    const command = commands.revertSuggestion(suggestionId);
+  revertStructureSuggestion(suggestionId: SuggestionId) {
+    const command = commands.revertSuggestion(
+      suggestionId,
+      undefined,
+      undefined,
+      { structure: true },
+    );
     command(view.state, view.dispatch);
   },
 };

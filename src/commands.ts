@@ -420,9 +420,17 @@ export function revertSuggestion(
   suggestionId: SuggestionId,
   from?: number,
   to?: number,
+  opts?: { structure: boolean },
 ): Command {
   return (state, dispatch) => {
-    if (isStructureSuggestion(suggestionId, state.tr)) {
+    if (opts?.structure === true) {
+      return revertStructureSuggestion(suggestionId)(state, dispatch);
+    }
+
+    if (
+      opts?.structure !== false &&
+      isStructureSuggestion(suggestionId, state.tr)
+    ) {
       return revertStructureSuggestion(suggestionId)(state, dispatch);
     }
 

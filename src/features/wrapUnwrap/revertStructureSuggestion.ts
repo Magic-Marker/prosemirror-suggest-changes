@@ -28,8 +28,7 @@ export function revertAllStructureSuggestions(doc: Node, tr: Transaction) {
   // find structure mark in the doc
   // if found, revert it, produce a new doc
   // find next structure mark in the new doc
-  // easier than going nodesBetween on the original doc,
-  //    and then mapping the position, figuring out if the node is present in the new doc or was deleted
+  // easier than going nodesBetween on the original doc, and then mapping the position, figuring out if the node is present in the new doc or was deleted
 
   const findStructureMark = (doc: Node) => {
     let structureMark = null as Mark | null;
@@ -102,131 +101,124 @@ function performStructureRevert(
   // find main suggestion from and to
   const { markFrom, markTo, markGapFrom, markGapTo } =
     findStructureMarkGroupBySuggestionId(suggestionId, tr);
+  console.log("found main suggestion", {
+    markFrom,
+    markTo,
+    markGapFrom,
+    markGapTo,
+    suggestionId,
+  });
 
-  const from = getPosFromMark(markFrom.mark, markFrom.pos, markFrom.node);
-  const to = getPosFromMark(markTo.mark, markTo.pos, markTo.node);
+  let from = getPosFromMark(markFrom.mark, markFrom.pos, markFrom.node);
+  let to = getPosFromMark(markTo.mark, markTo.pos, markTo.node);
+  console.log("main suggestion positions", { from, to });
 
   if (from == null || to == null) {
     throw new Error(`Could not find all positions for suggestion`);
   }
 
+  [from, to] = from > to ? [to, from] : [from, to];
+
   // find all other structure suggestions within from and to interval of the main suggestion
   const structureMarkGroups = new Set<SuggestionId>();
   structureMarkGroups.add(suggestionId);
 
+  let gapFrom = null;
+  let gapTo = null;
+
   if (markGapFrom != null) {
-    const gapFrom = getPosFromMark(
+    gapFrom = getPosFromMark(
       markGapFrom.mark,
       markGapFrom.pos,
       markGapFrom.node,
     );
-    const gapTo = getPosFromMark(markGapTo.mark, markGapTo.pos, markGapTo.node);
-    if (gapFrom == null || gapTo == null) {
-      throw new Error(`Could not find all positions for suggestion`);
+    gapTo = getPosFromMark(markGapTo.mark, markGapTo.pos, markGapTo.node);
+    if (gapFrom != null && gapTo != null) {
+      [gapFrom, gapTo] = gapFrom > gapTo ? [gapTo, gapFrom] : [gapFrom, gapTo];
     }
+  }
 
-    tr.doc.nodesBetween(from, to, (node, pos) => {
-      node.marks.forEach((mark) => {
-        if (mark.type !== structure) return;
+  tr.doc.nodesBetween(from, to, (node, pos) => {
+    node.marks.forEach((mark) => {
+      if (mark.type !== structure) return;
 
-        const markData = mark.attrs["data"] as { value?: string } | null;
-        if (!markData) return;
+      const markData = mark.attrs["data"] as { value?: string } | null;
+      if (!markData) return;
 
-        const id = mark.attrs["id"] as SuggestionId;
-        if (id === suggestionId) return;
+      const id = mark.attrs["id"] as SuggestionId;
+      if (id <= suggestionId) return;
 
-        const startsInGap = gapFrom <= pos && pos <= gapTo;
-        const endsInGap =
+      let startsInGap = false;
+      let endsInGap = false;
+
+      if (gapFrom != null && gapTo != null) {
+        startsInGap = gapFrom <= pos && pos <= gapTo;
+        endsInGap =
           gapFrom <= pos + node.nodeSize && pos + node.nodeSize <= gapTo;
-        if (startsInGap && endsInGap) {
-          console.log(
-            "ignored mark",
-            { node, pos, end: pos + node.nodeSize, mark },
-            " - starts and ends in gap",
-            "from-gapFrom-gapTo-to",
-            { from, gapFrom, gapTo, to },
-          );
-          return;
-        }
+      }
 
-        const startsInRange =
+      // check if mark starts and ends in gap - skip mark if true
+      // for ReplaceStep marks startsInGap and endsInGap is always false
+      if (startsInGap && endsInGap) {
+        console.log("ignored mark - starts and ends in gap", {
+          startsInGap,
+          endsInGap,
+          markId: id,
+          markData,
+          node,
+          pos,
+        });
+        return;
+      }
+
+      let startsInRange = false;
+      let endsInRange = false;
+
+      if (gapFrom != null && gapTo != null) {
+        // for ReplaceAround marks "startsInRange" means starts in [from, gapFrom] or [gapTo, to] ranges
+        // same for endsInRange
+        startsInRange =
           (from <= pos && pos <= gapFrom) || (gapTo <= pos && pos <= to);
-        const endsInRange =
+        endsInRange =
           (from <= pos + node.nodeSize && pos + node.nodeSize <= gapFrom) ||
           (gapTo <= pos + node.nodeSize && pos + node.nodeSize <= to);
+      } else {
+        // for ReplaceStep marks "startsInRange" means starts in [from, to] range
+        // same for endsInRange
+        startsInRange = from <= pos && pos <= to;
+        endsInRange = from <= pos + node.nodeSize && pos + node.nodeSize <= to;
+      }
 
-        if (!startsInRange && !endsInRange) {
-          console.log(
-            "ignored mark",
-            { node, pos, end: pos + node.nodeSize, mark },
-            " - does not start or end in range",
-            "from-gapFrom-gapTo-to",
-            { from, gapFrom, gapTo, to },
-          );
-          return;
-        }
+      if (!startsInRange && !endsInRange) {
+        console.log("ignored mark - does not start or end in range", {
+          startsInRange,
+          endsInRange,
+          markId: id,
+          markData,
+          node,
+          pos,
+        });
+        return;
+      }
 
-        console.log(
-          "found nested structure mark",
-          {
-            id,
-            node,
-            pos,
-            nodeStart: pos,
-            nodeEnd: pos + node.nodeSize,
-          },
-          "from-gapFrom-gapTo-to",
-          { from, gapFrom, gapTo, to },
-        );
-
-        structureMarkGroups.add(id);
-      });
-    });
-  } else {
-    tr.doc.nodesBetween(from, to, (node, pos) => {
-      node.marks.forEach((mark) => {
-        if (mark.type !== structure) return;
-
-        const markData = mark.attrs["data"] as { value?: string } | null;
-        if (!markData) return;
-
-        const id = mark.attrs["id"] as SuggestionId;
-        if (id === suggestionId) return;
-
-        const startsInRange = from <= pos && pos <= to;
-        const endsInRange =
-          from <= pos + node.nodeSize && pos + node.nodeSize <= to;
-
-        if (!startsInRange && !endsInRange) {
-          console.log(
-            "ignored mark",
-            { node, pos, end: pos + node.nodeSize, mark },
-            " - does not start or end in range",
-            "from-to",
-            { from, to },
-          );
-          return;
-        }
-
-        console.log(
-          "found nested structure mark",
-          {
-            id,
-            node,
-            pos,
-            nodeStart: pos,
-            nodeEnd: pos + node.nodeSize,
-          },
-          "from-to",
-          { from, to },
-        );
-
-        structureMarkGroups.add(id);
+      console.log("found nested structure mark", {
+        mark,
+        markId: id,
+        markData,
+        startsInGap,
+        endsInGap,
+        startsInRange,
+        endsInRange,
+        node,
+        pos,
+        mainMark: { markFrom, markTo, markGapFrom, markGapTo },
       });
 
-      return true;
+      structureMarkGroups.add(id);
     });
-  }
+
+    return true;
+  });
 
   // revert structure mark groups in decreasing order of their ids
   const markIds = Array.from(structureMarkGroups.values()).sort(
@@ -294,10 +286,12 @@ export function applyStructureMarkGroup(
   }
 
   const { markFrom, markTo, markGapFrom, markGapTo } = group;
+
   tr.removeNodeMark(markFrom.pos, markFrom.mark);
   tr.removeNodeMark(markTo.pos, markTo.mark);
   tr.removeNodeMark(markGapFrom.pos, markGapFrom.mark);
   tr.removeNodeMark(markGapTo.pos, markGapTo.mark);
+
   console.groupEnd();
 }
 
