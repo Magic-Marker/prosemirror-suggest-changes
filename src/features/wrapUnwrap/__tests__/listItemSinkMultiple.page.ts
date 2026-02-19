@@ -18,7 +18,10 @@ export class ListItemSinkMultiplePage {
     expect(await this.getCurrentDocJSON()).toEqual(this.getInitialDocJSON());
   }
 
-  async sinkMultipleListItems() {
+  /**
+   * select Item 2.1, Item 2.2, Item 2.3 and press Tab to sink them once, creating a nested list
+   */
+  async sinkNestedList() {
     await this.page.evaluate(() => {
       window.pmEditor.setCursorToEnd();
     });
@@ -51,7 +54,13 @@ export class ListItemSinkMultiplePage {
     );
   }
 
-  async joinListItems({
+  /**
+   * Go to the beginning of Item 2.3, join it with previous sibling Item 2.2 using Backspace
+   * It will produce a single list item with two paragraphs inside
+   *
+   * @param joinParagraphs - if true, join the paragraphs of the joined list item with a second Backspace press
+   */
+  async joinListItemsInNestedList({
     joinParagraphs = false,
   }: {
     joinParagraphs?: boolean;
@@ -81,19 +90,36 @@ export class ListItemSinkMultiplePage {
     }
   }
 
+  /**
+   * Go to Item 2.2 in a nested list and press Shift+Tab
+   * This will split the outer list into two lists
+   */
+  async liftMiddleItemOfNestedList() {
+    await this.page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    // go to item 2.2
+    for (let i = 0; i < 4; i++) {
+      await this.page.keyboard.press("ArrowUp");
+      await this.page.waitForTimeout(50);
+    }
+
+    // lift the item
+    await this.page.keyboard.press("Shift+Tab");
+    await this.page.waitForTimeout(50);
+  }
+
   async revertSuggestion(
     suggestionId: SuggestionId,
-    opts?: { structure?: boolean },
+    opts?: { structure: boolean },
   ) {
-    if (opts?.structure) {
-      await this.page.evaluate((suggestionId) => {
-        window.pmEditor.revertStructureSuggestion(suggestionId);
-      }, suggestionId);
-    } else {
-      await this.page.evaluate((suggestionId) => {
-        window.pmEditor.revertSuggestion(suggestionId);
-      }, suggestionId);
-    }
+    await this.page.evaluate(
+      ({ suggestionId, opts }) => {
+        window.pmEditor.revertSuggestion(suggestionId, opts);
+      },
+      { suggestionId, opts },
+    );
   }
 
   async getCurrentDocJSON() {
