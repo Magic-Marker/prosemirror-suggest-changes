@@ -19,7 +19,7 @@ export const deletion: MarkSpec = {
         "data-type": JSON.stringify(mark.attrs["type"]),
         "data-data": JSON.stringify(mark.attrs["data"]),
       },
-      0,
+      ["span", {}, 0],
     ];
   },
   parseDOM: [

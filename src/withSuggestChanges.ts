@@ -188,10 +188,12 @@ export function withSuggestChanges(
   const dispatch =
     dispatchTransaction ??
     function (this: EditorView, tr: Transaction) {
+      console.log("finalTransaction", { tr }, tr.selection);
       this.updateState(this.state.apply(tr));
     };
 
   return function dispatchTransaction(this: EditorView, tr: Transaction) {
+    console.log("originalTransaction", { tr }, tr.selection);
     const ySyncMeta = (tr.getMeta("y-sync$") ?? {}) as {
       isUndoRedoOperation?: boolean;
       isChangeOrigin?: boolean;

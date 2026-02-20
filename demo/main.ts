@@ -88,17 +88,20 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   },
 };
 
-const content = `# This is the \`@handlewithcare/prosemirror-suggest-changes\` demo editor!
+const content = `
+p1
 
-Suggestions are enabled to start, so start typing and see how it works! Here are
-some use cases to try out:
+p2
 
-- Inserting and deleting plain text
-- Inserting new paragraphs, and deleting across existing paragraph boundaries
-- Using undo and redo (cmd/ctrl+z and cmd/ctrl+shift+z)
-- Applying and reverting all suggestions
+p3
 
-You can also use the button above the editor to disable suggestions.
+p4
+
+p5
+
+p6
+
+p7
 `;
 
 const doc = await unified()

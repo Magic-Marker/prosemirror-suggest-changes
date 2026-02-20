@@ -24,6 +24,10 @@ del,
   background-color: #ffb7dc;
 }
 
+del:not([data-type='"join"']) > span {
+  display: none;
+}
+
 .menu {
   display: flex;
   flex-direction: row;
