@@ -3,6 +3,7 @@ export {
   insertion,
   deletion,
   modification,
+  hiddenDeletion,
 } from "./schema.js";
 
 export {
