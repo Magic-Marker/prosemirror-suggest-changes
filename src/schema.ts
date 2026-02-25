@@ -37,6 +37,25 @@ export const deletion: MarkSpec = {
   ],
 };
 
+export const hiddenDeletion: MarkSpec = {
+  ...deletion,
+  toDOM(mark, inline) {
+    return [
+      "del",
+      {
+        "data-id": JSON.stringify(mark.attrs["id"]),
+        "data-inline": String(inline),
+        ...(!inline && { style: "display: block" }),
+        ...(inline &&
+          mark.attrs["type"] !== "anchor" && { style: "font-size: 0px;" }),
+        "data-type": JSON.stringify(mark.attrs["type"]),
+        "data-data": JSON.stringify(mark.attrs["data"]),
+      },
+      0,
+    ];
+  },
+};
+
 export const insertion: MarkSpec = {
   inclusive: false,
   excludes: "deletion modification insertion",
@@ -124,10 +143,12 @@ export const modification: MarkSpec = {
  */
 export function addSuggestionMarks<Marks extends string>(
   marks: Record<Marks, MarkSpec>,
+  opts?: { experimental_deletions?: "hidden" | "visible" },
 ): Record<Marks | "deletion" | "insertion" | "modification", MarkSpec> {
   return {
     ...marks,
-    deletion,
+    deletion:
+      opts?.experimental_deletions === "hidden" ? hiddenDeletion : deletion,
     insertion,
     modification,
   };

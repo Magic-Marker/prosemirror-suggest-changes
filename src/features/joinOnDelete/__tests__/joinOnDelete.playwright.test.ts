@@ -126,11 +126,12 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       }
 
       // move 2 characters forward (to be inside deletion mark)
-      // eslint-disable-next-line @typescript-eslint/prefer-for-of
-      for (let i = 0; i < "Wo".length; i++) {
-        await page.keyboard.press("ArrowRight");
-        await page.waitForTimeout(50);
-      }
+      // for (let i = 0; i < "Wo".length; i++) {
+      //   await page.keyboard.press("ArrowRight");
+      //   await page.waitForTimeout(50);
+      // }
+      // this won't work with hidden deletions (being inside deletion mark is not allowed, and the plugin will move selection forward)
+      // with hidden deletions we already are where we want to be to split
 
       // split node here
       await page.keyboard.press("Enter");
@@ -267,8 +268,10 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
 
       finalState = await page.evaluate(() => window.pmEditor.getState());
       expect(finalState.cursorFrom).toBe(1);
-      expect(finalState.textContent).toBe(`Hello${ZWSP}World`);
-      expect(finalState.marks.length).toBe(3);
+      // anchor mark in front
+      expect(finalState.textContent).toBe(`${ZWSP}Hello${ZWSP}World`);
+      // 3 deletions + one deletion anchor
+      expect(finalState.marks.length).toBe(4);
       expect(
         finalState.marks.find((mark) => mark.attrs["type"] === "join"),
       ).toBeDefined();
@@ -328,8 +331,9 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
 
       await page.keyboard.down("Shift");
       await page.waitForTimeout(50);
-      // eslint-disable-next-line @typescript-eslint/prefer-for-of
-      for (let i = 0; i < "loWo".length; i++) {
+
+      for (let i = 0; i < "loWo".length + 1; i++) {
+        // todo: +1 to go over a zwsp, remove when skipping is improved
         await page.keyboard.press("ArrowLeft");
         await page.waitForTimeout(50);
       }
@@ -342,7 +346,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       await page.waitForTimeout(50);
 
       finalState = await page.evaluate(() => window.pmEditor.getState());
-      expect(finalState.cursorFrom).toBe(9);
+      expect(finalState.cursorFrom).toBe(10); // it's 10 and not 9 because 9 is adjacent to a hidden deletion
       expect(finalState.textContent).toBe(`Hello${ZWSP}World`);
       expect(finalState.marks.length).toBe(3);
       expect(

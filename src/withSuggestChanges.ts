@@ -22,6 +22,7 @@ import { type EditorView } from "prosemirror-view";
 import { isSuggestChangesEnabled, suggestChangesKey } from "./plugin.js";
 import { generateNextNumberId, type SuggestionId } from "./generateId.js";
 import { getSuggestionMarks } from "./utils.js";
+import { prependDeletionsWithZWSP } from "./prependDeletionsWithZWSP.js";
 
 type StepHandler<S extends Step> = (
   trackedTransaction: Transaction,
@@ -184,6 +185,7 @@ export function transformToSuggestionTransaction(
 export function withSuggestChanges(
   dispatchTransaction?: EditorView["dispatch"],
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
+  opts?: { experimental_deletions?: "hidden" | "visible" },
 ): EditorView["dispatch"] {
   const dispatch =
     dispatchTransaction ??
@@ -206,6 +208,11 @@ export function withSuggestChanges(
       !("skip" in (tr.getMeta(suggestChangesKey) ?? {}))
         ? transformToSuggestionTransaction(tr, this.state, generateId)
         : tr;
+
+    if (transaction.docChanged) {
+      prependDeletionsWithZWSP(transaction, opts);
+    }
+
     dispatch.call(this, transaction);
   };
 }
