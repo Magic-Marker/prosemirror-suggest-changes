@@ -33,6 +33,8 @@ declare global {
       clearTransactions: () => void;
       logState: () => void;
       replaceDoc: (doc: unknown) => void;
+      getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorSelection: () => { anchor: number; head: number };
     };
   }
 }

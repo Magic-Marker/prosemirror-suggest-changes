@@ -109,6 +109,9 @@ const dispatch = withSuggestChanges(
 const editorEl = document.getElementById("editor")!;
 const view = new EditorView(editorEl, {
   state,
+  attributes: {
+    "data-testid": "main-editor",
+  },
   dispatchTransaction: dispatch,
 });
 
@@ -155,6 +158,8 @@ declare global {
       getTransactions: () => typeof transactions;
       clearTransactions: () => void;
       logState: () => void;
+      getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorSelection: () => { anchor: number; head: number };
     };
   }
 }
@@ -270,6 +275,18 @@ window.pmEditor = {
     );
     console.log("Doc JSON:", view.state.doc.toJSON());
     console.log("===================");
+  },
+
+  getProseMirrorMarkCount(name: string) {
+    const marks: Mark[] = [];
+    view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
+      marks.push(...node.marks);
+    });
+    return marks.filter((mark) => mark.type.name === name).length;
+  },
+
+  getProseMirrorSelection() {
+    return view.state.selection.toJSON() as { anchor: number; head: number };
   },
 };
 
