@@ -40,14 +40,18 @@ export const deletion: MarkSpec = {
 export const hiddenDeletion: MarkSpec = {
   ...deletion,
   toDOM(mark, inline) {
+    const isAnchor = mark.attrs["type"] === "anchor";
+    const blockStyle = `display: block;`;
+    const inlineStyle = `display: inline;`;
+    const hiddenStyle = `display: inline; font-size: 1px; line-height: 0px; color: transparent;`;
     return [
       "del",
       {
         "data-id": JSON.stringify(mark.attrs["id"]),
         "data-inline": String(inline),
-        ...(!inline && { style: "display: block" }),
-        ...(inline &&
-          mark.attrs["type"] !== "anchor" && { style: "font-size: 0px;" }),
+        ...(!inline && { style: blockStyle }),
+        ...(inline && isAnchor && { style: inlineStyle }),
+        ...(inline && !isAnchor && { style: hiddenStyle }),
         "data-type": JSON.stringify(mark.attrs["type"]),
         "data-data": JSON.stringify(mark.attrs["data"]),
       },
