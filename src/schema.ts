@@ -43,7 +43,7 @@ export const hiddenDeletion: MarkSpec = {
     const isAnchor = mark.attrs["type"] === "anchor";
     const blockStyle = `display: block;`;
     const inlineStyle = `display: inline;`;
-    const hiddenStyle = `display: inline; font-size: 1px; line-height: 0px; color: transparent;`;
+    const hiddenStyle = `display: inline; font-size: 1px; line-height: 0px; color: transparent; letter-spacing: -1px;`;
     return [
       "del",
       {
