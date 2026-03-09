@@ -482,10 +482,8 @@ test.describe("Join Block Backspace Bug", () => {
     expect(insertionMarkCount).toBe(2);
 
     // move cursor between "Paragraph 5" and split mark
-    for (let i = 0; i < 3; ++i) {
-      await page.keyboard.press("ArrowLeft");
-      await page.waitForTimeout(50);
-    }
+    await page.keyboard.press("ArrowLeft");
+    await page.waitForTimeout(50);
 
     // hold shift
     await page.keyboard.down("Shift");

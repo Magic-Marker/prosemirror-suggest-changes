@@ -1,7 +1,15 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { getSuggestionMarks } from "./utils.js";
 import { type ResolvedPos } from "prosemirror-model";
+import { ZWSP } from "./constants.js";
 // import { ZWSP } from "./constants.js";
+
+const TRACE_ENABLED = false;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[ensureSelectionPlugin]", ...args);
+}
 
 interface PluginState {
   handleKeyDown: {
@@ -67,92 +75,79 @@ export function ensureSelection() {
     },
 
     appendTransaction(_transactions, oldState, newState) {
-      const state = newState;
-
-      if (!(state.selection instanceof TextSelection)) return null;
-      if (!(oldState.selection instanceof TextSelection)) return null;
-
-      const { $cursor } = state.selection;
-      if ($cursor == null) return null;
-
-      const $oldCursor = oldState.selection.$cursor;
-
-      let dir: 1 | -1;
-
-      if ($oldCursor != null) {
-        dir = $cursor.pos > $oldCursor.pos ? 1 : -1;
-      } else {
-        const { $from, $to } = oldState.selection;
-        const distToFrom = $cursor.pos - $from.pos;
-        const distToTo = $to.pos - $cursor.pos;
-        // if cursor ended up closer to the right side of the selection (to),
-        // consider direction as 1 - "to the right"
-        dir = distToTo <= distToFrom ? 1 : -1;
-      }
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (TRACE_ENABLED)
+        console.groupCollapsed("[ensureSelectionPlugin]", "appendTransaction");
 
       const pluginState = ensureSelectionKey.getState(newState);
-      if (
-        pluginState?.handleKeyDown.backspace ||
-        pluginState?.handleKeyDown.arrowLeft
-      ) {
-        dir = -1;
-      } else if (
-        pluginState?.handleKeyDown.delete ||
-        pluginState?.handleKeyDown.arrowRight
-      ) {
-        dir = 1;
-      }
 
-      if (!isValidPos($cursor, dir)) {
-        console.groupCollapsed(
-          "$cursor is not valid, find new $cursor",
-          $cursor.pos,
+      trace("appendTransaction", "search for new valid $anchor...");
+      let $newAnchor = getNewValidPos(
+        newState.selection.$anchor,
+        getDirection(
+          oldState.selection.$anchor,
+          newState.selection.$anchor,
+          pluginState,
+        ),
+      );
+      trace("appendTransaction", "new valid $anchor", $newAnchor?.pos, {
+        $newAnchor,
+      });
+
+      trace("appendTransaction", "search for new valid $head...");
+      let $newHead = getNewValidPos(
+        newState.selection.$head,
+        getDirection(
+          oldState.selection.$head,
+          newState.selection.$head,
+          pluginState,
+        ),
+      );
+      trace("appendTransaction", "new valid $head", $newHead?.pos, {
+        $newHead,
+      });
+
+      $newAnchor = $newAnchor ?? newState.selection.$anchor;
+      $newHead = $newHead ?? newState.selection.$head;
+
+      const newSelection = new TextSelection($newAnchor, $newHead);
+
+      if (
+        newSelection.anchor === newState.selection.anchor &&
+        newSelection.head === newState.selection.head
+      ) {
+        trace(
+          "appendTransaction",
+          "new selection is the same as old selection, skipping",
           {
-            dir,
-            oldSelection: oldState.selection,
-            $cursor,
+            $newAnchor,
+            $newHead,
+            selection: newSelection,
           },
         );
 
-        let $pos = $cursor;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        if (TRACE_ENABLED) console.groupEnd();
 
-        if (dir > 0) {
-          $pos = findNextPos($pos, dir);
-          if (!isValidPos($pos, dir)) {
-            console.warn("failed to find next valid $cursor, trying prev");
-            $pos = findPrevPos($pos, dir);
-          }
-        } else {
-          $pos = findPrevPos($pos, dir);
-          if (!isValidPos($pos, dir)) {
-            console.warn("failed to find prev valid $cursor, trying next");
-            $pos = findNextPos($pos, dir);
-          }
-        }
-
-        if (!isValidPos($pos, dir)) {
-          console.warn(
-            "failed to find valid $cursor after all attempts",
-            $pos.pos,
-            "keeping the original $cursor",
-            $cursor.pos,
-            { $cursor, $pos },
-          );
-          console.groupEnd();
-          console.log("final $cursor (unchanged)", $cursor);
-          return null;
-        }
-
-        console.info("found new valid $cursor", $pos.pos, { $pos });
-        console.groupEnd();
-
-        console.log("final $cursor", $pos.pos, { $pos });
-        return newState.tr.setSelection(
-          TextSelection.create(newState.doc, $pos.pos, $pos.pos),
-        );
+        return null;
       }
 
-      return null;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (TRACE_ENABLED) console.groupEnd();
+
+      trace(
+        "appendTransaction",
+        "setting new selection",
+        $newAnchor.pos,
+        $newHead.pos,
+        {
+          $newAnchor,
+          $newHead,
+          selection: newSelection,
+        },
+      );
+
+      return newState.tr.setSelection(newSelection);
     },
   });
 }
@@ -161,206 +156,314 @@ export function isEnsureSelectionEnabled() {
   return true;
 }
 
-function findNextPos($initialPos: ResolvedPos, dir: 1 | -1) {
-  console.groupCollapsed(
-    "finding next valid pos from $initialPos =",
-    $initialPos,
-  );
+function isPosValid($pos: ResolvedPos) {
+  // text selection is only valid in nodes that allow inline content
+  // https://github.com/ProseMirror/prosemirror-state/blob/1.4.4/src/selection.ts#L219
+  if (!$pos.parent.inlineContent) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: not in inlineContent node",
+      {
+        $pos,
+      },
+    );
+    return false;
+  }
 
+  const { deletion, insertion } = getSuggestionMarks($pos.doc.type.schema);
+
+  const deletionBefore = deletion.isInSet($pos.nodeBefore?.marks ?? []);
+  const deletionAfter = deletion.isInSet($pos.nodeAfter?.marks ?? []);
+
+  const isAnchorBefore =
+    deletionBefore && deletionBefore.attrs["type"] === "anchor";
+  const isAnchorAfter =
+    deletionAfter && deletionAfter.attrs["type"] === "anchor";
+
+  if (isAnchorBefore && deletionAfter && !isAnchorAfter) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between deletion anchor and non-anchor deletion",
+      { $pos },
+    );
+    return false;
+  }
+
+  if (deletionBefore && deletionAfter && !isAnchorBefore && !isAnchorAfter) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between two non-anchor deletions",
+      { $pos },
+    );
+    return false;
+  }
+
+  if ($pos.nodeBefore == null && deletionAfter && !isAnchorAfter) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between node boundary and non-anchor deletion",
+      { $pos },
+    );
+    return false;
+  }
+
+  if (deletionBefore && $pos.nodeAfter == null && !isAnchorBefore) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between non-anchor deletion and node boundary",
+      { $pos },
+    );
+    return false;
+  }
+
+  if (deletionBefore && !isAnchorBefore && $pos.nodeAfter == null) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between non-anchor deletion and node boundary",
+      { $pos },
+    );
+    return false;
+  }
+
+  if (deletionBefore && !isAnchorBefore) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between non-anchor deletion and anything",
+      { $pos },
+    );
+    return false;
+  }
+
+  const insertionBefore = insertion.isInSet($pos.nodeBefore?.marks ?? []);
+  const insertionAfter = insertion.isInSet($pos.nodeAfter?.marks ?? []);
+
+  const ZWSP_REGEXP = new RegExp(ZWSP, "g");
+  const isZWSPBefore =
+    $pos.nodeBefore &&
+    $pos.nodeBefore.textContent.replace(ZWSP_REGEXP, "") === "";
+  const isZWSPAfter =
+    $pos.nodeAfter &&
+    $pos.nodeAfter.textContent.replace(ZWSP_REGEXP, "") === "";
+
+  if (insertionBefore && insertionAfter && isZWSPBefore && isZWSPAfter) {
+    console.log(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between two ZWSP insertions",
+      { $pos },
+    );
+    return false;
+  }
+
+  console.log("ZWSP checks", {
+    nodeAfterCheck: $pos.nodeAfter?.textContent.replace(ZWSP_REGEXP, ""),
+    nodeBeforeCheck: $pos.nodeBefore?.textContent.replace(ZWSP_REGEXP, ""),
+    parentCheck: $pos.parent.textContent.replace(ZWSP_REGEXP, ""),
+  });
+
+  if (
+    insertionBefore &&
+    isZWSPBefore &&
+    $pos.nodeAfter == null &&
+    // a position like this:
+    // <p><insertion>ZWSP</insertion>|</p>
+    // because it means this paragraph was just created and it's empty
+    $pos.parent.textContent.replace(ZWSP_REGEXP, "") !== ""
+  ) {
+    console.log(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between ZWSP insertion and right node boundary",
+      { $pos },
+    );
+    return false;
+  }
+
+  if (insertionAfter && isZWSPAfter && $pos.nodeBefore == null) {
+    console.log(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: between ZWSP insertion and left node boundary",
+      { $pos },
+    );
+    return false;
+  }
+
+  return true;
+}
+
+function findNextValidPos($initialPos: ResolvedPos): ResolvedPos | null {
   let $pos = $initialPos;
 
-  while (!isValidPos($pos, dir) && ($pos.nodeAfter != null || $pos.depth > 0)) {
+  // to keep searching for the next valid pos we need non-null nodeAfter so we can go right or non-root depth so we can go up
+  while (!isPosValid($pos) && ($pos.nodeAfter != null || $pos.depth > 0)) {
+    // first check if we can go into nodeAfter
     if ($pos.nodeAfter != null) {
+      // if nodeAfter is inline, we can step into it and search for the valid pos in it
       if ($pos.nodeAfter.isInline) {
         // nodeAfter is inline - move in by one
         $pos = $pos.doc.resolve($pos.pos + 1);
-        console.log("nodeAfter is inline, move to end of it", $pos);
       } else {
-        // nodeAfter is not inline - find first inline descendant in nodeAfter
+        // nodeAfter is not inline - find starting position of the first inline descendant in nodeAfter
         let localStartPos = null as number | null;
+
         $pos.nodeAfter.descendants((child, pos) => {
           if (!child.isInline) return true;
           if (localStartPos !== null) return false;
           localStartPos = pos;
           return false;
         });
+
         if (localStartPos !== null) {
-          // we have a local position of a first inline descendant - convert it to global position
+          // we have a local starting position of the first inline descendant - convert it to global position
           // +1 to "enter" the node, and add local pos
           $pos = $pos.doc.resolve($pos.pos + 1 + localStartPos);
-          console.log(
-            "found first inline descendant, move to start of it",
-            $pos,
-          );
         } else {
-          // unable to find first inline descendant of nodeAfter - just skip nodeAfter
+          // unable to find first inline descendant of nodeAfter - just skip nodeAfter altogether
           $pos = $pos.doc.resolve($pos.pos + $pos.nodeAfter.nodeSize);
-          console.log(
-            "unable to find first inline descendant, move to end of nodeAfter",
-            $pos,
-          );
         }
       }
     } else if ($pos.depth > 0) {
       // nodeAfter is null - go up
       $pos = $pos.doc.resolve($pos.after());
-      console.log("nodeAfter is null, go up", $pos);
     }
   }
 
-  if (isValidPos($pos, dir)) {
-    console.log("found next valid $pos", $pos);
-  } else {
-    console.warn(
-      "failed to find next valid $pos",
-      $pos,
-      "keep initial pos",
-      $initialPos,
-    );
-  }
-
-  console.groupEnd();
-
-  return isValidPos($pos, dir) ? $pos : $initialPos;
+  return isPosValid($pos) ? $pos : null;
 }
 
-function findPrevPos($initialPos: ResolvedPos, dir: 1 | -1) {
-  console.groupCollapsed(
-    "finding prev valid pos from $initialPos =",
-    $initialPos,
-  );
-
+function findPreviousValidPos($initialPos: ResolvedPos): ResolvedPos | null {
   let $pos = $initialPos;
 
-  while (
-    !isValidPos($pos, dir) &&
-    ($pos.nodeBefore != null || $pos.depth > 0)
-  ) {
+  // in order to be able to keep searching, we need either nodeBefore so we can go left, or non-root depth so we can go up
+  while (!isPosValid($pos) && ($pos.nodeBefore != null || $pos.depth > 0)) {
+    // first check if we can go into nodeBefore
     if ($pos.nodeBefore != null) {
+      // if nodeBefore is inline, we can step into it and search for the valid pos in it
       if ($pos.nodeBefore.isInline) {
         // nodeBefore is inline - move in by one
         $pos = $pos.doc.resolve($pos.pos - 1);
-        console.log("nodeBefore is inline, move to start of it", $pos);
       } else {
-        // nodeBefore is not inline - find last inline descendant in nodeBefore
+        // nodeBefore is not inline - find ending position of the last inline descendant in nodeBefore
         let localEndPos = null as number | null;
+
         $pos.nodeBefore.descendants((child, pos) => {
           if (!child.isInline) return true;
           localEndPos = pos + child.nodeSize;
           return false;
         });
+
         if (localEndPos !== null) {
-          // we have a local position of a last inline descendant - convert it to global position
+          // we have a local ending position of the last inline descendant - convert it to global position
           // move pos to start of node before, add 1 to "enter" nodeBefore, then add local pos
           $pos = $pos.doc.resolve(
             $pos.pos - $pos.nodeBefore.nodeSize + 1 + localEndPos,
           );
-          console.log("found last inline descendant, move to end of it", $pos);
         } else {
-          // unable to find last inline descendant of nodeBefore - just skip nodeBefore
+          // unable to find last inline descendant of nodeBefore - just skip nodeBefore altogether
           $pos = $pos.doc.resolve($pos.pos - $pos.nodeBefore.nodeSize);
-          console.log(
-            "unable to find last inline descendant, move to start of nodeBefore",
-            $pos,
-          );
         }
       }
     } else if ($pos.depth > 0) {
       // nodeBefore is null - go up
       $pos = $pos.doc.resolve($pos.before());
-      console.log("nodeBefore is null, go up", $pos);
     }
   }
 
-  if (isValidPos($pos, dir)) {
-    console.log("found prev valid $pos", $pos);
-  } else {
-    console.warn(
-      "failed to find prev valid $pos",
-      $pos,
-      "keep initial pos",
-      $initialPos,
-    );
-  }
-
-  console.groupEnd();
-
-  return isValidPos($pos, dir) ? $pos : $initialPos;
+  return isPosValid($pos) ? $pos : null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function isValidPos($pos: ResolvedPos, _dir: 1 | -1) {
-  // text selection is only valid in nodes that allow inline content
-  // https://github.com/ProseMirror/prosemirror-state/blob/1.4.4/src/selection.ts#L219
-  if (!$pos.parent.inlineContent) {
-    console.warn("cursor invalid", "not in inlineContent node", $pos);
-    return false;
-  }
+function getNewValidPos($pos: ResolvedPos, dir: "left" | "right" | null) {
+  if (isPosValid($pos)) return $pos;
 
-  const { deletion } = getSuggestionMarks($pos.doc.type.schema);
+  trace("getNewValidPos for", $pos.pos, { $pos, dir });
 
-  //   moving right - zwsp is on the right - skip forward
-  //   if (dir > 0 && $pos.nodeAfter?.text?.startsWith(ZWSP)) {
-  //     console.warn(
-  //       "cursor invalid",
-  //       "moving right - zwsp is on the right - skip forward",
-  //       $pos,
-  //     );
-  //     return false;
-  //   }
-
-  //   //   moving left - zwsp is on the left - skip backward
-  //   if (dir < 0 && $pos.nodeBefore?.text?.startsWith(ZWSP)) {
-  //     console.warn(
-  //       "cursor invalid",
-  //       "moving left - zwsp is on the left - skip backward",
-  //       $pos,
-  //     );
-  //     return false;
-  //   }
-
-  const deletionBefore = deletion.isInSet($pos.nodeBefore?.marks ?? []);
-  const deletionAfter = deletion.isInSet($pos.nodeAfter?.marks ?? []);
-
-  // between two deletions
-  if (deletionBefore && deletionAfter) {
-    console.warn("cursor invalid", "between two deletions", $pos);
-    return false;
-  }
-
-  // between a deletion and a node boundary
-  if (deletionBefore && $pos.nodeAfter == null) {
-    console.warn(
-      "cursor invalid",
-      "between a deletion and a node boundary",
+  if (dir === "right") {
+    const $nextValidPos = findNextValidPos($pos);
+    trace("getNewValidPos", "$nextValidPos", $nextValidPos?.pos, {
+      dir,
       $pos,
-    );
-    return false;
-  }
-
-  // between a node boundary and a deletion, if deletion is not anchor
-  if (
-    $pos.nodeBefore == null &&
-    deletionAfter &&
-    deletionAfter.attrs["type"] !== "anchor"
-  ) {
-    console.warn(
-      "cursor invalid",
-      "between a node boundary and a deletion",
+      $nextValidPos,
+    });
+    if ($nextValidPos != null) return $nextValidPos;
+    const $prevValidPos = findPreviousValidPos($pos);
+    trace("getNewValidPos", "$prevValidPos", $prevValidPos?.pos, {
+      dir,
       $pos,
-    );
-    return false;
+      $prevValidPos,
+    });
+    if ($prevValidPos != null) return $prevValidPos;
+    return null;
   }
 
-  // deletion is on the left, non-deletion is on the right
-  if (deletionBefore && $pos.nodeAfter != null && !deletionAfter) {
-    console.warn(
-      "cursor invalid",
-      "deletion is on the left, non-deletion is on the right",
+  if (dir === "left") {
+    const $prevValidPos = findPreviousValidPos($pos);
+    trace("getNewValidPos", "$prevValidPos", $prevValidPos?.pos, {
+      dir,
       $pos,
-    );
-    return false;
+      $prevValidPos,
+    });
+    if ($prevValidPos != null) return $prevValidPos;
+    const $nextValidPos = findNextValidPos($pos);
+    trace("getNewValidPos", "$nextValidPos", $nextValidPos?.pos, {
+      dir,
+      $pos,
+      $nextValidPos,
+    });
+    if ($nextValidPos != null) return $nextValidPos;
+    return null;
   }
 
-  return true;
+  const $nextValidPos = findNextValidPos($pos);
+  const $prevValidPos = findPreviousValidPos($pos);
+  trace(
+    "getNewValidPos",
+    "$nextValidPos",
+    $nextValidPos?.pos,
+    "$prevValidPos",
+    $prevValidPos?.pos,
+    { dir, $pos, $nextValidPos, $prevValidPos },
+  );
+
+  if ($nextValidPos == null && $prevValidPos == null) {
+    return null;
+  }
+
+  if ($nextValidPos == null) return $prevValidPos;
+  if ($prevValidPos == null) return $nextValidPos;
+
+  const nextDist = Math.abs($pos.pos - $nextValidPos.pos);
+  const prevDist = Math.abs($pos.pos - $prevValidPos.pos);
+
+  return nextDist <= prevDist ? $nextValidPos : $prevValidPos;
+}
+
+function getDirection(
+  $oldPos: ResolvedPos,
+  $newPos: ResolvedPos,
+  pluginState?: PluginState,
+) {
+  if (pluginState?.handleKeyDown.backspace) return "left";
+
+  if ($newPos.pos > $oldPos.pos) return "right";
+  if ($newPos.pos < $oldPos.pos) return "left";
+
+  return null;
 }
