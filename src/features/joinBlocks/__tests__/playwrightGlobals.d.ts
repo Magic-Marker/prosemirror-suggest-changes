@@ -35,6 +35,7 @@ declare global {
       replaceDoc: (doc: unknown) => void;
       getProseMirrorMarkCount: (name: string) => number;
       getProseMirrorSelection: () => { anchor: number; head: number };
+      getTextContentOfChildAtIndex: (index: number) => string;
     };
   }
 }

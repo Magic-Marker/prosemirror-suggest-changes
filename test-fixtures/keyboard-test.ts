@@ -160,6 +160,7 @@ declare global {
       logState: () => void;
       getProseMirrorMarkCount: (name: string) => number;
       getProseMirrorSelection: () => { anchor: number; head: number };
+      getTextContentOfChildAtIndex: (index: number) => string;
     };
   }
 }
@@ -287,6 +288,10 @@ window.pmEditor = {
 
   getProseMirrorSelection() {
     return view.state.selection.toJSON() as { anchor: number; head: number };
+  },
+
+  getTextContentOfChildAtIndex(index: number) {
+    return view.state.doc.child(index).textContent;
   },
 };
 

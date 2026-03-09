@@ -93,7 +93,7 @@ test.describe("Join Block Backspace Bug", () => {
     );
     const deletionMarkCount =
       await editorPage.getProseMirrorMarkCount("deletion");
-    expect(deletionMarkCount).toBe(2);
+    expect(deletionMarkCount).toBe(3); // deletion anchor, deletion, deletion join
     const insertionMarkCount =
       await editorPage.getProseMirrorMarkCount("insertion");
     expect(insertionMarkCount).toBe(0);
@@ -174,12 +174,12 @@ test.describe("Join Block Backspace Bug", () => {
     // all 3 paragraphs should be joined into one,
     // and the contents of the first two paragraphs should become deletion marks
     expect(await editorPage.getParagraphCount()).toBe(6);
-    expect(await editorPage.getParagraphText(3)).toBe(
+    expect(await editorPage.getParagraphText(2)).toBe(
       `\u200BParagraph 3\u200BParagraph 4\u200BParagraph 5`,
     );
     const deletionMarkCount =
       await editorPage.getProseMirrorMarkCount("deletion");
-    expect(deletionMarkCount).toBe(4);
+    expect(deletionMarkCount).toBe(5); // deletion anchor, deletion, deletion join, deletion, deletion join
     const insertionMarkCount =
       await editorPage.getProseMirrorMarkCount("insertion");
     expect(insertionMarkCount).toBe(0);
@@ -300,7 +300,7 @@ test.describe("Join Block Backspace Bug", () => {
 
     // we should end up with a paragraph that contains contents of all 4 deleted paragraphs in deletion marks
     expect(await editorPage.getParagraphCount()).toBe(5);
-    expect(await editorPage.getParagraphText(4)).toBe(
+    expect(await editorPage.getParagraphText(2)).toBe(
       `\u200BParagraph 3\u200BParagraph 4\u200BParagraph 5\u200BParagraph 6`,
     );
     deletionMarkCount = await editorPage.getProseMirrorMarkCount("deletion");
@@ -455,8 +455,6 @@ test.describe("Join Block Backspace Bug", () => {
 
     const editorPage = new EditorPage(page);
 
-    // there is also an automatically added empty paragraph on the bottom
-    expect(await editorPage.getParagraphCount()).toBe(8);
     // there is also an automatically added empty paragraph on the bottom
     expect(await editorPage.getParagraphCount()).toBe(8);
 

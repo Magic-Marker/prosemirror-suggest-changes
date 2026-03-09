@@ -16,8 +16,12 @@ export class EditorPage {
   }
 
   async getParagraphText(index: number): Promise<string> {
-    const paragraph = this.editor.locator("p").nth(index);
-    return (await paragraph.textContent()) ?? "";
+    return await this.page.evaluate(
+      ({ index }) => {
+        return window.pmEditor.getTextContentOfChildAtIndex(index);
+      },
+      { index },
+    );
   }
 
   async getParagraphCount(): Promise<number> {

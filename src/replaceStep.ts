@@ -311,17 +311,18 @@ export function suggestReplaceStep(
   }
 
   // Handle insertions
-  // When didBlockJoin is true, only process insertions if the slice contains
+  // When didBlockJoin is true, or nodes were joined, only process insertions if the slice contains
   // actual new content (closed slice) rather than just structural info for the join (open slice).
   // Open slices have openStart > 0 or openEnd > 0 and represent block structure.
   // Closed slices have openStart = 0 and openEnd = 0 and contain new user content.
   // TODO: Done with AI, not 100% sure about the argument but it works. Kind of.
   // The replaced content is not equivalent to what would happen without suggestions, just with insertions
   // but it's workable. Only issues are with deleting between different depths ( for ex. between list and root level paragraph )
+  const didJoinNodes = didBlockJoin || joinNodesTransform.steps.length > 0;
   const sliceHasNewContent =
     step.slice.openStart === 0 && step.slice.openEnd === 0;
   const shouldProcessInsertion =
-    step.slice.content.size && (!didBlockJoin || sliceHasNewContent);
+    step.slice.content.size && (!didJoinNodes || sliceHasNewContent);
 
   if (shouldProcessInsertion) {
     const $to = trackedTransaction.doc.resolve(stepTo);
