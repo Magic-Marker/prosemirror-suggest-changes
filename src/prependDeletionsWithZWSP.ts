@@ -4,11 +4,19 @@ import { Transform } from "prosemirror-transform";
 import { ZWSP } from "./constants.js";
 import { type SuggestionId } from "./generateId.js";
 
+const TRACE_ENABLED = true;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[prependDeletionsWithZWSP]", ...args);
+}
+
 export function prependDeletionsWithZWSP(
   transaction: Transaction,
   opts?: { experimental_deletions?: "hidden" | "visible" },
 ): Transaction {
-  console.groupCollapsed("prepend deletions with zwsp");
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED) console.groupCollapsed("prepend deletions with zwsp");
 
   const { deletion } = getSuggestionMarks(transaction.doc.type.schema);
 
@@ -23,7 +31,7 @@ export function prependDeletionsWithZWSP(
     const mappedPos = transform.mapping.map(pos);
 
     transform.delete(mappedPos, mappedPos + node.nodeSize);
-    console.log("found zwsp, deleted", {
+    trace("found zwsp, deleted", {
       from: mappedPos,
       to: mappedPos + node.nodeSize,
     });
@@ -34,13 +42,12 @@ export function prependDeletionsWithZWSP(
   transform.steps.forEach((step) => {
     transaction.step(step);
   });
-  console.log(
-    `added ${String(transform.steps.length)} remove zwsp steps to tr`,
-  );
+  trace(`added ${String(transform.steps.length)} remove zwsp steps to tr`);
 
   if (opts?.experimental_deletions !== "hidden") {
-    console.log("deletions are visible, skipping prepend zwsp");
-    console.groupEnd();
+    trace("deletions are visible, skipping prepend zwsp");
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (TRACE_ENABLED) console.groupEnd();
     return transaction;
   }
 
@@ -59,13 +66,10 @@ export function prependDeletionsWithZWSP(
     const mappedPos = transform.mapping.map(pos);
 
     transform.insert(mappedPos + 1, zwspNode);
-    console.log(
-      "found first-child-deletion inline content node, inserted zwsp at",
-      {
-        pos,
-        mappedPos,
-      },
-    );
+    trace("found first-child-deletion inline content node, inserted zwsp at", {
+      pos,
+      mappedPos,
+    });
 
     return true;
   });
@@ -73,9 +77,10 @@ export function prependDeletionsWithZWSP(
   transform.steps.forEach((step) => {
     transaction.step(step);
   });
-  console.log(`added ${String(transform.steps.length)} add zwsp steps to tr`);
+  trace(`added ${String(transform.steps.length)} add zwsp steps to tr`);
 
-  console.groupEnd();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED) console.groupEnd();
 
   return transaction;
 }

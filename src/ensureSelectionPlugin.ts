@@ -4,7 +4,7 @@ import { type ResolvedPos } from "prosemirror-model";
 import { ZWSP } from "./constants.js";
 // import { ZWSP } from "./constants.js";
 
-const TRACE_ENABLED = false;
+const TRACE_ENABLED = true;
 function trace(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!TRACE_ENABLED) return;
@@ -68,18 +68,25 @@ export function ensureSelection() {
           newState.handleKeyDown.arrowLeft !== state.handleKeyDown.arrowLeft ||
           newState.handleKeyDown.arrowRight !== state.handleKeyDown.arrowRight
         ) {
-          console.log("handleKeyDown newState =", newState);
+          trace("handleKeyDown newState =", newState);
           view.dispatch(view.state.tr.setMeta(ensureSelectionKey, newState));
         }
       },
     },
 
     appendTransaction(_transactions, oldState, newState) {
+      const pluginState = ensureSelectionKey.getState(newState);
+
+      if (
+        isPosValid(newState.selection.$anchor) &&
+        isPosValid(newState.selection.$head)
+      ) {
+        return null;
+      }
+
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (TRACE_ENABLED)
         console.groupCollapsed("[ensureSelectionPlugin]", "appendTransaction");
-
-      const pluginState = ensureSelectionKey.getState(newState);
 
       trace("appendTransaction", "search for new valid $anchor...");
       let $newAnchor = getNewValidPos(
@@ -260,7 +267,7 @@ function isPosValid($pos: ResolvedPos) {
     $pos.nodeAfter.textContent.replace(ZWSP_REGEXP, "") === "";
 
   if (insertionBefore && insertionAfter && isZWSPBefore && isZWSPAfter) {
-    console.log(
+    trace(
       "isPosValid",
       $pos.pos,
       "pos invalid",
@@ -269,12 +276,6 @@ function isPosValid($pos: ResolvedPos) {
     );
     return false;
   }
-
-  console.log("ZWSP checks", {
-    nodeAfterCheck: $pos.nodeAfter?.textContent.replace(ZWSP_REGEXP, ""),
-    nodeBeforeCheck: $pos.nodeBefore?.textContent.replace(ZWSP_REGEXP, ""),
-    parentCheck: $pos.parent.textContent.replace(ZWSP_REGEXP, ""),
-  });
 
   if (
     insertionBefore &&
@@ -285,7 +286,7 @@ function isPosValid($pos: ResolvedPos) {
     // because it means this paragraph was just created and it's empty
     $pos.parent.textContent.replace(ZWSP_REGEXP, "") !== ""
   ) {
-    console.log(
+    trace(
       "isPosValid",
       $pos.pos,
       "pos invalid",
@@ -296,7 +297,7 @@ function isPosValid($pos: ResolvedPos) {
   }
 
   if (insertionAfter && isZWSPAfter && $pos.nodeBefore == null) {
-    console.log(
+    trace(
       "isPosValid",
       $pos.pos,
       "pos invalid",
