@@ -170,18 +170,18 @@ export function isEnsureSelectionEnabled() {
 function isPosValid($pos: ResolvedPos) {
   // text selection is only valid in nodes that allow inline content
   // https://github.com/ProseMirror/prosemirror-state/blob/1.4.4/src/selection.ts#L219
-  // if (!$pos.parent.inlineContent) {
-  //   trace(
-  //     "isPosValid",
-  //     $pos.pos,
-  //     "pos invalid",
-  //     "reason: not in inlineContent node",
-  //     {
-  //       $pos,
-  //     },
-  //   );
-  //   return false;
-  // }
+  if (!$pos.parent.inlineContent) {
+    trace(
+      "isPosValid",
+      $pos.pos,
+      "pos invalid",
+      "reason: not in inlineContent node",
+      {
+        $pos,
+      },
+    );
+    return false;
+  }
 
   const { deletion, insertion } = getSuggestionMarks($pos.doc.type.schema);
 
