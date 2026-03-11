@@ -15,9 +15,6 @@ export function prependDeletionsWithZWSP(
   transaction: Transaction,
   opts?: { experimental_deletions?: "hidden" | "visible" },
 ): Transaction {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (TRACE_ENABLED) console.groupCollapsed("prepend deletions with zwsp");
-
   const { deletion } = getSuggestionMarks(transaction.doc.type.schema);
 
   let transform = new Transform(transaction.doc);
@@ -31,10 +28,6 @@ export function prependDeletionsWithZWSP(
     const mappedPos = transform.mapping.map(pos);
 
     transform.delete(mappedPos, mappedPos + node.nodeSize);
-    trace("found zwsp, deleted", {
-      from: mappedPos,
-      to: mappedPos + node.nodeSize,
-    });
 
     return true;
   });
@@ -42,12 +35,14 @@ export function prependDeletionsWithZWSP(
   transform.steps.forEach((step) => {
     transaction.step(step);
   });
-  trace(`added ${String(transform.steps.length)} remove zwsp steps to tr`);
+
+  if (transform.steps.length > 0)
+    trace(
+      `added ${String(transform.steps.length)} remove zwsp steps to tr`,
+      transform,
+    );
 
   if (opts?.experimental_deletions !== "hidden") {
-    trace("deletions are visible, skipping prepend zwsp");
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (TRACE_ENABLED) console.groupEnd();
     return transaction;
   }
 
@@ -66,10 +61,6 @@ export function prependDeletionsWithZWSP(
     const mappedPos = transform.mapping.map(pos);
 
     transform.insert(mappedPos + 1, zwspNode);
-    trace("found first-child-deletion inline content node, inserted zwsp at", {
-      pos,
-      mappedPos,
-    });
 
     return true;
   });
@@ -77,10 +68,12 @@ export function prependDeletionsWithZWSP(
   transform.steps.forEach((step) => {
     transaction.step(step);
   });
-  trace(`added ${String(transform.steps.length)} add zwsp steps to tr`);
 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (TRACE_ENABLED) console.groupEnd();
+  if (transform.steps.length > 0)
+    trace(
+      `added ${String(transform.steps.length)} add zwsp steps to tr`,
+      transform,
+    );
 
   return transaction;
 }
