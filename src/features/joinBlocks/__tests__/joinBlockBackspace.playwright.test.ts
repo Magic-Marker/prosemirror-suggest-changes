@@ -1,20 +1,8 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 
 test.describe("Join Block Backspace Bug", () => {
-  test.beforeEach(async ({ page }) => {
-    // Navigate to the test page
-    await page.goto("/test-fixtures/keyboard-test.html");
-
-    // Wait for the editor to be initialized
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    await page.waitForFunction(() => window.pmEditor !== undefined);
-
-    // Focus the editor
-    await page.locator("#editor .ProseMirror").click();
-  });
-
   test("should join blocks correctly when deleting a selection that spans across a block boundary and a single paragraph above", async ({
     page,
   }) => {

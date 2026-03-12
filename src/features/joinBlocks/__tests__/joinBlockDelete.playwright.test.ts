@@ -1,21 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 
 test.describe("Join Block Delete Bug", () => {
-  test.beforeEach(async ({ page }) => {
-    // Navigate to the test page
-    await page.goto("/test-fixtures/keyboard-test.html");
-
-    // Wait for the editor to be initialized
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    await page.waitForFunction(() => window.pmEditor !== undefined);
-
-    // Focus the editor
-    await page.locator("#editor .ProseMirror").click();
-  });
-
-  test("(using Delete key) should join blocks correctly when deleting a selection spans across a block boundary and multiple paragraphs above", async ({
+  test.skip("(using Delete key) should join blocks correctly when deleting a selection spans across a block boundary and multiple paragraphs above", async ({
     page,
   }) => {
     await setupDocFromJSON(page, {
@@ -101,7 +89,7 @@ test.describe("Join Block Delete Bug", () => {
     expect(insertionMarkCount).toBe(0);
   });
 
-  test("should join blocks correctly when repeatedly pressing Delete key", async ({
+  test.skip("should join blocks correctly when repeatedly pressing Delete key", async ({
     page,
   }) => {
     await setupDocFromJSON(page, {

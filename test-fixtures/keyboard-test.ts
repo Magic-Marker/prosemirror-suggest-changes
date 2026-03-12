@@ -16,6 +16,20 @@ import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
 import { experimental_ensureSelection } from "../src/index.js";
 
+const searchParams = new URLSearchParams(window.location.search);
+
+let deletionMarksVisibility = searchParams.get("deletionMarksVisibility") as
+  | "hidden"
+  | "visible"
+  | null;
+deletionMarksVisibility ??= "visible";
+
+console.log(
+  "keyboard-test.ts",
+  "deletion mark visibility",
+  deletionMarksVisibility,
+);
+
 // Create schema with suggestion marks and list support
 const schema = new Schema({
   nodes: {
@@ -29,7 +43,7 @@ const schema = new Schema({
     },
   },
   marks: addSuggestionMarks(marks, {
-    experimental_deletions: "hidden",
+    experimental_deletions: deletionMarksVisibility,
   }),
 });
 
@@ -80,29 +94,23 @@ let state = EditorState.create({
 state = state.apply(state.tr.setMeta(suggestChangesKey, { enabled: true }));
 
 // Custom dispatch with logging
-const dispatch = withSuggestChanges(
-  function (this: EditorView, tr) {
-    const docBefore = this.state.doc.textContent;
-    const newState = this.state.apply(tr);
+const dispatch = withSuggestChanges(function (this: EditorView, tr) {
+  const docBefore = this.state.doc.textContent;
+  const newState = this.state.apply(tr);
 
-    transactions.push({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      steps: tr.steps.map((s) => s.toJSON()),
-      selection: { from: tr.selection.from, to: tr.selection.to },
-      docBefore,
-      docAfter: newState.doc.textContent,
-    });
+  transactions.push({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    steps: tr.steps.map((s) => s.toJSON()),
+    selection: { from: tr.selection.from, to: tr.selection.to },
+    docBefore,
+    docAfter: newState.doc.textContent,
+  });
 
-    this.updateState(newState);
+  this.updateState(newState);
 
-    // Update status display
-    updateStatus();
-  },
-  undefined,
-  {
-    experimental_deletions: "hidden",
-  },
-);
+  // Update status display
+  updateStatus();
+});
 
 // Create editor view
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

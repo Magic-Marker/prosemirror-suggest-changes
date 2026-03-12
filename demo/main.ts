@@ -202,9 +202,7 @@ const editorEl = document.getElementById("editor")!;
 const view = new EditorView(editorEl, {
   state: editorState,
   plugins,
-  dispatchTransaction: withSuggestChanges(undefined, undefined, {
-    experimental_deletions: "hidden",
-  }),
+  dispatchTransaction: withSuggestChanges(),
 });
 
 enableSuggestChanges(view.state, view.dispatch);

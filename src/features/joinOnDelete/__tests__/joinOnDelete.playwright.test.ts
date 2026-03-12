@@ -1,21 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { ZWSP } from "../../../constants.js";
 import { getSuggestionMarks } from "../../../utils.js";
 
 test.describe("Join on Delete E2E - Real Keyboard Events", () => {
-  test.beforeEach(async ({ page }) => {
-    // Navigate to the test page
-    await page.goto("/test-fixtures/keyboard-test.html");
-
-    // Wait for the editor to be initialized
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    await page.waitForFunction(() => window.pmEditor !== undefined);
-
-    // Focus the editor
-    await page.locator("#editor .ProseMirror").click();
-  });
-
   test.describe("Paragraph: Backspace then Enter (after join modification)", () => {
     test("should revert document to original state (join mark is adjacent to split mark)", async ({
       page,

@@ -185,7 +185,6 @@ export function transformToSuggestionTransaction(
 export function withSuggestChanges(
   dispatchTransaction?: EditorView["dispatch"],
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
-  opts?: { experimental_deletions?: "hidden" | "visible" },
 ): EditorView["dispatch"] {
   const dispatch =
     dispatchTransaction ??
@@ -210,7 +209,7 @@ export function withSuggestChanges(
         : tr;
 
     if (transaction.docChanged) {
-      prependDeletionsWithZWSP(transaction, opts);
+      prependDeletionsWithZWSP(transaction);
     }
 
     dispatch.call(this, transaction);

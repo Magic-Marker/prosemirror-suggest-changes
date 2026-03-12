@@ -12,7 +12,7 @@
  * - Catches bugs that manual transactions would hide
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import {
   testEnterThenBackspace,
   testDoubleEnterDoubleBackspace,
@@ -28,18 +28,6 @@ import {
 } from "../../../__tests__/playwrightHelpers.js";
 
 test.describe("Block Join E2E - Real Keyboard Events", () => {
-  test.beforeEach(async ({ page }) => {
-    // Navigate to the test page
-    await page.goto("/test-fixtures/keyboard-test.html");
-
-    // Wait for the editor to be initialized
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    await page.waitForFunction(() => window.pmEditor !== undefined);
-
-    // Focus the editor
-    await page.locator("#editor .ProseMirror").click();
-  });
-
   test.describe("Paragraph: Enter then Backspace", () => {
     test("should revert document to original state", async ({ page }) => {
       await testEnterThenBackspace(page);

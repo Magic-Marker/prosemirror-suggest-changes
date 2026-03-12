@@ -13,7 +13,6 @@ function trace(...args: unknown[]) {
 
 export function prependDeletionsWithZWSP(
   transaction: Transaction,
-  opts?: { experimental_deletions?: "hidden" | "visible" },
 ): Transaction {
   const { deletion } = getSuggestionMarks(transaction.doc.type.schema);
 
@@ -41,10 +40,6 @@ export function prependDeletionsWithZWSP(
       `added ${String(transform.steps.length)} remove zwsp steps to tr`,
       transform,
     );
-
-  if (opts?.experimental_deletions !== "hidden") {
-    return transaction;
-  }
 
   transform = new Transform(transaction.doc);
 
