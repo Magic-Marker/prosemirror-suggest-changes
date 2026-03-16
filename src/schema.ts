@@ -47,6 +47,7 @@ export const hiddenDeletion: MarkSpec = {
     return [
       "del",
       {
+        "aria-hidden": "true",
         "data-id": JSON.stringify(mark.attrs["id"]),
         "data-inline": String(inline),
         ...(!inline && { style: blockStyle }),

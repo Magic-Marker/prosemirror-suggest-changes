@@ -3,6 +3,49 @@ import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 
 test.describe("Editing behavior around hidden deletions", () => {
+  test("should have correct attributes on hidden deletion DOM nodes", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    test.skip(
+      deletionMarksVisibility === "visible",
+      "Not applicable for visible deletion marks",
+    );
+
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Paragraph 1" }],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page);
+    expect(await editorPage.getParagraphCount()).toBe(1);
+
+    // delete "graph 1"
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
+    for (let i = 0; i < "graph 1".length; ++i) {
+      await page.keyboard.press("Backspace");
+      await page.waitForTimeout(50);
+    }
+
+    await expect(page.locator('del[data-id="1"]')).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    await expect(page.locator('del[data-id="1"]')).toHaveAttribute(
+      "style",
+      "display: inline; font-size: 1px; line-height: 0px; color: transparent; letter-spacing: -1px;",
+    );
+  });
+
   test.skip("deleting in front of a hidden deletion at node boundary should not insert new paragraph", async ({
     page,
   }) => {
