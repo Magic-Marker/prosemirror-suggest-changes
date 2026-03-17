@@ -6,10 +6,11 @@ import {
   type DecorationSource,
 } from "prosemirror-view";
 import { getSuggestionMarks } from "./utils.js";
+import { PILCROW } from "./constants.js";
 
 function pilcrow() {
   const span = document.createElement("span");
-  span.appendChild(document.createTextNode("¶"));
+  span.appendChild(document.createTextNode(PILCROW));
   return span;
 }
 
@@ -71,7 +72,10 @@ export function getSuggestionDecorations(state: EditorState): DecorationSource {
     ) {
       return true;
     }
-    if (currentDeletionMark) {
+    if (
+      currentDeletionMark &&
+      currentDeletionMark.attrs["id"] === lastDeletionMark?.attrs["id"]
+    ) {
       changeDecorations.push(
         Decoration.widget(widgetPos, pilcrow, {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -85,7 +89,10 @@ export function getSuggestionDecorations(state: EditorState): DecorationSource {
         }),
       );
     }
-    if (currentInsertionMark) {
+    if (
+      currentInsertionMark &&
+      currentInsertionMark.attrs["id"] === lastInsertionMark?.attrs["id"]
+    ) {
       changeDecorations.push(
         Decoration.widget(widgetPos, pilcrow, {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

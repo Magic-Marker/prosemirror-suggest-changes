@@ -42,4 +42,13 @@ export class EditorPage {
       return window.pmEditor.getProseMirrorSelection();
     });
   }
+
+  async getDOMTextContentOfChildAtIndex(index: number): Promise<string> {
+    return await this.page.evaluate(
+      ({ index }) => {
+        return window.pmEditor.getDOMTextContentOfChildAtIndex(index);
+      },
+      { index },
+    );
+  }
 }

@@ -169,6 +169,7 @@ declare global {
       getProseMirrorMarkCount: (name: string) => number;
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
+      getDOMTextContentOfChildAtIndex: (index: number) => string;
     };
   }
 }
@@ -300,6 +301,10 @@ window.pmEditor = {
 
   getTextContentOfChildAtIndex(index: number) {
     return view.state.doc.child(index).textContent;
+  },
+
+  getDOMTextContentOfChildAtIndex(index: number) {
+    return view.dom.childNodes[index].textContent ?? "";
   },
 };
 

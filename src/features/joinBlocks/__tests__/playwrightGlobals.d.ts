@@ -36,6 +36,7 @@ declare global {
       getProseMirrorMarkCount: (name: string) => number;
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
+      getDOMTextContentOfChildAtIndex: (index: number) => string;
     };
   }
 }
