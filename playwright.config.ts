@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { type TestOptions } from "./src/__tests__/playwrightBaseTest.js";
 
-export default defineConfig({
+export default defineConfig<TestOptions>({
   testDir: "./src",
   testMatch: "**/*.playwright.test.ts",
   fullyParallel: true,
@@ -14,8 +15,20 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: "visible deletion marks",
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: "chromium",
+        deletionMarksVisibility: "visible",
+      },
+    },
+    {
+      name: "hidden deletion marks",
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: "chromium",
+        deletionMarksVisibility: "hidden",
+      },
     },
   ],
   webServer: {

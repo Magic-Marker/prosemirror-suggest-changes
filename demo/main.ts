@@ -17,6 +17,7 @@ import {
   suggestChanges,
   toggleSuggestChanges,
   withSuggestChanges,
+  experimental_ensureSelection,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
@@ -58,7 +59,9 @@ export const schema = new Schema({
       marks: "insertion deletion modification",
     },
   },
-  marks: addSuggestionMarks(marks),
+  marks: addSuggestionMarks(marks, {
+    experimental_deletions: "hidden",
+  }),
 });
 
 const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
@@ -107,10 +110,29 @@ const doc = await unified()
   .process(content)
   .then(({ result }) => result);
 
+const enterCommand = baseKeymap["Enter"];
+
+if (!enterCommand) {
+  throw new Error("Missing enter command");
+}
 const editorState = EditorState.create({
   schema,
   doc,
   plugins: [
+    experimental_ensureSelection(),
+    keymap({
+      ...baseKeymap,
+      Enter: chainCommands(splitListItem(schema.nodes.list_item), enterCommand),
+      "Shift-Enter": enterCommand,
+      Tab: sinkListItem(schema.nodes.list_item),
+      "Shift-Tab": liftListItem(schema.nodes.list_item),
+      "Mod-i": toggleMark(schema.marks.em),
+      "Mod-b": toggleMark(schema.marks.strong),
+      "Mod-Shift-c": toggleMark(schema.marks.code),
+      "Mod-z": undo,
+      "Mod-Shift-z": redo,
+      "Mod-y": redo,
+    }),
     inputRules({
       rules: [
         wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes.bullet_list),
@@ -172,28 +194,7 @@ const suggestChangesUiPlugin = new Plugin({
     };
   },
 });
-
-const enterCommand = baseKeymap["Enter"];
-
-if (!enterCommand) {
-  throw new Error("Missing enter command");
-}
-const plugins = [
-  keymap({
-    ...baseKeymap,
-    Enter: chainCommands(splitListItem(schema.nodes.list_item), enterCommand),
-    "Shift-Enter": enterCommand,
-    Tab: sinkListItem(schema.nodes.list_item),
-    "Shift-Tab": liftListItem(schema.nodes.list_item),
-    "Mod-i": toggleMark(schema.marks.em),
-    "Mod-b": toggleMark(schema.marks.strong),
-    "Mod-Shift-c": toggleMark(schema.marks.code),
-    "Mod-z": undo,
-    "Mod-Shift-z": redo,
-    "Mod-y": redo,
-  }),
-  suggestChangesUiPlugin,
-];
+const plugins = [suggestChangesUiPlugin];
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const editorEl = document.getElementById("editor")!;

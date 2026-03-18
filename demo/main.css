@@ -6,6 +6,10 @@
   min-height: 200px;
 }
 
+.ProseMirror p {
+  min-height: 1rem;
+}
+
 #editor {
   margin: auto;
   width: 80%;

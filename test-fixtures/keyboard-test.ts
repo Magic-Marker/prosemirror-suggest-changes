@@ -1,6 +1,6 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { Schema } from "prosemirror-model";
+import { type Mark, Schema } from "prosemirror-model";
 import { nodes, marks } from "prosemirror-schema-basic";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
@@ -14,6 +14,21 @@ import { addSuggestionMarks } from "../src/schema.js";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
+import { experimental_ensureSelection } from "../src/index.js";
+
+const searchParams = new URLSearchParams(window.location.search);
+
+let deletionMarksVisibility = searchParams.get("deletionMarksVisibility") as
+  | "hidden"
+  | "visible"
+  | null;
+deletionMarksVisibility ??= "visible";
+
+console.log(
+  "keyboard-test.ts",
+  "deletion mark visibility",
+  deletionMarksVisibility,
+);
 
 // Create schema with suggestion marks and list support
 const schema = new Schema({
@@ -27,7 +42,9 @@ const schema = new Schema({
       marks: "insertion deletion modification",
     },
   },
-  marks: addSuggestionMarks(marks),
+  marks: addSuggestionMarks(marks, {
+    experimental_deletions: deletionMarksVisibility,
+  }),
 });
 
 // Transaction logging
@@ -49,11 +66,17 @@ const doc = schema.nodeFromJSON({
   ],
 });
 
+const enterCommand = baseKeymap["Enter"];
+
+if (!enterCommand) {
+  throw new Error("Missing enter command");
+}
 // Create editor state with list item support
 let state = EditorState.create({
   doc,
   schema,
   plugins: [
+    experimental_ensureSelection(),
     keymap({
       ...baseKeymap,
       // Handle Enter key for list items
@@ -61,6 +84,7 @@ let state = EditorState.create({
         splitListItem(schema.nodes.list_item),
         baseKeymap["Enter"] ?? (() => false),
       ),
+      "Shift-Enter": enterCommand,
     }),
     suggestChanges(),
   ],
@@ -70,32 +94,32 @@ let state = EditorState.create({
 state = state.apply(state.tr.setMeta(suggestChangesKey, { enabled: true }));
 
 // Custom dispatch with logging
-const dispatch = withSuggestChanges(
-  function (this: EditorView, tr) {
-    const docBefore = this.state.doc.textContent;
-    const newState = this.state.apply(tr);
+const dispatch = withSuggestChanges(function (this: EditorView, tr) {
+  const docBefore = this.state.doc.textContent;
+  const newState = this.state.apply(tr);
 
-    transactions.push({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      steps: tr.steps.map((s) => s.toJSON()),
-      selection: { from: tr.selection.from, to: tr.selection.to },
-      docBefore,
-      docAfter: newState.doc.textContent,
-    });
+  transactions.push({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    steps: tr.steps.map((s) => s.toJSON()),
+    selection: { from: tr.selection.from, to: tr.selection.to },
+    docBefore,
+    docAfter: newState.doc.textContent,
+  });
 
-    this.updateState(newState);
+  this.updateState(newState);
 
-    // Update status display
-    updateStatus();
-  },
-  () => 1,
-);
+  // Update status display
+  updateStatus();
+});
 
 // Create editor view
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const editorEl = document.getElementById("editor")!;
 const view = new EditorView(editorEl, {
   state,
+  attributes: {
+    "data-testid": "main-editor",
+  },
   dispatchTransaction: dispatch,
 });
 
@@ -125,6 +149,7 @@ declare global {
         textContent: string;
         cursorFrom: number;
         cursorTo: number;
+        marks: Mark[];
       };
       getDocJSON: () => unknown;
       replaceDoc: (docJSON: unknown) => void;
@@ -141,6 +166,10 @@ declare global {
       getTransactions: () => typeof transactions;
       clearTransactions: () => void;
       logState: () => void;
+      getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorSelection: () => { anchor: number; head: number };
+      getTextContentOfChildAtIndex: (index: number) => string;
+      getDOMTextContentOfChildAtIndex: (index: number) => string;
     };
   }
 }
@@ -149,12 +178,17 @@ window.pmEditor = {
   view,
 
   getState() {
+    const marks: Mark[] = [];
+    view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
+      marks.push(...node.marks);
+    });
     return {
       blockCount: view.state.doc.childCount,
       paragraphCount: view.state.doc.childCount, // Kept for backward compatibility
       textContent: view.state.doc.textContent,
       cursorFrom: view.state.selection.from,
       cursorTo: view.state.selection.to,
+      marks,
     };
   },
 
@@ -251,6 +285,26 @@ window.pmEditor = {
     );
     console.log("Doc JSON:", view.state.doc.toJSON());
     console.log("===================");
+  },
+
+  getProseMirrorMarkCount(name: string) {
+    const marks: Mark[] = [];
+    view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
+      marks.push(...node.marks);
+    });
+    return marks.filter((mark) => mark.type.name === name).length;
+  },
+
+  getProseMirrorSelection() {
+    return view.state.selection.toJSON() as { anchor: number; head: number };
+  },
+
+  getTextContentOfChildAtIndex(index: number) {
+    return view.state.doc.child(index).textContent;
+  },
+
+  getDOMTextContentOfChildAtIndex(index: number) {
+    return view.dom.childNodes[index].textContent ?? "";
   },
 };
 

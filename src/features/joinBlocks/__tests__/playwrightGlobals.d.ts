@@ -1,4 +1,5 @@
 import type { EditorView } from "prosemirror-view";
+import type { Mark } from "prosemirror-model";
 
 declare global {
   interface Window {
@@ -10,6 +11,7 @@ declare global {
         textContent: string;
         cursorFrom: number;
         cursorTo: number;
+        marks: Mark[];
       };
       getDocJSON: () => unknown;
       getCursorInfo: () => {
@@ -31,6 +33,10 @@ declare global {
       clearTransactions: () => void;
       logState: () => void;
       replaceDoc: (doc: unknown) => void;
+      getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorSelection: () => { anchor: number; head: number };
+      getTextContentOfChildAtIndex: (index: number) => string;
+      getDOMTextContentOfChildAtIndex: (index: number) => string;
     };
   }
 }

@@ -6,6 +6,8 @@ export const deletion: MarkSpec = {
   excludes: "insertion modification deletion",
   attrs: {
     id: { validate: suggestionIdValidate },
+    type: { default: null, validate: "string|null" },
+    data: { default: null },
   },
   toDOM(mark, inline) {
     return [
@@ -14,6 +16,8 @@ export const deletion: MarkSpec = {
         "data-id": JSON.stringify(mark.attrs["id"]),
         "data-inline": String(inline),
         ...(!inline && { style: "display: block" }),
+        "data-type": JSON.stringify(mark.attrs["type"]),
+        "data-data": JSON.stringify(mark.attrs["data"]),
       },
       0,
     ];
@@ -25,10 +29,36 @@ export const deletion: MarkSpec = {
         if (!node.dataset["id"]) return false;
         return {
           id: JSON.parse(node.dataset["id"]) as SuggestionId,
+          type: JSON.parse(node.dataset["type"] ?? "null") as string | null,
+          data: JSON.parse(node.dataset["data"] ?? "null") as object | null,
         };
       },
     },
   ],
+};
+
+export const hiddenDeletion: MarkSpec = {
+  ...deletion,
+  toDOM(mark, inline) {
+    const isAnchor = mark.attrs["type"] === "anchor";
+    const blockStyle = `display: block;`;
+    const inlineStyle = `display: inline;`;
+    const hiddenStyle = `display: inline; font-size: 1px; line-height: 0px; color: transparent; letter-spacing: -1px;`;
+    return [
+      "del",
+      {
+        "aria-hidden": "true",
+        "data-id": JSON.stringify(mark.attrs["id"]),
+        "data-inline": String(inline),
+        ...(!inline && { style: blockStyle }),
+        ...(inline && isAnchor && { style: inlineStyle }),
+        ...(inline && !isAnchor && { style: hiddenStyle }),
+        "data-type": JSON.stringify(mark.attrs["type"]),
+        "data-data": JSON.stringify(mark.attrs["data"]),
+      },
+      0,
+    ];
+  },
 };
 
 export const insertion: MarkSpec = {
@@ -118,10 +148,12 @@ export const modification: MarkSpec = {
  */
 export function addSuggestionMarks<Marks extends string>(
   marks: Record<Marks, MarkSpec>,
+  opts?: { experimental_deletions?: "hidden" | "visible" },
 ): Record<Marks | "deletion" | "insertion" | "modification", MarkSpec> {
   return {
     ...marks,
-    deletion,
+    deletion:
+      opts?.experimental_deletions === "hidden" ? hiddenDeletion : deletion,
     insertion,
     modification,
   };
