@@ -2,9 +2,8 @@ import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
 import { getSuggestionMarks } from "./utils.js";
 import { type ResolvedPos } from "prosemirror-model";
 import { ZWSP } from "./constants.js";
-// import { ZWSP } from "./constants.js";
 
-const TRACE_ENABLED = true;
+const TRACE_ENABLED = false;
 function trace(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!TRACE_ENABLED) return;
