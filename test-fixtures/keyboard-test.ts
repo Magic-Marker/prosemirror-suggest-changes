@@ -3,6 +3,7 @@ import { EditorView } from "prosemirror-view";
 import { type Mark, Schema } from "prosemirror-model";
 import { nodes, marks } from "prosemirror-schema-basic";
 import { baseKeymap, chainCommands } from "prosemirror-commands";
+import { history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import {
   bulletList,
@@ -85,7 +86,11 @@ let state = EditorState.create({
         baseKeymap["Enter"] ?? (() => false),
       ),
       "Shift-Enter": enterCommand,
+      "Mod-z": undo,
+      "Mod-Shift-z": redo,
+      "Mod-y": redo,
     }),
+    history(),
     suggestChanges(),
   ],
 });
