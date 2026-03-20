@@ -21,9 +21,6 @@ export const test = base.extend<TestOptions>({
     await page.waitForFunction(() => window.pmEditor !== undefined);
     // Focus the editor
     await page.locator("#editor .ProseMirror").click();
-    console.log("✅ Base test fixture", "editor loaded and ready", {
-      deletionMarksVisibility,
-    });
 
     // Now run the test
     await use(page);
