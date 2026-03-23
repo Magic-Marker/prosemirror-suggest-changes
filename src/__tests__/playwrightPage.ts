@@ -51,4 +51,16 @@ export class EditorPage {
       { index },
     );
   }
+
+  async revertAllSuggestions(): Promise<void> {
+    await this.page.evaluate(() => {
+      window.pmEditor.revertAllSuggestions();
+    });
+  }
+
+  async acceptAllSuggestions(): Promise<void> {
+    await this.page.evaluate(() => {
+      window.pmEditor.acceptAllSuggestions();
+    });
+  }
 }

@@ -14,7 +14,11 @@ import { addSuggestionMarks } from "../src/schema.js";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
-import { experimental_ensureSelection } from "../src/index.js";
+import {
+  applySuggestions,
+  experimental_ensureSelection,
+  revertSuggestions,
+} from "../src/index.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -170,6 +174,8 @@ declare global {
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      revertAllSuggestions: () => void;
+      acceptAllSuggestions: () => void;
     };
   }
 }
@@ -305,6 +311,16 @@ window.pmEditor = {
 
   getDOMTextContentOfChildAtIndex(index: number) {
     return view.dom.childNodes[index].textContent ?? "";
+  },
+
+  revertAllSuggestions() {
+    revertSuggestions(view.state, view.dispatch);
+    view.focus();
+  },
+
+  acceptAllSuggestions() {
+    applySuggestions(view.state, view.dispatch);
+    view.focus();
   },
 };
 
