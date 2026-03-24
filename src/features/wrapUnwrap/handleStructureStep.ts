@@ -9,6 +9,7 @@ import { type EditorState, type Transaction } from "prosemirror-state";
 import { getSuggestionMarks } from "../../utils.js";
 import { rebaseStep } from "../../rebaseStep.js";
 import { type SuggestionId } from "../../generateId.js";
+import { findMatchingNodeSides } from "./findMatchingNodeSides.js";
 
 export function handleStructureStep(
   trackedTransaction: Transaction,
@@ -112,11 +113,6 @@ function handleReplaceAroundStep(
   // positive number - subtract from to later to reconstruct "gapTo"
   const gapToOffset = inverseTo - inverseGapTo;
 
-  let fromFound = false as boolean;
-  let toFound = false as boolean;
-  let gapFromFound = false as boolean;
-  let gapToFound = false as boolean;
-
   const isInverseStepStructural = (
     inverseStep as ReplaceAroundStep & { structure: boolean }
   ).structure;
@@ -153,370 +149,41 @@ function handleReplaceAroundStep(
     });
   };
 
-  // check if inverseGapFrom or inverseGapTo are at the start of some node in range
-  console.groupCollapsed("gapFrom & gapTo @ start ?");
-  trackedTransaction.doc.nodesBetween(
-    inverseBlockRange.start,
-    inverseBlockRange.end,
-    (node, pos) => {
-      if (node.isInline) return true;
-
-      let localGapFromFound = false;
-
-      // inverseGapFrom is at start of this node?
-      if (!gapFromFound && pos === inverseGapFrom) {
-        addStructureMark(pos, {
-          value: "gapFrom",
-          position: "start",
-          fromOffset,
-        });
-        gapFromFound = localGapFromFound = true;
-        console.log("gapFrom @ start", {
-          gapFrom: inverseGapFrom,
-          node,
-          pos,
-        });
-      }
-
-      // inverseGapFrom is at inner start of this node?
-      if (!gapFromFound && pos + 1 === inverseGapFrom) {
-        addStructureMark(pos, {
-          value: "gapFrom",
-          position: "innerStart",
-          fromOffset,
-        });
-        gapFromFound = localGapFromFound = true;
-        console.log("gapFrom @ inner start", {
-          gapFrom: inverseGapFrom,
-          node,
-          pos: pos + 1,
-        });
-      }
-
-      // if inverseGapFrom is at start of this node, maybe inverseGapTo is at the end of this node?
-      // this way the case when both gapFrom and gapTo can be indicated by the same node is prioritized
-      if (localGapFromFound && !gapToFound) {
-        // inverseGapTo is at end of this node?
-        if (pos + node.nodeSize === inverseGapTo) {
-          addStructureMark(pos, {
-            value: "gapTo",
-            position: "end",
-            toOffset,
-          });
-          gapToFound = true;
-          console.log("ALSO gapTo @ end", {
-            gapTo: inverseGapTo,
-            node,
-            pos: pos + node.nodeSize,
-          });
-        }
-
-        // inverseGapTo is at inner end of this node?
-        if (pos + node.nodeSize - 1 === inverseGapTo) {
-          addStructureMark(pos, {
-            value: "gapTo",
-            position: "innerEnd",
-            toOffset,
-          });
-          gapToFound = true;
-          console.log("ALSO gapTo @ inner end", {
-            gapTo: inverseGapTo,
-            node,
-            pos: pos + node.nodeSize - 1,
-          });
-        }
-      }
-
-      // inverseGapTo is at start of this node?
-      if (!gapToFound && pos === inverseGapTo) {
-        addStructureMark(pos, {
-          value: "gapTo",
-          position: "start",
-          toOffset,
-        });
-        gapToFound = true;
-        console.log("gapTo @ start", { gapTo: inverseGapTo, node, pos });
-      }
-
-      // inverseGapTo is at inner start of this node?
-      if (!gapToFound && pos + 1 === inverseGapTo) {
-        addStructureMark(pos, {
-          value: "gapTo",
-          position: "innerStart",
-          toOffset,
-        });
-        gapToFound = true;
-        console.log("gapTo @ inner start", {
-          gapTo: inverseGapTo,
-          node,
-          pos: pos + 1,
-        });
-      }
-
-      return true;
-    },
+  const gapFromToSides = findMatchingNodeSides(
+    trackedTransaction.doc,
+    inverseGapBlockRange,
+    { from: inverseGapFrom, to: inverseGapTo },
   );
-  console.groupEnd();
 
-  // check if inverseGapFrom or inverseGapTo are at the end of some node
-  console.groupCollapsed("gapFrom & gapTo @ end ?");
-  trackedTransaction.doc.nodesBetween(
-    inverseBlockRange.start,
-    inverseBlockRange.end,
-    (node, pos) => {
-      if (node.isInline) return true;
+  addStructureMark(gapFromToSides.from.pos, {
+    value: "gapFrom",
+    position: gapFromToSides.from.side,
+    fromOffset,
+  });
 
-      // inverseGapFrom is at end of this node?
-      if (!gapFromFound && pos + node.nodeSize === inverseGapFrom) {
-        addStructureMark(pos, {
-          value: "gapFrom",
-          position: "end",
-          fromOffset,
-        });
-        gapFromFound = true;
-        console.log("gapFrom @ end", {
-          gapFrom: inverseGapFrom,
-          node,
-          pos: pos + node.nodeSize,
-        });
-      }
+  addStructureMark(gapFromToSides.to.pos, {
+    value: "gapTo",
+    position: gapFromToSides.to.side,
+    toOffset,
+  });
 
-      // inverseGapFrom is at inner end of this node?
-      if (!gapFromFound && pos + node.nodeSize - 1 === inverseGapFrom) {
-        addStructureMark(pos, {
-          value: "gapFrom",
-          position: "innerEnd",
-          fromOffset,
-        });
-        gapFromFound = true;
-        console.log("gapFrom @ inner end", {
-          gapFrom: inverseGapFrom,
-          node,
-          pos: pos + node.nodeSize - 1,
-        });
-      }
-
-      // inverseGapTo is at end of this node?
-      if (!gapToFound && pos + node.nodeSize === inverseGapTo) {
-        addStructureMark(pos, {
-          value: "gapTo",
-          position: "end",
-          toOffset,
-        });
-        gapToFound = true;
-        console.log("gapTo @ end", {
-          gapTo: inverseGapTo,
-          node,
-          pos: pos + node.nodeSize,
-        });
-      }
-
-      // inverseGapTo is at inner end of this node?
-      if (!gapToFound && pos + node.nodeSize - 1 === inverseGapTo) {
-        addStructureMark(pos, {
-          value: "gapTo",
-          position: "innerEnd",
-          toOffset,
-        });
-        gapToFound = true;
-        console.log("gapTo @ inner end", {
-          gapTo: inverseGapTo,
-          node,
-          pos: pos + node.nodeSize - 1,
-        });
-      }
-
-      return true;
-    },
+  const fromToSides = findMatchingNodeSides(
+    trackedTransaction.doc,
+    inverseBlockRange,
+    { from: inverseFrom, to: inverseTo },
   );
-  console.groupEnd();
 
-  // check if inverseFrom, inverseTo are at the start of some node in range
-  console.groupCollapsed("from & to @ start ?");
-  trackedTransaction.doc.nodesBetween(
-    inverseBlockRange.start,
-    inverseBlockRange.end,
-    (node, pos) => {
-      if (node.isInline) return true;
+  addStructureMark(fromToSides.from.pos, {
+    value: "from",
+    position: fromToSides.from.side,
+    gapFromOffset,
+  });
 
-      let localFromFound = false;
-
-      // inverseFrom is at start of this node?
-      if (!fromFound && pos === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "start",
-          gapFromOffset,
-        });
-        fromFound = localFromFound = true;
-        console.log("from @ start", { from: inverseFrom, node, pos });
-      }
-
-      // inverseFrom is at inner start of this node?
-      if (!fromFound && pos + 1 === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "innerStart",
-          gapFromOffset,
-        });
-        fromFound = localFromFound = true;
-        console.log("from @ inner start", {
-          from: inverseFrom,
-          node,
-          pos: pos + 1,
-        });
-      }
-
-      // if inverseFrom is at start of this node, maybe inverseTo is at the end of this node?
-      // this way the case when both from and to can be indicated by the same node is prioritized
-      if (localFromFound && !toFound) {
-        // inverseTo is at end of this node?
-        if (pos + node.nodeSize === inverseTo) {
-          addStructureMark(pos, {
-            value: "to",
-            position: "end",
-            gapToOffset,
-          });
-          toFound = true;
-          console.log("ALSO to @ end", {
-            to: inverseTo,
-            node,
-            pos: pos + node.nodeSize,
-          });
-        }
-
-        // inverseTo is at inner end of this node?
-        if (pos + node.nodeSize - 1 === inverseTo) {
-          addStructureMark(pos, {
-            value: "to",
-            position: "innerEnd",
-            gapToOffset,
-          });
-          toFound = true;
-          console.log("ALSO to @ inner end", {
-            to: inverseTo,
-            node,
-            pos: pos + node.nodeSize - 1,
-          });
-        }
-      }
-
-      // inverseTo is at start of this node?
-      if (!toFound && pos === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "start",
-          gapToOffset,
-        });
-        toFound = true;
-        console.log("to @ start", { to: inverseTo, node, pos });
-      }
-
-      // inverseTo is at inner start of this node?
-      if (!toFound && pos + 1 === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "innerStart",
-          gapToOffset,
-        });
-        toFound = true;
-        console.log("to @ inner start", {
-          to: inverseTo,
-          node,
-          pos: pos + 1,
-        });
-      }
-
-      return true;
-    },
-  );
-  console.groupEnd();
-
-  // check if inverseFrom, inverseTo are at the end of some node in range
-  console.groupCollapsed("from & to @ end ?");
-  trackedTransaction.doc.nodesBetween(
-    inverseBlockRange.start,
-    inverseBlockRange.end,
-    (node, pos) => {
-      if (node.isInline) return true;
-
-      // inverseFrom is at end of this node?
-      if (!fromFound && pos + node.nodeSize === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "end",
-          gapFromOffset,
-        });
-        fromFound = true;
-        console.log("from @ end", {
-          from: inverseFrom,
-          node,
-          pos: pos + node.nodeSize,
-        });
-      }
-
-      // inverseFrom is at inner end of this node?
-      if (!fromFound && pos + node.nodeSize - 1 === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "innerEnd",
-          gapFromOffset,
-        });
-        fromFound = true;
-        console.log("from @ inner end", {
-          from: inverseFrom,
-          node,
-          pos: pos + node.nodeSize - 1,
-        });
-      }
-
-      // inverseTo is at end of this node?
-      if (!toFound && pos + node.nodeSize === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "end",
-          gapToOffset,
-        });
-        toFound = true;
-        console.log("to @ end", {
-          to: inverseTo,
-          node,
-          pos: pos + node.nodeSize,
-        });
-      }
-
-      // inverseTo is at inner end of this node?
-      if (!toFound && pos + node.nodeSize - 1 === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "innerEnd",
-          gapToOffset,
-        });
-        toFound = true;
-        console.log("to @ inner end", {
-          to: inverseTo,
-          node,
-          pos: pos + node.nodeSize - 1,
-        });
-      }
-
-      return true;
-    },
-  );
-  console.groupEnd();
-
-  if (gapFromFound && gapToFound && fromFound && toFound) {
-    console.log("all points found", { suggestionId });
-  } else {
-    console.log("not all points found", {
-      suggestionId,
-      step,
-      inverseStep,
-      rebasedStep,
-    });
-  }
-
-  console.groupEnd();
+  addStructureMark(fromToSides.to.pos, {
+    value: "to",
+    position: fromToSides.to.side,
+    gapToOffset,
+  });
 
   return true;
 }
@@ -606,9 +273,6 @@ function handleReplaceStep(
 
   const slice = inverseStep.slice.toJSON() as object;
 
-  let fromFound = false as boolean;
-  let toFound = false as boolean;
-
   const isInverseStepStructural =
     (inverseStep as ReplaceStep & { structure: boolean }).structure ||
     !contentBetween(trackedTransaction.doc, inverseFrom, inverseTo);
@@ -632,174 +296,21 @@ function handleReplaceStep(
     );
   };
 
-  // check if inverseFrom, inverseTo are at the start of some node in range
-  trackedTransaction.doc.nodesBetween(
-    inverseBlockRange.start,
-    inverseBlockRange.end,
-    (node, pos) => {
-      if (node.isInline) return true;
-
-      let localFromFound = false;
-
-      // inverseFrom is at start of this node?
-      if (!fromFound && pos === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "start",
-        });
-        fromFound = localFromFound = true;
-        console.log("from at start of node", { inverseFrom, node, pos });
-      }
-
-      // inverseFrom is at inner start of this node?
-      if (!fromFound && pos + 1 === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "innerStart",
-        });
-        fromFound = localFromFound = true;
-        console.log("from at inner start of node", {
-          inverseFrom,
-          node,
-          pos: pos + 1,
-        });
-      }
-
-      // if inverseFrom is at start or innerStart of this node, maybe inverseTo is at the end or innerEnd of this node?
-      // this way the case when both from and to can be indicated by the same node is prioritized
-      if (localFromFound && !toFound) {
-        if (pos + node.nodeSize === inverseTo) {
-          addStructureMark(pos, {
-            value: "to",
-            position: "end",
-          });
-          toFound = true;
-          console.log("ALSO found to at end of node", {
-            inverseTo,
-            node,
-            pos: pos + node.nodeSize,
-          });
-        } else if (pos + node.nodeSize - 1 === inverseTo) {
-          addStructureMark(pos, {
-            value: "to",
-            position: "innerEnd",
-          });
-          toFound = true;
-          console.log("ALSO found to at inner end of node", {
-            inverseTo,
-            node,
-            pos: pos + node.nodeSize - 1,
-          });
-        }
-      }
-
-      // inverseTo is at start of this node?
-      if (!toFound && pos === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "start",
-        });
-        toFound = true;
-        console.log("to at start of node", { inverseTo, node, pos });
-      }
-
-      // inverseTo is at inner start of this node?
-      if (!toFound && pos + 1 === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "innerStart",
-        });
-        toFound = true;
-        console.log("to at inner start of node", {
-          inverseTo,
-          node,
-          pos: pos + 1,
-        });
-      }
-
-      return true;
-    },
+  const fromToSides = findMatchingNodeSides(
+    trackedTransaction.doc,
+    inverseBlockRange,
+    { from: inverseFrom, to: inverseTo },
   );
 
-  // check if inverseFrom, inverseTo are at the end of some node in range
-  trackedTransaction.doc.nodesBetween(
-    inverseBlockRange.start,
-    inverseBlockRange.end,
-    (node, pos) => {
-      if (node.isInline) return true;
+  addStructureMark(fromToSides.from.pos, {
+    value: "from",
+    position: fromToSides.from.side,
+  });
 
-      // inverseFrom is at end of this node?
-      if (!fromFound && pos + node.nodeSize === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "end",
-        });
-        fromFound = true;
-        console.log("from at end of node", {
-          inverseFrom,
-          node,
-          pos: pos + node.nodeSize,
-        });
-      }
-
-      // inverseFrom is at inner end of this node?
-      if (!fromFound && pos + node.nodeSize - 1 === inverseFrom) {
-        addStructureMark(pos, {
-          value: "from",
-          position: "innerEnd",
-        });
-        fromFound = true;
-        console.log("from at inner end of node", {
-          inverseFrom,
-          node,
-          pos: pos + node.nodeSize - 1,
-        });
-      }
-
-      // inverseTo is at end of this node?
-      if (!toFound && pos + node.nodeSize === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "end",
-        });
-        toFound = true;
-        console.log("found to at end of node", {
-          inverseTo,
-          node,
-          pos: pos + node.nodeSize,
-        });
-      }
-
-      // inverseTo is at inner end of this node?
-      if (!toFound && pos + node.nodeSize - 1 === inverseTo) {
-        addStructureMark(pos, {
-          value: "to",
-          position: "innerEnd",
-        });
-        toFound = true;
-        console.log("found to at inner end of node", {
-          inverseTo,
-          node,
-          pos: pos + node.nodeSize - 1,
-        });
-      }
-
-      return true;
-    },
-  );
-
-  if (fromFound && toFound) {
-    console.log("all points found", { suggestionId });
-  } else {
-    console.log("not all points found", {
-      step,
-      rebasedStep,
-      inverseStep,
-      suggestionId,
-    });
-  }
-
-  console.groupEnd();
+  addStructureMark(fromToSides.to.pos, {
+    value: "to",
+    position: fromToSides.to.side,
+  });
 
   return true;
 }
