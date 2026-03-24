@@ -26,48 +26,56 @@ import {
   toggleSuggestChanges,
   withSuggestChanges,
   experimental_ensureSelection,
+  addSuggestionMarks,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
 import {
+  bulletList,
   liftListItem,
+  listItem,
+  orderedList,
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
 import "./main.css";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
+import { Schema } from "prosemirror-model";
+import { marks, nodes } from "prosemirror-schema-basic";
 
-/* todo: check
 export const schema = new Schema({
   nodes: {
     ...nodes,
     image: { ...nodes.image, group: "block", inline: false },
-    doc: { ...nodes.doc, marks: "insertion deletion modification" },
-    ordered_list: {
+    doc: { ...nodes.doc, marks: "insertion deletion modification structure" },
+    blockquote: {
+      ...nodes.blockquote,
+      group: "block",
+      marks: "insertion deletion modification structure",
+    },
+    orderedList: {
       ...orderedList,
       group: "block",
-      content: "list_item+",
-      marks: "insertion deletion modification",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
     },
-    bullet_list: {
+    bulletList: {
       ...bulletList,
       group: "block",
-      content: "list_item+",
-      marks: "insertion deletion modification",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
     },
-    list_item: {
+    listItem: {
       ...listItem,
       content: "block+",
-      marks: "insertion deletion modification",
+      marks: "insertion deletion modification structure",
     },
   },
   marks: addSuggestionMarks(marks, {
-    experimental_deletions: "hidden",
+    experimental_deletions: "visible",
   }),
 });
-*/
-import { schema } from "../src/testing/testBuilders.js";
 
 const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   schema,
@@ -127,10 +135,10 @@ const editorState = EditorState.create({
     experimental_ensureSelection(),
     keymap({
       ...baseKeymap,
-      Enter: chainCommands(splitListItem(schema.nodes.list_item), enterCommand),
+      Enter: chainCommands(splitListItem(schema.nodes.listItem), enterCommand),
       "Shift-Enter": enterCommand,
-      Tab: sinkListItem(schema.nodes.list_item),
-      "Shift-Tab": liftListItem(schema.nodes.list_item),
+      Tab: sinkListItem(schema.nodes.listItem),
+      "Shift-Tab": liftListItem(schema.nodes.listItem),
       "Mod-i": toggleMark(schema.marks.em),
       "Mod-b": toggleMark(schema.marks.strong),
       "Mod-Shift-c": toggleMark(schema.marks.code),

@@ -1,20 +1,28 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { type Mark } from "prosemirror-model";
+import { Schema, type Mark } from "prosemirror-model";
 import { history, redo, undo } from "prosemirror-history";
 import { baseKeymap, chainCommands, lift, wrapIn } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import {
+  bulletList,
   liftListItem,
+  listItem,
+  orderedList,
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
-import { experimental_ensureSelection } from "../src/index.js";
-/*
-todo: check
+import {
+  addSuggestionMarks,
+  experimental_ensureSelection,
+} from "../src/index.js";
+import { type SuggestionId } from "../src/generateId.js";
+import * as commands from "../src/commands.js";
+import { marks, nodes } from "prosemirror-schema-basic";
+
 const searchParams = new URLSearchParams(window.location.search);
 
 let deletionMarksVisibility = searchParams.get("deletionMarksVisibility") as
@@ -33,22 +41,37 @@ console.log(
 const schema = new Schema({
   nodes: {
     ...nodes,
-    ordered_list: { ...orderedList, group: "block", content: "list_item+" },
-    bullet_list: { ...bulletList, group: "block", content: "list_item+" },
-    list_item: {
+    doc: {
+      ...nodes.doc,
+      marks: "insertion deletion modification structure",
+    },
+    blockquote: {
+      ...nodes.blockquote,
+      group: "block",
+      marks: "insertion deletion modification structure",
+    },
+    orderedList: {
+      ...orderedList,
+      group: "block",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
+    },
+    bulletList: {
+      ...bulletList,
+      group: "block",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
+    },
+    listItem: {
       ...listItem,
       content: "block+",
-      marks: "insertion deletion modification",
+      marks: "insertion deletion modification structure",
     },
   },
   marks: addSuggestionMarks(marks, {
     experimental_deletions: deletionMarksVisibility,
   }),
 });
-*/
-import { schema } from "../src/testing/testBuilders.js";
-import { type SuggestionId } from "../src/generateId.js";
-import * as commands from "../src/commands.js";
 
 // Transaction logging
 const transactions: {
