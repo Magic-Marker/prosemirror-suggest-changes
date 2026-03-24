@@ -474,10 +474,10 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
         type: "doc",
         content: [
           {
-            type: "ordered_list",
+            type: "orderedList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
