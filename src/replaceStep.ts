@@ -59,7 +59,6 @@ export function suggestReplaceStep(
 ) {
   const handled = handleStructureStep(
     trackedTransaction,
-    state,
     step,
     prevSteps,
     suggestionId,

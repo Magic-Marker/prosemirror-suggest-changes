@@ -170,7 +170,6 @@ export function suggestReplaceAroundStep(
 ) {
   let handled = handleStructureStep(
     trackedTransaction,
-    state,
     step,
     prevSteps,
     suggestionId,
@@ -195,10 +194,13 @@ export function suggestReplaceAroundStep(
 
   const applied = step.apply(doc).doc;
   if (!applied) return false;
+
   const from = step.getMap().map(step.from, -1);
   const to = step.getMap().map(step.to, 1);
+
   const blockRange = applied.resolve(from).blockRange(applied.resolve(to));
   if (!blockRange) return false;
+
   const replace = replaceStep(
     doc,
     step.getMap().invert().map(blockRange.start),
@@ -206,6 +208,7 @@ export function suggestReplaceAroundStep(
     applySuggestionsToRange(applied, blockRange.start, blockRange.end),
   );
   if (!replace) return false;
+
   return suggestReplaceStep(
     trackedTransaction,
     state,

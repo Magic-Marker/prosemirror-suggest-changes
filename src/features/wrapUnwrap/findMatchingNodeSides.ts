@@ -1,5 +1,7 @@
 import { type Node, type NodeRange } from "prosemirror-model";
 
+export type MatchingNodeSide = "start" | "innerStart" | "end" | "innerEnd";
+
 export function findMatchingNodeSides(
   doc: Node,
   range: NodeRange,
@@ -13,10 +15,8 @@ export function findMatchingNodeSides(
   //     this prioritizes the best case scenario when both "from" and "to" are located at the same node)
   // second pass we visit every node in range and look at its ending positions in the similar fashion
 
-  type NodeSide = "start" | "innerStart" | "end" | "innerEnd";
-
-  let fromSide = null as NodeSide | null;
-  let toSide = null as NodeSide | null;
+  let fromSide = null as MatchingNodeSide | null;
+  let toSide = null as MatchingNodeSide | null;
 
   let fromNode = null as Node | null;
   let toNode = null as Node | null;
