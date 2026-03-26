@@ -5,15 +5,14 @@ import {
   type Step,
 } from "prosemirror-transform";
 import { contentBetween } from "../../contentBetween.js";
-import { type EditorState, type Transaction } from "prosemirror-state";
-import { getSuggestionMarks } from "../../utils.js";
+import { type Transaction } from "prosemirror-state";
 import { rebaseStep } from "../../rebaseStep.js";
 import { type SuggestionId } from "../../generateId.js";
 import { findMatchingNodeSides } from "./findMatchingNodeSides.js";
+import { addStructureMark } from "./addStructureMark.js";
 
 export function handleStructureStep(
   trackedTransaction: Transaction,
-  state: EditorState,
   step: Step,
   prevSteps: Step[],
   suggestionId: SuggestionId,
@@ -21,27 +20,19 @@ export function handleStructureStep(
   if (step instanceof ReplaceAroundStep) {
     return handleReplaceAroundStep(
       trackedTransaction,
-      state,
       step,
       prevSteps,
       suggestionId,
     );
   }
   if (step instanceof ReplaceStep) {
-    return handleReplaceStep(
-      trackedTransaction,
-      state,
-      step,
-      prevSteps,
-      suggestionId,
-    );
+    return handleReplaceStep(trackedTransaction, step, prevSteps, suggestionId);
   }
   return false;
 }
 
 function handleReplaceAroundStep(
   trackedTransaction: Transaction,
-  state: EditorState,
   step: ReplaceAroundStep,
   prevSteps: Step[],
   suggestionId: SuggestionId,
@@ -60,7 +51,6 @@ function handleReplaceAroundStep(
   console.groupCollapsed(
     `handle structure ReplaceAround step from = ${step.from.toString()}, to = ${step.to.toString()}, gapFrom = ${step.gapFrom.toString()}, gapTo = ${step.gapTo.toString()}`,
   );
-  const { structure } = getSuggestionMarks(state.schema);
 
   const rebasedStep = rebaseStep(step, prevSteps, trackedTransaction.steps);
 
@@ -100,7 +90,7 @@ function handleReplaceAroundStep(
     throw new Error("Failed to get inverse block range: unexpected range");
   }
 
-  const slice = inverseStep.slice.toJSON() as object;
+  const slice = inverseStep.slice;
   const insert = inverseStep.insert;
 
   // positive number - subtract from gapFrom later to reconstruct "from"
@@ -117,55 +107,41 @@ function handleReplaceAroundStep(
     inverseStep as ReplaceAroundStep & { structure: boolean }
   ).structure;
 
-  const addStructureMark = (pos: number, data: object) => {
-    trackedTransaction.addNodeMark(
-      pos,
-      structure.create({
-        id: suggestionId,
-        data: {
-          ...data,
-          type: "replaceAround",
-          slice,
-          insert,
-          structure: isInverseStepStructural,
-          debug: {
-            inverseFrom,
-            inverseTo,
-            inverseGapFrom,
-            inverseGapTo,
-            gapFromOffset,
-            gapToOffset,
-            fromOffset,
-            toOffset,
-          },
-        },
-      }),
-    );
-    console.log("added structure mark", {
-      suggestionId,
-      pos,
-      data,
-      isInverseStepStructural,
-    });
-  };
-
   const gapFromToSides = findMatchingNodeSides(
     trackedTransaction.doc,
     inverseGapBlockRange,
     { from: inverseGapFrom, to: inverseGapTo },
   );
 
-  addStructureMark(gapFromToSides.from.pos, {
-    value: "gapFrom",
-    position: gapFromToSides.from.side,
-    fromOffset,
-  });
+  addStructureMark(
+    suggestionId,
+    gapFromToSides.from.pos,
+    {
+      type: "replaceAround",
+      slice,
+      insert,
+      structure: isInverseStepStructural,
+      value: "gapFrom",
+      position: gapFromToSides.from.side,
+      fromOffset,
+    },
+    trackedTransaction,
+  );
 
-  addStructureMark(gapFromToSides.to.pos, {
-    value: "gapTo",
-    position: gapFromToSides.to.side,
-    toOffset,
-  });
+  addStructureMark(
+    suggestionId,
+    gapFromToSides.to.pos,
+    {
+      type: "replaceAround",
+      slice,
+      insert,
+      structure: isInverseStepStructural,
+      value: "gapTo",
+      position: gapFromToSides.to.side,
+      toOffset,
+    },
+    trackedTransaction,
+  );
 
   const fromToSides = findMatchingNodeSides(
     trackedTransaction.doc,
@@ -173,24 +149,41 @@ function handleReplaceAroundStep(
     { from: inverseFrom, to: inverseTo },
   );
 
-  addStructureMark(fromToSides.from.pos, {
-    value: "from",
-    position: fromToSides.from.side,
-    gapFromOffset,
-  });
+  addStructureMark(
+    suggestionId,
+    fromToSides.from.pos,
+    {
+      type: "replaceAround",
+      slice,
+      insert,
+      structure: isInverseStepStructural,
+      value: "from",
+      position: fromToSides.from.side,
+      gapFromOffset,
+    },
+    trackedTransaction,
+  );
 
-  addStructureMark(fromToSides.to.pos, {
-    value: "to",
-    position: fromToSides.to.side,
-    gapToOffset,
-  });
+  addStructureMark(
+    suggestionId,
+    fromToSides.to.pos,
+    {
+      type: "replaceAround",
+      slice,
+      insert,
+      structure: isInverseStepStructural,
+      value: "to",
+      position: fromToSides.to.side,
+      gapToOffset,
+    },
+    trackedTransaction,
+  );
 
   return true;
 }
 
 function handleReplaceStep(
   trackedTransaction: Transaction,
-  state: EditorState,
   step: ReplaceStep,
   prevSteps: Step[],
   suggestionId: SuggestionId,
@@ -206,8 +199,6 @@ function handleReplaceStep(
   console.groupCollapsed(
     `handle structure Replace step from = ${step.from.toString()}, to = ${step.to.toString()}`,
   );
-
-  const { structure } = getSuggestionMarks(state.schema);
 
   const rebasedStep = rebaseStep(step, prevSteps, trackedTransaction.steps);
   if (!rebasedStep || !(rebasedStep instanceof ReplaceStep)) {
@@ -271,30 +262,11 @@ function handleReplaceStep(
     throw new Error("Failed to get inverse block range: unexpected range");
   }
 
-  const slice = inverseStep.slice.toJSON() as object;
+  const slice = inverseStep.slice;
 
   const isInverseStepStructural =
     (inverseStep as ReplaceStep & { structure: boolean }).structure ||
     !contentBetween(trackedTransaction.doc, inverseFrom, inverseTo);
-
-  const addStructureMark = (pos: number, data: object) => {
-    trackedTransaction.addNodeMark(
-      pos,
-      structure.create({
-        id: suggestionId,
-        data: {
-          ...data,
-          type: "replace",
-          slice,
-          structure: isInverseStepStructural,
-          debug: {
-            inverseFrom,
-            inverseTo,
-          },
-        },
-      }),
-    );
-  };
 
   const fromToSides = findMatchingNodeSides(
     trackedTransaction.doc,
@@ -302,15 +274,31 @@ function handleReplaceStep(
     { from: inverseFrom, to: inverseTo },
   );
 
-  addStructureMark(fromToSides.from.pos, {
-    value: "from",
-    position: fromToSides.from.side,
-  });
+  addStructureMark(
+    suggestionId,
+    fromToSides.from.pos,
+    {
+      type: "replace",
+      slice,
+      structure: isInverseStepStructural,
+      value: "from",
+      position: fromToSides.from.side,
+    },
+    trackedTransaction,
+  );
 
-  addStructureMark(fromToSides.to.pos, {
-    value: "to",
-    position: fromToSides.to.side,
-  });
+  addStructureMark(
+    suggestionId,
+    fromToSides.to.pos,
+    {
+      type: "replace",
+      slice,
+      structure: isInverseStepStructural,
+      value: "to",
+      position: fromToSides.to.side,
+    },
+    trackedTransaction,
+  );
 
   return true;
 }

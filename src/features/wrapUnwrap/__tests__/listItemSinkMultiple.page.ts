@@ -49,9 +49,7 @@ export class ListItemSinkMultiplePage {
     const currentDocJSON = await this.page.evaluate(() =>
       window.pmEditor.getDocJSON(),
     );
-    expect(JSON.stringify(currentDocJSON)).toBe(
-      JSON.stringify(finalDocWithMarksJSON),
-    );
+    expect(currentDocJSON).toEqual(finalDocWithMarksJSON);
   }
 
   /**
