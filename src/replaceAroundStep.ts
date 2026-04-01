@@ -18,7 +18,7 @@ import { suggestReplaceStep } from "./replaceStep.js";
 import { getSuggestionMarks } from "./utils.js";
 import { applySuggestionsToRange } from "./commands.js";
 import { type SuggestionId } from "./generateId.js";
-import { handleStructureStep } from "./features/wrapUnwrap/handleStructureStep.js";
+// import { rebaseStep } from "./rebaseStep.js";
 
 /**
  * This detects and handles changes from `setNodeMarkup` so that these are tracked as a modification
@@ -168,18 +168,13 @@ export function suggestReplaceAroundStep(
   prevSteps: Step[],
   suggestionId: SuggestionId,
 ) {
-  let handled = handleStructureStep(
-    trackedTransaction,
-    step,
-    prevSteps,
-    suggestionId,
-  );
+  console.log("suggestReplaceAroundStep", step);
+  // let handled = handleStructureStep(step, prevSteps, trackedTransaction);
+  // if (handled) {
+  //   return true;
+  // }
 
-  if (handled) {
-    return true;
-  }
-
-  handled = suggestSetNodeMarkup(
+  const handled = suggestSetNodeMarkup(
     trackedTransaction,
     state,
     doc,
@@ -218,3 +213,21 @@ export function suggestReplaceAroundStep(
     suggestionId,
   );
 }
+
+// function handleStructureStep(
+//   step: ReplaceAroundStep,
+//   prevSteps: Step[],
+//   trackedTransaction: Transaction,
+// ) {
+//   if ((step as ReplaceAroundStep & { structure: boolean }).structure) {
+//     const rebasedStep = rebaseStep(step, prevSteps, trackedTransaction.steps);
+//     if (!rebasedStep || !(rebasedStep instanceof ReplaceAroundStep)) {
+//       throw new Error(
+//         "Failed to rebase replace around step: unexpected step type",
+//       );
+//     }
+//     trackedTransaction.step(rebasedStep);
+//     return true;
+//   }
+//   return false;
+// }

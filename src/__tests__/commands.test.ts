@@ -11,7 +11,7 @@ import {
   revertSuggestion,
   revertSuggestions,
 } from "../commands.js";
-import { deletion, insertion, modification } from "../schema.js";
+import { deletion, insertion, modification, structure } from "../schema.js";
 import { testBuilders } from "../testing/testBuilders.js";
 
 describe("applyTrackedChanges", () => {
@@ -240,6 +240,7 @@ describe("applyTrackedChange", () => {
         insertion: insertionWithAuthor,
         deletion: deletionWithAuthor,
         modification,
+        structure,
       },
     });
     const customBuilders = builders(schemaWithAuthors);
