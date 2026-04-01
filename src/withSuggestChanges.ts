@@ -8,6 +8,7 @@ import {
   RemoveNodeMarkStep,
   ReplaceAroundStep,
   ReplaceStep,
+  type Transform,
   type Step,
 } from "prosemirror-transform";
 
@@ -23,6 +24,8 @@ import { isSuggestChangesEnabled, suggestChangesKey } from "./plugin.js";
 import { generateNextNumberId, type SuggestionId } from "./generateId.js";
 import { getSuggestionMarks } from "./utils.js";
 import { prependDeletionsWithZWSP } from "./prependDeletionsWithZWSP.js";
+import { ensureStableIds } from "./features/wrapUnwrapV2/stableNodeIdsPlugin.js";
+import { suggestStructureChanges } from "./features/wrapUnwrapV2/structureChangesPlugin.js";
 
 type StepHandler<S extends Step> = (
   trackedTransaction: Transaction,
@@ -198,19 +201,66 @@ export function withSuggestChanges(
       isChangeOrigin?: boolean;
     };
 
-    const transaction =
+    const isEnabled =
       isSuggestChangesEnabled(this.state) &&
       !tr.getMeta("history$") &&
       !tr.getMeta("collab$") &&
       !ySyncMeta.isUndoRedoOperation &&
       !ySyncMeta.isChangeOrigin &&
-      !("skip" in (tr.getMeta(suggestChangesKey) ?? {}))
-        ? transformToSuggestionTransaction(tr, this.state, generateId)
-        : tr;
+      !("skip" in (tr.getMeta(suggestChangesKey) ?? {}));
+
+    let transaction = tr;
+
+    if (isEnabled) {
+      const stableIdsTransform = ensureStableIds(tr.doc);
+      let structureChangesTransform: Transform | null = null;
+      // try running structure changes first
+      // if handled, then ignore the main plugin
+      // otherwise use the main plugin
+      const docBefore = tr.docs[0];
+      const docAfter = stableIdsTransform.doc;
+      if (docBefore && tr.docChanged) {
+        structureChangesTransform = suggestStructureChanges(
+          docBefore,
+          docAfter,
+          generateId,
+        );
+      }
+
+      if (
+        structureChangesTransform == null ||
+        structureChangesTransform.steps.length === 0
+      ) {
+        console.log(
+          "withSuggestChanges",
+          "no structure changes, using main plugin",
+          { structureChangesTransform },
+        );
+        transaction = transformToSuggestionTransaction(
+          tr,
+          this.state,
+          generateId,
+        );
+      } else {
+        console.log(
+          "withSuggestChanges",
+          "structure changes, applying transform",
+          { structureChangesTransform },
+        );
+        stableIdsTransform.steps.forEach((step) => {
+          transaction.step(step);
+        });
+        structureChangesTransform.steps.forEach((step) => {
+          transaction.step(step);
+        });
+      }
+    }
 
     if (transaction.docChanged) {
       prependDeletionsWithZWSP(transaction);
     }
+
+    console.log("withSuggestChanges", "final transaction", { transaction });
 
     dispatch.call(this, transaction);
   };

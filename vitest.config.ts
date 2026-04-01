@@ -5,7 +5,12 @@ export default defineConfig({
   root: "./src",
   test: {
     environment: "jsdom",
-    exclude: ["**/node_modules/**", "**/dist/**", "**/*.playwright.test.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.playwright.test.ts",
+      "**/features/wrapUnwrap/__tests__/**",
+    ],
   },
   build: {
     target: "esnext",

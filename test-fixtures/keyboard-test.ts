@@ -18,10 +18,12 @@ import "prosemirror-view/style/prosemirror.css";
 import {
   addSuggestionMarks,
   experimental_ensureSelection,
+  experimental_stableNodeIds,
 } from "../src/index.js";
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
 import { marks, nodes } from "prosemirror-schema-basic";
+import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -45,28 +47,28 @@ const schema = new Schema({
       ...nodes.doc,
       marks: "insertion deletion modification structure",
     },
-    blockquote: {
+    blockquote: addIdAttr({
       ...nodes.blockquote,
       group: "block",
       marks: "insertion deletion modification structure",
-    },
-    orderedList: {
+    }),
+    orderedList: addIdAttr({
       ...orderedList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    },
-    bulletList: {
+    }),
+    bulletList: addIdAttr({
       ...bulletList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    },
-    listItem: {
+    }),
+    listItem: addIdAttr({
       ...listItem,
       content: "block+",
       marks: "insertion deletion modification structure",
-    },
+    }),
   },
   marks: addSuggestionMarks(marks, {
     experimental_deletions: deletionMarksVisibility,
@@ -102,7 +104,7 @@ let state = EditorState.create({
   doc,
   schema,
   plugins: [
-    experimental_ensureSelection(),
+    experimental_stableNodeIds(),
     keymap({
       ...baseKeymap,
       // Handle Enter key for list items
@@ -122,6 +124,7 @@ let state = EditorState.create({
     }),
     history(),
     suggestChanges(),
+    experimental_ensureSelection(),
   ],
 });
 
@@ -347,12 +350,11 @@ window.pmEditor = {
     return view.dom.childNodes[index].textContent ?? "";
   },
 
-  revertSuggestion(suggestionId: SuggestionId, opts?: { structure: boolean }) {
+  revertSuggestion(suggestionId: SuggestionId) {
     const command = commands.revertSuggestion(
       suggestionId,
       undefined,
       undefined,
-      opts,
     );
     command(view.state, view.dispatch);
   },
@@ -362,7 +364,6 @@ window.pmEditor = {
       suggestionId,
       undefined,
       undefined,
-      { structure: true },
     );
     command(view.state, view.dispatch);
   },

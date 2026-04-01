@@ -26,7 +26,9 @@ import {
   toggleSuggestChanges,
   withSuggestChanges,
   experimental_ensureSelection,
+  experimental_stableNodeIds,
   addSuggestionMarks,
+  // experimental_structureChangesPlugin,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
@@ -43,34 +45,36 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import { Schema } from "prosemirror-model";
 import { marks, nodes } from "prosemirror-schema-basic";
+import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
 
 export const schema = new Schema({
   nodes: {
     ...nodes,
-    image: { ...nodes.image, group: "block", inline: false },
     doc: { ...nodes.doc, marks: "insertion deletion modification structure" },
-    blockquote: {
+    image: addIdAttr({ ...nodes.image, group: "block", inline: false }),
+    paragraph: addIdAttr(nodes.paragraph),
+    blockquote: addIdAttr({
       ...nodes.blockquote,
       group: "block",
       marks: "insertion deletion modification structure",
-    },
-    orderedList: {
+    }),
+    orderedList: addIdAttr({
       ...orderedList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    },
-    bulletList: {
+    }),
+    bulletList: addIdAttr({
       ...bulletList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    },
-    listItem: {
+    }),
+    listItem: addIdAttr({
       ...listItem,
       content: "block+",
       marks: "insertion deletion modification structure",
-    },
+    }),
   },
   marks: addSuggestionMarks(marks, {
     experimental_deletions: "visible",
@@ -104,17 +108,24 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   },
 };
 
-const content = `# This is the \`@handlewithcare/prosemirror-suggest-changes\` demo editor!
+const content = `
+Hello world
 
-Suggestions are enabled to start, so start typing and see how it works! Here are
-some use cases to try out:
+Paragraph 1
 
-- Inserting and deleting plain text
-- Inserting new paragraphs, and deleting across existing paragraph boundaries
-- Using undo and redo (cmd/ctrl+z and cmd/ctrl+shift+z)
-- Applying and reverting all suggestions
+Paragraph 2
 
-You can also use the button above the editor to disable suggestions.
+- Item 1
+- Item 2
+- Item 3
+- Item 4
+- Item 5
+
+Paragraph 3
+
+Paragraph 4
+
+Lorem Ipsum
 `;
 
 const doc = await unified()
@@ -132,7 +143,7 @@ const editorState = EditorState.create({
   schema,
   doc,
   plugins: [
-    experimental_ensureSelection(),
+    experimental_stableNodeIds(),
     keymap({
       ...baseKeymap,
       Enter: chainCommands(splitListItem(schema.nodes.listItem), enterCommand),
@@ -154,6 +165,8 @@ const editorState = EditorState.create({
     }),
     history(),
     suggestChanges(),
+    // experimental_structureChangesPlugin(),
+    experimental_ensureSelection(),
   ],
 });
 

@@ -4,7 +4,7 @@ import {
   TextSelection,
   type Transaction,
 } from "prosemirror-state";
-import { type Step, type ReplaceStep } from "prosemirror-transform";
+import { type ReplaceStep, type Step } from "prosemirror-transform";
 
 import { findSuggestionMarkEnd } from "./findSuggestionMarkEnd.js";
 import { rebasePos } from "./rebasePos.js";
@@ -17,7 +17,7 @@ import {
   joinNodesAndMarkJoinPoints,
   removeZWSPDeletions,
 } from "./features/joinOnDelete/index.js";
-import { handleStructureStep } from "./features/wrapUnwrap/handleStructureStep.js";
+// import { rebaseStep } from "./rebaseStep.js";
 
 /**
  * Transform a replace step into its equivalent tracked steps.
@@ -57,16 +57,10 @@ export function suggestReplaceStep(
   prevSteps: Step[],
   suggestionId: SuggestionId,
 ) {
-  const handled = handleStructureStep(
-    trackedTransaction,
-    step,
-    prevSteps,
-    suggestionId,
-  );
-
-  if (handled) {
-    return true;
-  }
+  // const handled = handleStructureStep(step, prevSteps, trackedTransaction);
+  // if (handled) {
+  //   return true;
+  // }
 
   const { deletion, insertion } = getSuggestionMarks(state.schema);
 
@@ -441,3 +435,19 @@ export function suggestReplaceStep(
   }
   return markId === suggestionId;
 }
+
+// function handleStructureStep(
+//   step: ReplaceStep,
+//   prevSteps: Step[],
+//   trackedTransaction: Transaction,
+// ) {
+//   if ((step as ReplaceStep & { structure: boolean }).structure) {
+//     const rebasedStep = rebaseStep(step, prevSteps, trackedTransaction.steps);
+//     if (!rebasedStep || !(rebasedStep instanceof ReplaceStep)) {
+//       throw new Error("Failed to rebase replace step: unexpected step type");
+//     }
+//     trackedTransaction.step(rebasedStep);
+//     return true;
+//   }
+//   return false;
+// }

@@ -14,11 +14,9 @@ import { type SuggestionId } from "./generateId.js";
 import { ZWSP } from "./constants.js";
 import { maybeRevertJoinMark } from "./features/joinOnDelete/index.js";
 import {
-  applyStructureSuggestion,
-  isStructureSuggestion,
+  applyAllStructureSuggestions,
   revertAllStructureSuggestions,
-  revertStructureSuggestion,
-} from "./features/wrapUnwrap/revertStructureSuggestion.js";
+} from "./features/wrapUnwrapV2/revertStructureSuggestions.js";
 
 /**
  * Given a node and a transform, add a set of steps to the
@@ -288,7 +286,9 @@ export function applySuggestions(
   const { deletion, insertion } = getSuggestionMarks(state.schema);
 
   const tr = state.tr;
-  applySuggestionsToTransform(state.doc, tr, insertion, deletion);
+  applyAllStructureSuggestions(tr);
+  const doc = tr.doc;
+  applySuggestionsToTransform(doc, tr, insertion, deletion);
   applyModificationsToTransform(tr.doc, tr, 1);
   tr.setMeta(suggestChangesKey, { skip: true });
   dispatch?.(tr);
@@ -336,10 +336,6 @@ export function applySuggestion(
   to?: number,
 ): Command {
   return (state, dispatch) => {
-    if (isStructureSuggestion(suggestionId, state.tr)) {
-      return applyStructureSuggestion(suggestionId)(state, dispatch);
-    }
-
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     const tr = state.tr;
@@ -373,8 +369,8 @@ export function revertSuggestions(
 ) {
   const { deletion, insertion } = getSuggestionMarks(state.schema);
   const tr = state.tr;
-  const doc = state.doc;
-  revertAllStructureSuggestions(doc, tr);
+  revertAllStructureSuggestions(tr);
+  const doc = tr.doc;
   applySuggestionsToTransform(doc, tr, deletion, insertion);
   applyModificationsToTransform(tr.doc, tr, -1);
   tr.setMeta(suggestChangesKey, { skip: true });
@@ -420,20 +416,8 @@ export function revertSuggestion(
   suggestionId: SuggestionId,
   from?: number,
   to?: number,
-  opts?: { structure: boolean },
 ): Command {
   return (state, dispatch) => {
-    if (opts?.structure === true) {
-      return revertStructureSuggestion(suggestionId)(state, dispatch);
-    }
-
-    if (
-      opts?.structure !== false &&
-      isStructureSuggestion(suggestionId, state.tr)
-    ) {
-      return revertStructureSuggestion(suggestionId)(state, dispatch);
-    }
-
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     const tr = state.tr;
