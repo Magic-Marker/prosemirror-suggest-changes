@@ -1,12 +1,9 @@
 import { type Node } from "prosemirror-model";
-import { type Transaction } from "prosemirror-state";
 import { getSuggestionMarks } from "../../utils.js";
 import { type Mark } from "prosemirror-model";
-import { structureChangesKey } from "./structureChangesPlugin.js";
 import { getNodeId } from "./getNodeId.js";
 import { Transform } from "prosemirror-transform";
 import { type SuggestionId } from "../../generateId.js";
-import { STRUCTURE_CHANGES_REVERT_MARKS } from "./constants.js";
 import {
   type AddOp,
   type DocWithChildren,
@@ -18,43 +15,120 @@ import {
   type Parent,
 } from "./types.js";
 
-export function applyAllStructureSuggestions(tr: Transaction) {
+/* public */
+
+export function applyAllStructureSuggestions(node: Node) {
+  const tr = new Transform(node);
   applyAllStructureMarks(tr);
-  tr.setMeta(structureChangesKey, STRUCTURE_CHANGES_REVERT_MARKS);
+  return tr;
 }
 
-export function revertAllStructureSuggestions(tr: Transaction) {
+export function revertAllStructureSuggestions(node: Node) {
+  const tr = new Transform(node);
   revertAllStructureMarks(tr);
-  tr.setMeta(structureChangesKey, STRUCTURE_CHANGES_REVERT_MARKS);
+  return tr;
+}
+
+export function applyOneStructureSuggestion(
+  node: Node,
+  suggestionId: SuggestionId,
+) {
+  const tr = new Transform(node);
+  applyStructureMarkGroup(tr, suggestionId);
+  return tr;
 }
 
 export function revertOneStructureSuggestion(
-  tr: Transaction,
+  node: Node,
   suggestionId: SuggestionId,
 ) {
+  const tr = new Transform(node);
   revertStructureMarkGroup(tr, suggestionId);
-  tr.setMeta(structureChangesKey, STRUCTURE_CHANGES_REVERT_MARKS);
+  return tr;
 }
 
-function applyAllStructureMarks(tr: Transaction) {
-  const { structure } = getSuggestionMarks(tr.doc.type.schema);
-  tr.doc.descendants((node, pos) => {
+export function applyAllStructureSuggestionsOnNode(
+  node: Node,
+  from?: number,
+  to?: number,
+): Transform {
+  const tr = new Transform(node);
+  applyAllStructureMarksOnNode(tr, node, from, to);
+  return tr;
+}
+
+export function revertAllStructureSuggestionsOnNode(
+  node: Node,
+  from?: number,
+  to?: number,
+) {
+  const tr = new Transform(node);
+  revertAllStructureMarksOnNode(tr, node, from, to);
+  return tr;
+}
+
+/* private */
+
+function applyAllStructureMarks(tr: Transform) {
+  applyAllStructureMarksOnNode(tr, tr.doc);
+}
+
+function revertAllStructureMarks(tr: Transform) {
+  revertAllStructureMarksOnNode(tr, tr.doc);
+}
+
+function applyAllStructureMarksOnNode(
+  tr: Transform,
+  node: Node,
+  from?: number,
+  to?: number,
+) {
+  const { structure } = getSuggestionMarks(node.type.schema);
+
+  const suggestionIds = new Set<SuggestionId>();
+
+  node.descendants((node, pos) => {
+    if (from !== undefined && pos < from) {
+      return true;
+    }
+    if (to !== undefined && pos > to) {
+      return false;
+    }
     if (node.isText) return true;
     if (!structure.isInSet(node.marks)) return true;
 
-    tr.removeNodeMark(pos, structure);
+    node.marks.forEach((mark) => {
+      if (mark.type !== structure) return;
+      const suggestionId = mark.attrs["id"] as SuggestionId;
+      suggestionIds.add(suggestionId);
+    });
 
     return true;
   });
+
+  for (const suggestionId of suggestionIds) {
+    applyStructureMarkGroup(tr, suggestionId);
+  }
 }
 
-function revertAllStructureMarks(tr: Transaction) {
-  const { structure } = getSuggestionMarks(tr.doc.type.schema);
+function revertAllStructureMarksOnNode(
+  tr: Transform,
+  node: Node,
+  from?: number,
+  to?: number,
+) {
+  const { structure } = getSuggestionMarks(node.type.schema);
 
-  // collect all structure marks grouped by suggestion id
+  // collect all structure mark ids
   const suggestionIds = new Set<SuggestionId>();
 
-  tr.doc.descendants((node) => {
+  node.descendants((node, pos) => {
+    if (from !== undefined && pos < from) {
+      return true;
+    }
+    if (to !== undefined && pos > to) {
+      return false;
+    }
     if (node.isText) return true;
     if (!structure.isInSet(node.marks)) return true;
 
@@ -72,7 +146,21 @@ function revertAllStructureMarks(tr: Transaction) {
   }
 }
 
-function revertStructureMarkGroup(tr: Transaction, suggestionId: SuggestionId) {
+function applyStructureMarkGroup(tr: Transform, suggestionId: SuggestionId) {
+  const { structure } = getSuggestionMarks(tr.doc.type.schema);
+  tr.doc.descendants((node, pos) => {
+    if (node.isText) return true;
+    if (!structure.isInSet(node.marks)) return true;
+    node.marks.forEach((mark) => {
+      if (mark.type !== structure) return;
+      if (mark.attrs["id"] !== suggestionId) return;
+      applyStructureMark(tr, mark, pos);
+    });
+    return true;
+  });
+}
+
+function revertStructureMarkGroup(tr: Transform, suggestionId: SuggestionId) {
   console.group("reverting structure suggestion", suggestionId);
   let structureMark = findNextStructureMark(tr.doc, suggestionId);
   while (structureMark !== null) {
@@ -92,7 +180,11 @@ function revertStructureMarkGroup(tr: Transaction, suggestionId: SuggestionId) {
   console.groupEnd();
 }
 
-function revertStructureMark(tr: Transaction, mark: Mark, pos: number) {
+function applyStructureMark(tr: Transform, mark: Mark, pos: number) {
+  tr.removeNodeMark(pos, mark);
+}
+
+function revertStructureMark(tr: Transform, mark: Mark, pos: number) {
   const transform = new Transform(tr.doc);
   transform.removeNodeMark(pos, mark);
 
