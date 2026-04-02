@@ -2,20 +2,11 @@ import { type Node } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { getNodeId } from "./getNodeId.js";
 import { Transform } from "prosemirror-transform";
+import { type NodeIdGenerator } from "./types.js";
 
 // stable ids plugin
 // https://discuss.prosemirror.net/t/how-to-avoid-copying-attributes-to-new-paragraph/4568/2
 // (also checks and fix duplicates that inevitably appear)
-
-export function generateNodeId() {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
-  }
-  return `node-${Math.random().toString(36).slice(2)}`;
-}
 
 export const stableNodeIdsKey = new PluginKey<{ completedInitialRun: boolean }>(
   "@handlewithcare/prosemirror-suggest-changes-stable-node-ids",
@@ -23,7 +14,7 @@ export const stableNodeIdsKey = new PluginKey<{ completedInitialRun: boolean }>(
 
 export const STABLE_NODE_IDS_PLUGIN_META = "stable-node-ids-plugin";
 
-export function stableNodeIds() {
+export function stableNodeIds(generateNodeId: NodeIdGenerator) {
   return new Plugin<{ completedInitialRun: boolean }>({
     key: stableNodeIdsKey,
     appendTransaction(transactions, _oldState, newState) {
@@ -47,7 +38,7 @@ export function stableNodeIds() {
       ]);
 
       const tr = newState.tr;
-      const transform = ensureStableIds(tr.doc);
+      const transform = ensureStableIds(tr.doc, generateNodeId);
       transform.steps.forEach((step) => {
         tr.step(step);
       });
@@ -78,12 +69,15 @@ export function stableNodeIds() {
   });
 }
 
-export function ensureStableIds(doc: Node): Transform {
+export function ensureStableIds(
+  doc: Node,
+  generateNodeId: NodeIdGenerator,
+): Transform {
   const tr = new Transform(doc);
 
   const nodeIds = new Set<string>();
 
-  tr.doc.descendants((node, pos) => {
+  tr.doc.descendants((node, pos, parent, index) => {
     if (node.isText) return false;
 
     const nodeId = getNodeId(node);
@@ -96,7 +90,7 @@ export function ensureStableIds(doc: Node): Transform {
 
     // nodeId is set and it is duplicated
     if (nodeId != null && nodeIds.has(nodeId)) {
-      const id = generateNodeId();
+      const id = generateNodeId(node, pos, parent, index);
       nodeIds.add(id);
       tr.setNodeMarkup(
         pos,
@@ -121,7 +115,7 @@ export function ensureStableIds(doc: Node): Transform {
 
     // node id is not set
     if (nodeId == null) {
-      const id = generateNodeId();
+      const id = generateNodeId(node, pos, parent, index);
       nodeIds.add(id);
       tr.setNodeMarkup(
         pos,

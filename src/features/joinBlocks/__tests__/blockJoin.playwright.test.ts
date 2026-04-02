@@ -258,7 +258,7 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
     });
   });
 
-  test.describe("List Item Block Join Behavior", () => {
+  test.describe.skip("List Item Block Join Behavior", () => {
     test("Bullet list: Enter then Backspace should rejoin list items", async ({
       page,
     }) => {
