@@ -105,14 +105,16 @@ export function ensureSelection() {
       });
 
       trace("appendTransaction", "search for new valid $head...");
-      let $newHead = getNewValidPos(
-        newState.selection.$head,
-        getDirection(
-          oldState.selection.$head,
-          newState.selection.$head,
-          pluginState,
-        ),
-      );
+      let $newHead = newState.selection.empty
+        ? $newAnchor
+        : getNewValidPos(
+            newState.selection.$head,
+            getDirection(
+              oldState.selection.$head,
+              newState.selection.$head,
+              pluginState,
+            ),
+          );
       trace("appendTransaction", "new valid $head", $newHead?.pos, {
         $newHead,
       });
