@@ -45,12 +45,18 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import { Schema } from "prosemirror-model";
 import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
-// import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
+import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
+import { generateNodeId } from "../src/features/wrapUnwrapV2/generateNodeId.js";
 
 const nodes = { ...schemaNodes };
-// for (const [key, nodeSpec] of Object.entries(nodes)) {
-//   nodes[key] = addIdAttr(nodeSpec, key);
-// }
+for (const [key, nodeSpec] of Object.entries(nodes)) {
+  nodes[key] = addIdAttr(nodeSpec, key);
+}
+
+const listNodes = { orderedList, bulletList, listItem };
+for (const [key, nodeSpec] of Object.entries(listNodes)) {
+  listNodes[key] = addIdAttr(nodeSpec, key);
+}
 
 export const schema = new Schema({
   nodes: {
@@ -63,19 +69,19 @@ export const schema = new Schema({
       marks: "insertion deletion modification structure",
     },
     orderedList: {
-      ...orderedList,
+      ...listNodes.orderedList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
     },
     bulletList: {
-      ...bulletList,
+      ...listNodes.bulletList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
     },
     listItem: {
-      ...listItem,
+      ...listNodes.listItem,
       content: "block+",
       marks: "insertion deletion modification structure",
     },
@@ -152,7 +158,7 @@ const editorState = EditorState.create({
   schema,
   doc,
   plugins: [
-    experimental_stableNodeIds(),
+    experimental_stableNodeIds(generateNodeId),
     keymap({
       ...baseKeymap,
       Enter: chainCommands(splitListItem(schema.nodes.listItem), enterCommand),
@@ -237,7 +243,10 @@ const editorEl = document.getElementById("editor")!;
 const view = new EditorView(editorEl, {
   state: editorState,
   plugins,
-  dispatchTransaction: withSuggestChanges(),
+  dispatchTransaction: withSuggestChanges(undefined, undefined, {
+    experimental_trackStructureChanges: true,
+    experimental_generateNodeId: generateNodeId,
+  }),
 });
 
 enableSuggestChanges(view.state, view.dispatch);

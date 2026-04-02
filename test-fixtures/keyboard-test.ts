@@ -23,7 +23,8 @@ import {
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
 import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
-// import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
+import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
+import { generateNodeId } from "../src/features/wrapUnwrapV2/generateNodeId.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -40,9 +41,14 @@ console.log(
 );
 
 const nodes = { ...schemaNodes };
-// for (const [key, nodeSpec] of Object.entries(nodes)) {
-//   nodes[key] = addIdAttr(nodeSpec, key);
-// }
+for (const [key, nodeSpec] of Object.entries(nodes)) {
+  nodes[key] = addIdAttr(nodeSpec, key);
+}
+
+const listNodes = { orderedList, bulletList, listItem };
+for (const [key, nodeSpec] of Object.entries(listNodes)) {
+  listNodes[key] = addIdAttr(nodeSpec, key);
+}
 
 // Create schema with suggestion marks and list support
 const schema = new Schema({
@@ -58,19 +64,19 @@ const schema = new Schema({
       marks: "insertion deletion modification structure",
     },
     orderedList: {
-      ...orderedList,
+      ...listNodes.orderedList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
     },
     bulletList: {
-      ...bulletList,
+      ...listNodes.bulletList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
     },
     listItem: {
-      ...listItem,
+      ...listNodes.listItem,
       content: "block+",
       marks: "insertion deletion modification structure",
     },
@@ -109,7 +115,7 @@ let state = EditorState.create({
   doc,
   schema,
   plugins: [
-    experimental_stableNodeIds(),
+    experimental_stableNodeIds(generateNodeId),
     keymap({
       ...baseKeymap,
       // Handle Enter key for list items
@@ -137,23 +143,30 @@ let state = EditorState.create({
 state = state.apply(state.tr.setMeta(suggestChangesKey, { enabled: true }));
 
 // Custom dispatch with logging
-const dispatch = withSuggestChanges(function (this: EditorView, tr) {
-  const docBefore = this.state.doc.textContent;
-  const newState = this.state.apply(tr);
+const dispatch = withSuggestChanges(
+  function (this: EditorView, tr) {
+    const docBefore = this.state.doc.textContent;
+    const newState = this.state.apply(tr);
 
-  transactions.push({
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    steps: tr.steps.map((s) => s.toJSON()),
-    selection: { from: tr.selection.from, to: tr.selection.to },
-    docBefore,
-    docAfter: newState.doc.textContent,
-  });
+    transactions.push({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      steps: tr.steps.map((s) => s.toJSON()),
+      selection: { from: tr.selection.from, to: tr.selection.to },
+      docBefore,
+      docAfter: newState.doc.textContent,
+    });
 
-  this.updateState(newState);
+    this.updateState(newState);
 
-  // Update status display
-  updateStatus();
-});
+    // Update status display
+    updateStatus();
+  },
+  undefined,
+  {
+    experimental_trackStructureChanges: true,
+    experimental_generateNodeId: generateNodeId,
+  },
+);
 
 // Create editor view
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

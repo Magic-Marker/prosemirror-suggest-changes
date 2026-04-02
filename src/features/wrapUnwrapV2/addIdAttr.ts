@@ -7,19 +7,11 @@ export const addIdAttr = (nodeSpec: NodeSpec, key: string): NodeSpec => {
     return nodeSpec;
   }
 
-  console.info(
-    "addIdAttr",
-    "adding id to node",
-    key,
-    "with nodeSpec",
-    nodeSpec,
-  );
-
-  return {
+  const newNodeSpec: NodeSpec = {
     ...nodeSpec,
     attrs: {
       ...(nodeSpec.attrs ?? {}),
-      id: {},
+      id: { default: null },
     },
     toDOM(node) {
       const domOutputSpec = toDOM(node);
@@ -69,4 +61,16 @@ export const addIdAttr = (nodeSpec: NodeSpec, key: string): NodeSpec => {
       })),
     ],
   };
+
+  console.info(
+    "addIdAttr",
+    "adding id to node",
+    key,
+    "with nodeSpec",
+    nodeSpec,
+    "new nodeSpec",
+    newNodeSpec,
+  );
+
+  return newNodeSpec;
 };
