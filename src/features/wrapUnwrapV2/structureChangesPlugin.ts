@@ -8,12 +8,7 @@ import {
 import { getSuggestionMarks } from "../../utils.js";
 import { generateNextNumberId, type SuggestionId } from "../../generateId.js";
 import { getNodeId } from "./getNodeId.js";
-import {
-  type Op,
-  type MaterializedPaths,
-  type Parent,
-  type DocParent,
-} from "./types.js";
+import { type Op, type MaterializedPaths } from "./types.js";
 import {
   LIST_ITEM_NODE,
   LIST_NODE,
@@ -21,6 +16,8 @@ import {
 } from "./constants.js";
 import { Transform } from "prosemirror-transform";
 import { isSuggestChangesEnabled, suggestChangesKey } from "../../plugin.js";
+import { buildMaterializedPaths } from "./buildMaterializedPaths.js";
+import { sameParentChain } from "./sameParentChain.js";
 
 export const structureChangesKey = new PluginKey(
   "@handlewithcare/prosemirror-suggest-changes-structure-changes",
@@ -224,13 +221,9 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
     // node was removed - do nothing
     if (afterPath == null) continue;
 
-    const pathsAreEqual =
-      beforePath.chain.length === afterPath.chain.length &&
-      beforePath.chain.every(
-        (parent, index) => parent.nodeId === afterPath.chain[index]?.nodeId,
-      );
+    const sameChain = sameParentChain(beforePath.chain, afterPath.chain);
     // node did not move anywhere - do nothing
-    if (pathsAreEqual) continue;
+    if (sameChain) continue;
 
     const hasList =
       beforePath.chain.some(
@@ -244,7 +237,7 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
     // node is outside lists
     if (!hasList) continue;
 
-    const op: Op = { op: "move", from: beforePath.chain };
+    const op: Op = { op: "move", from: beforePath.chain, to: afterPath.chain };
     ops.set(id, op);
   }
 
@@ -274,76 +267,4 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
   }
 
   return ops;
-}
-
-function buildMaterializedPaths(doc: Node): MaterializedPaths {
-  const paths: MaterializedPaths = new Map();
-
-  // add direct doc children first since they have a specific parent signature due to doc not having an ID
-  doc.children.forEach((node, index, children) => {
-    const nodeId = getNodeId(node);
-    if (nodeId == null) return;
-
-    const leftSibling = children[index - 1];
-    const leftSiblingId = leftSibling ? getNodeId(leftSibling) : null;
-
-    const rightSibling = children[index + 1];
-    const rightSiblingId = rightSibling ? getNodeId(rightSibling) : null;
-
-    const parent: DocParent = {
-      nodeId: "__doc__",
-      nodeType: "__doc__",
-      nodeAttrs: {},
-      nodeMarks: [],
-      childSiblingIds: [leftSiblingId, rightSiblingId],
-      childIndex: index,
-    };
-
-    paths.set(nodeId, { nodeType: node.type.name, chain: [parent] });
-  });
-
-  // now add the rest of the nodes
-  doc.descendants((node, pos, parent, childIndex) => {
-    if (node.isText) return false;
-
-    const nodeId = getNodeId(node);
-    if (nodeId == null) return true;
-
-    // this is to avoid processing direct doc children twice
-    if (paths.has(nodeId)) return true;
-
-    if (parent == null) return true;
-
-    const parentId = getNodeId(parent);
-    if (parentId == null) return true;
-
-    // by definition, for any node it's parent chain should already exist
-    // because we go downwards
-    const parentChain = paths.get(parentId);
-    if (parentChain == null) return true;
-
-    const leftSibling = parent.children[childIndex - 1];
-    const leftSiblingId = leftSibling ? getNodeId(leftSibling) : null;
-
-    const rightSibling = parent.children[childIndex + 1];
-    const rightSiblingId = rightSibling ? getNodeId(rightSibling) : null;
-
-    // (this node parent chain) is (parent chain of the parent node) + (the parent node itself)
-
-    const parentDesc: Parent = {
-      nodeId: parentId,
-      nodeType: parent.type.name,
-      nodeAttrs: parent.attrs,
-      nodeMarks: parent.marks.map((mark) => mark.toJSON() as object),
-      childSiblingIds: [leftSiblingId, rightSiblingId],
-      childIndex: childIndex,
-    };
-
-    const chain: Parent[] = [parentDesc, ...parentChain.chain];
-    paths.set(nodeId, { nodeType: node.type.name, chain });
-
-    return true;
-  });
-
-  return paths;
 }

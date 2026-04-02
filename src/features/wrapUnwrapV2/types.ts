@@ -38,6 +38,7 @@ export type Parent = NodeParent | DocParent;
 export interface MoveOp {
   op: "move";
   from: Parent[];
+  to: Parent[];
 }
 
 export interface AddOp {

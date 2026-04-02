@@ -10,10 +10,13 @@ import {
   guardDocParent,
   guardDocWithChildren,
   guardStructureMarkAttrs,
+  type MaterializedPaths,
   type MoveOp,
   type NodeWithChildren,
   type Parent,
 } from "./types.js";
+import { sameParentChain } from "./sameParentChain.js";
+import { buildMaterializedPaths } from "./buildMaterializedPaths.js";
 
 /* public */
 
@@ -43,7 +46,7 @@ export function revertOneStructureSuggestion(
   suggestionId: SuggestionId,
 ) {
   const tr = new Transform(node);
-  revertStructureMarkGroup(tr, suggestionId);
+  revertStructureMarkGroupInOrder(tr, suggestionId);
   return tr;
 }
 
@@ -142,7 +145,7 @@ function revertAllStructureMarksOnNode(
   });
 
   for (const suggestionId of suggestionIds) {
-    revertStructureMarkGroup(tr, suggestionId);
+    revertStructureMarkGroupInOrder(tr, suggestionId);
   }
 }
 
@@ -158,6 +161,23 @@ function applyStructureMarkGroup(tr: Transform, suggestionId: SuggestionId) {
     });
     return true;
   });
+}
+
+function revertStructureMarkGroupInOrder(
+  tr: Transform,
+  suggestionId: SuggestionId,
+) {
+  console.group("reverting structure mark group", suggestionId);
+  const suggestionIds = findOrderedSuggestionIdsToRevert(
+    tr.doc,
+    suggestionId,
+    buildMaterializedPaths(tr.doc),
+  );
+  console.log("suggestion groups to revert", suggestionIds);
+  for (const suggestionId of suggestionIds) {
+    revertStructureMarkGroup(tr, suggestionId);
+  }
+  console.groupEnd();
 }
 
 function revertStructureMarkGroup(tr: Transform, suggestionId: SuggestionId) {
@@ -281,14 +301,99 @@ function revertMove(op: MoveOp, tr: Transform, node: Node, pos: number) {
   deleteNodeWithParents(tr, node, mappedPos);
 }
 
-function findNextStructureMark(doc: Node, suggestionId?: SuggestionId) {
+// given a suggestion id
+// return an array of suggestion ids to revert
+// resolve suggestion dependencies, meaning,
+// if to revert suggestion id 1 you need to revert 2, and to revert 2 you need to revert 3
+// it will return [3,2,1]
+// todo: this should probably use topological sort at some point
+function findOrderedSuggestionIdsToRevert(
+  node: Node,
+  suggestionId: SuggestionId,
+  materializedPaths: MaterializedPaths,
+) {
+  const { structure } = getSuggestionMarks(node.type.schema);
+
+  // collect marks with the given suggestionId
+  const markGroup: { mark: Mark; node: Node; pos: number }[] = [];
+
+  node.descendants((descendant, pos) => {
+    if (descendant.isText) return true;
+    if (!structure.isInSet(descendant.marks)) return true;
+
+    descendant.marks.forEach((mark) => {
+      if (mark.type !== structure) return;
+      if (mark.attrs["id"] !== suggestionId) return;
+
+      markGroup.push({ mark, node: descendant, pos });
+    });
+
+    return true;
+  });
+
+  const suggestionIds = new Set<SuggestionId>();
+  suggestionIds.add(suggestionId);
+
+  // find first mark that doesn't have a matching op.to
+  const mismatch = markGroup.find((mark) => {
+    const nodeId = getNodeId(mark.node);
+    if (nodeId == null) return false;
+
+    const parentChain = materializedPaths.get(nodeId);
+    if (parentChain == null) return false;
+
+    const { attrs } = mark.mark;
+    if (!guardStructureMarkAttrs(attrs)) return false;
+
+    if (attrs.data.op.op !== "move") return false;
+
+    console.log("check match", attrs, parentChain.chain);
+
+    return !sameParentChain(attrs.data.op.to, parentChain.chain);
+  });
+
+  console.log("mismatch?", mismatch);
+
+  if (mismatch == null) {
+    return Array.from(suggestionIds).reverse();
+  }
+
+  // find first mark on the node that does have a matching op.to
+  const match = mismatch.node.marks.find((mark) => {
+    if (mark.type !== structure) return false;
+
+    const { attrs } = mark;
+    if (!guardStructureMarkAttrs(attrs)) return false;
+
+    if (attrs.data.op.op !== "move") return false;
+
+    const nodeId = getNodeId(mismatch.node);
+    if (nodeId == null) return false;
+
+    const parentChain = materializedPaths.get(nodeId);
+    if (parentChain == null) return false;
+
+    return sameParentChain(attrs.data.op.to, parentChain.chain);
+  });
+
+  if (match) {
+    suggestionIds.add(match.attrs["id"] as SuggestionId);
+  }
+
+  return Array.from(suggestionIds).reverse();
+}
+
+function findNextStructureMark(doc: Node, suggestionId: SuggestionId) {
+  console.log("findNextStructureMark", suggestionId, "TEST", doc.toString());
   const { structure } = getSuggestionMarks(doc.type.schema);
 
   let structureMark = null as { mark: Mark; node: Node; pos: number } | null;
 
   doc.nodesBetween(0, doc.content.size, (node, pos) => {
-    const mark = structure.isInSet(node.marks) ?? null;
-    if (mark && (suggestionId == null || mark.attrs["id"] === suggestionId)) {
+    const mark = node.marks.find(
+      (mark) => mark.type === structure && mark.attrs["id"] === suggestionId,
+    );
+    if (mark) {
       structureMark = { mark, node, pos };
     }
     return structureMark === null;
@@ -300,6 +405,12 @@ function findNextStructureMark(doc: Node, suggestionId?: SuggestionId) {
       "found structure mark with id",
       suggestionId,
       { structureMark, suggestionId },
+    );
+  } else {
+    console.log(
+      "findStructureMark",
+      "no structure mark found with id",
+      suggestionId,
     );
   }
 
