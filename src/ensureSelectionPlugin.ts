@@ -3,7 +3,7 @@ import { getSuggestionMarks } from "./utils.js";
 import { type ResolvedPos } from "prosemirror-model";
 import { ZWSP } from "./constants.js";
 
-const TRACE_ENABLED = false;
+const TRACE_ENABLED = true;
 function trace(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!TRACE_ENABLED) return;
@@ -74,6 +74,10 @@ export function ensureSelection() {
     },
 
     appendTransaction(_transactions, oldState, newState) {
+      console.log(
+        "ensureSelectionPlugin.appendTransaction",
+        newState.selection.toJSON(),
+      );
       const pluginState = ensureSelectionKey.getState(newState);
 
       if (!(newState.selection instanceof TextSelection)) {

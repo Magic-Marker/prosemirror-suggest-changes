@@ -44,37 +44,41 @@ import "./main.css";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import { Schema } from "prosemirror-model";
-import { marks, nodes } from "prosemirror-schema-basic";
-import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
+import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
+// import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
+
+const nodes = { ...schemaNodes };
+// for (const [key, nodeSpec] of Object.entries(nodes)) {
+//   nodes[key] = addIdAttr(nodeSpec, key);
+// }
 
 export const schema = new Schema({
   nodes: {
     ...nodes,
     doc: { ...nodes.doc, marks: "insertion deletion modification structure" },
-    image: addIdAttr({ ...nodes.image, group: "block", inline: false }),
-    paragraph: addIdAttr(nodes.paragraph),
-    blockquote: addIdAttr({
+    image: { ...nodes.image, group: "block", inline: false },
+    blockquote: {
       ...nodes.blockquote,
       group: "block",
       marks: "insertion deletion modification structure",
-    }),
-    orderedList: addIdAttr({
+    },
+    orderedList: {
       ...orderedList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    }),
-    bulletList: addIdAttr({
+    },
+    bulletList: {
       ...bulletList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    }),
-    listItem: addIdAttr({
+    },
+    listItem: {
       ...listItem,
       content: "block+",
       marks: "insertion deletion modification structure",
-    }),
+    },
   },
   marks: addSuggestionMarks(marks, {
     experimental_deletions: "visible",
@@ -111,21 +115,26 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
 const content = `
 Hello world
 
-Paragraph 1
-
-Paragraph 2
-
 - Item 1
 - Item 2
 - Item 3
 - Item 4
 - Item 5
 
+Paragraph 1
+
+Paragraph 2
+
 Paragraph 3
 
 Paragraph 4
 
-Lorem Ipsum
+Paragraph 5
+
+Paragraph 6
+
+Paragraph 7
+
 `;
 
 const doc = await unified()

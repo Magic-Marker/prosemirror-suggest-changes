@@ -22,8 +22,8 @@ import {
 } from "../src/index.js";
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
-import { marks, nodes } from "prosemirror-schema-basic";
-import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
+import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
+// import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -39,6 +39,11 @@ console.log(
   deletionMarksVisibility,
 );
 
+const nodes = { ...schemaNodes };
+// for (const [key, nodeSpec] of Object.entries(nodes)) {
+//   nodes[key] = addIdAttr(nodeSpec, key);
+// }
+
 // Create schema with suggestion marks and list support
 const schema = new Schema({
   nodes: {
@@ -47,28 +52,28 @@ const schema = new Schema({
       ...nodes.doc,
       marks: "insertion deletion modification structure",
     },
-    blockquote: addIdAttr({
+    blockquote: {
       ...nodes.blockquote,
       group: "block",
       marks: "insertion deletion modification structure",
-    }),
-    orderedList: addIdAttr({
+    },
+    orderedList: {
       ...orderedList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    }),
-    bulletList: addIdAttr({
+    },
+    bulletList: {
       ...bulletList,
       group: "block",
       content: "listItem+",
       marks: "insertion deletion modification structure",
-    }),
-    listItem: addIdAttr({
+    },
+    listItem: {
       ...listItem,
       content: "block+",
       marks: "insertion deletion modification structure",
-    }),
+    },
   },
   marks: addSuggestionMarks(marks, {
     experimental_deletions: deletionMarksVisibility,
