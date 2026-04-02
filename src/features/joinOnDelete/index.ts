@@ -55,6 +55,14 @@ export function maybeRevertJoinMark(
   if (!mark || mark.attrs["type"] !== "join" || node.text !== ZWSP)
     return false;
 
+  console.log("reverting join mark");
+  console.log("delete from-to", {
+    from,
+    to,
+    $from: tr.doc.resolve(from),
+    $to: tr.doc.resolve(to),
+  });
+
   // this is a mark of type join
   // split the current node at this mark position
   // delete this mark together with its zwsp content
