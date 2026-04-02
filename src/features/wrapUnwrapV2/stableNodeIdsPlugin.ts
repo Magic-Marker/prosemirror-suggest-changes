@@ -27,6 +27,7 @@ export function stableNodeIds() {
   return new Plugin<{ completedInitialRun: boolean }>({
     key: stableNodeIdsKey,
     appendTransaction(transactions, _oldState, newState) {
+      console.log("stableNodeIdsPlugin.appendTransaction");
       const pluginState = stableNodeIdsKey.getState(newState);
 
       // do nothing if doc hasn't changed (but make sure it runs initially)

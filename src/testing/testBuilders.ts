@@ -4,10 +4,19 @@ import {
   type NodeBuilder,
   builders,
 } from "prosemirror-test-builder";
-import { nodes, marks } from "prosemirror-schema-basic";
+import { nodes as schemaNodes, marks } from "prosemirror-schema-basic";
 import { bulletList, listItem, orderedList } from "prosemirror-schema-list";
 import { addSuggestionMarks } from "../schema.js";
 import { difficulty } from "./difficultyMark.js";
+// import { addIdAttr } from "../features/wrapUnwrapV2/addIdAttr.js";
+
+const nodes = { ...schemaNodes };
+// unit tests will fail because nodes will have an attribute id: null that is not expected
+// so we don't add id attribute to nodes for now for unit tests
+// it's probably not even necessary, or maybe two separate vitest projects are needed
+// for (const [key, nodeSpec] of Object.entries(nodes)) {
+//   nodes[key as keyof typeof nodes] = addIdAttr(nodeSpec, key);
+// }
 
 export const schema = new Schema({
   nodes: {
