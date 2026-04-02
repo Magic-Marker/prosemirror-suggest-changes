@@ -13,7 +13,7 @@ declare global {
         cursorTo: number;
         marks: Mark[];
       };
-      getDocJSON: () => unknown;
+      getDocJSON: () => object;
       getCursorInfo: () => {
         from: number;
         to: number;
