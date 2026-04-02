@@ -104,7 +104,7 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
     image: toPmNode(schema.nodes.image, (node) => ({
       url: node.url,
     })),
-    list: toPmNode(schema.nodes.bulletList),
+    list: toPmNode(schema.nodes.orderedList),
     listItem: toPmNode(schema.nodes.listItem),
     emphasis: toPmMark(schema.marks.em),
     strong: toPmMark(schema.marks.strong),
@@ -119,28 +119,9 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
 };
 
 const content = `
-Hello world
-
 - Item 1
 - Item 2
 - Item 3
-- Item 4
-- Item 5
-
-Paragraph 1
-
-Paragraph 2
-
-Paragraph 3
-
-Paragraph 4
-
-Paragraph 5
-
-Paragraph 6
-
-Paragraph 7
-
 `;
 
 const doc = await unified()

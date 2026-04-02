@@ -1,14 +1,11 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { Schema, type Mark } from "prosemirror-model";
+import { type Mark } from "prosemirror-model";
 import { history, redo, undo } from "prosemirror-history";
 import { baseKeymap, chainCommands, lift, wrapIn } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import {
-  bulletList,
   liftListItem,
-  listItem,
-  orderedList,
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
@@ -16,15 +13,14 @@ import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
 import {
-  addSuggestionMarks,
   experimental_ensureSelection,
   experimental_stableNodeIds,
+  revertSuggestions,
 } from "../src/index.js";
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
-import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
-import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
 import { generateNodeId } from "../src/features/wrapUnwrapV2/generateNodeId.js";
+import { createSchema } from "../src/testing/e2eTestSchema.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -40,51 +36,7 @@ console.log(
   deletionMarksVisibility,
 );
 
-const nodes = { ...schemaNodes };
-for (const [key, nodeSpec] of Object.entries(nodes)) {
-  nodes[key] = addIdAttr(nodeSpec, key);
-}
-
-const listNodes = { orderedList, bulletList, listItem };
-for (const [key, nodeSpec] of Object.entries(listNodes)) {
-  listNodes[key] = addIdAttr(nodeSpec, key);
-}
-
-// Create schema with suggestion marks and list support
-const schema = new Schema({
-  nodes: {
-    ...nodes,
-    doc: {
-      ...nodes.doc,
-      marks: "insertion deletion modification structure",
-    },
-    blockquote: {
-      ...nodes.blockquote,
-      group: "block",
-      marks: "insertion deletion modification structure",
-    },
-    orderedList: {
-      ...listNodes.orderedList,
-      group: "block",
-      content: "listItem+",
-      marks: "insertion deletion modification structure",
-    },
-    bulletList: {
-      ...listNodes.bulletList,
-      group: "block",
-      content: "listItem+",
-      marks: "insertion deletion modification structure",
-    },
-    listItem: {
-      ...listNodes.listItem,
-      content: "block+",
-      marks: "insertion deletion modification structure",
-    },
-  },
-  marks: addSuggestionMarks(marks, {
-    experimental_deletions: deletionMarksVisibility,
-  }),
-});
+const schema = createSchema(deletionMarksVisibility);
 
 // Transaction logging
 const transactions: {
@@ -191,8 +143,24 @@ function updateStatus() {
   ].join(" | ");
 }
 
+function renderButtons() {
+  const revertAllButton = document.createElement("button");
+  revertAllButton.appendChild(document.createTextNode("Revert all"));
+  revertAllButton.addEventListener("click", () => {
+    revertSuggestions(view.state, view.dispatch);
+    view.focus();
+  });
+  const container = document.getElementById("buttons");
+  if (!container) {
+    throw new Error("Buttons container not found");
+  }
+  container.appendChild(revertAllButton);
+}
+
 // Initial status
 updateStatus();
+
+renderButtons();
 
 // Expose API to window for Playwright access
 declare global {
@@ -207,7 +175,7 @@ declare global {
         cursorTo: number;
         marks: Mark[];
       };
-      getDocJSON: () => unknown;
+      getDocJSON: () => object;
       replaceDoc: (docJSON: unknown) => void;
       getCursorInfo: () => {
         from: number;
@@ -273,8 +241,7 @@ window.pmEditor = {
   },
 
   getDocJSON() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return view.state.doc.toJSON();
+    return view.state.doc.toJSON() as object;
   },
 
   getCursorInfo() {

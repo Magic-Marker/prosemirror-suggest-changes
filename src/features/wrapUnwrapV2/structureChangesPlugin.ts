@@ -9,11 +9,7 @@ import { getSuggestionMarks } from "../../utils.js";
 import { generateNextNumberId, type SuggestionId } from "../../generateId.js";
 import { getNodeId } from "./getNodeId.js";
 import { type Op, type MaterializedPaths } from "./types.js";
-import {
-  LIST_ITEM_NODE,
-  LIST_NODE,
-  STRUCTURE_CHANGES_ADD_MARKS,
-} from "./constants.js";
+import { LIST_NODES, STRUCTURE_CHANGES_ADD_MARKS } from "./constants.js";
 import { Transform } from "prosemirror-transform";
 import { isSuggestChangesEnabled, suggestChangesKey } from "../../plugin.js";
 import { buildMaterializedPaths } from "./buildMaterializedPaths.js";
@@ -211,11 +207,7 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
 
   // first take care of nodes that exist in both
   for (const [id, beforePath] of beforePaths) {
-    if (
-      beforePath.nodeType === LIST_NODE ||
-      beforePath.nodeType === LIST_ITEM_NODE
-    )
-      continue;
+    if (LIST_NODES.includes(beforePath.nodeType)) continue;
 
     const afterPath = afterPaths.get(id);
     // node was removed - do nothing
@@ -226,14 +218,8 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
     if (sameChain) continue;
 
     const hasList =
-      beforePath.chain.some(
-        (parent) =>
-          parent.nodeType === LIST_NODE || parent.nodeType === LIST_ITEM_NODE,
-      ) ||
-      afterPath.chain.some(
-        (parent) =>
-          parent.nodeType === LIST_NODE || parent.nodeType === LIST_ITEM_NODE,
-      );
+      beforePath.chain.some((parent) => LIST_NODES.includes(parent.nodeType)) ||
+      afterPath.chain.some((parent) => LIST_NODES.includes(parent.nodeType));
     // node is outside lists
     if (!hasList) continue;
 
@@ -245,18 +231,13 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
   // (we don't care about nodes that exist only in beforePaths - they were deleted)
 
   for (const [id, afterPath] of afterPaths) {
-    if (
-      afterPath.nodeType === LIST_NODE ||
-      afterPath.nodeType === LIST_ITEM_NODE
-    )
-      continue;
+    if (LIST_NODES.includes(afterPath.nodeType)) continue;
 
     // ignore nodes that also exist in beforePaths - they are already handled
     if (beforePaths.has(id)) continue;
 
-    const hasList = afterPath.chain.some(
-      (parent) =>
-        parent.nodeType === LIST_NODE || parent.nodeType === LIST_ITEM_NODE,
+    const hasList = afterPath.chain.some((parent) =>
+      LIST_NODES.includes(parent.nodeType),
     );
     // node is outside lists
     if (!hasList) continue;
