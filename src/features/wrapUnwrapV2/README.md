@@ -13,10 +13,9 @@ structural edits like wrapping, outdenting, and moving items between lists.
 
 ## Core Idea
 
-The plugin compares two document snapshots (before and after a transaction
-batch) and determines what happened to each content node by comparing its
-**materialized path** — its full ancestor chain from immediate parent up to the
-document root.
+The plugin compares two documents and determines what happened to each content
+node by comparing its **materialized path** — its full ancestor chain from
+immediate parent up to the document root.
 
 Marks are placed on **content nodes** (paragraphs, headings), not on lists or
 list items. Content nodes are the invariant — they survive wrapping and
@@ -29,8 +28,8 @@ reversal and place the child at the correct position.
 
 ## Detection
 
-On every `appendTransaction`, the plugin builds materialized paths for the
-before-doc and after-doc, then cross-references them:
+The plugin builds materialized paths for the before-doc and after-doc, then
+cross-references them:
 
 - **Node in both, chain changed, list involved** → `move` op. Stores the
   before-chain.
@@ -69,7 +68,7 @@ constraint that list items must have content.
 
 ## Performance
 
-### Mark application (runs in `appendTransaction`)
+### Mark application
 
 Materialized path construction, operation derivation, and mark application are
 each O(N) where N is total non-text nodes. Chain comparison at each node is O(D)
@@ -93,6 +92,16 @@ with many grouped marks.
   If mark A depends on mark B recreating a needed ancestor first, A's revert
   fails gracefully. Future improvement: build a dependency graph and
   topologically sort before reverting.
+
+- **However**, a basic single-step dependency check is implemented. When the
+  plugin is asked to revert a suggestion X, it will verify that every structure
+  mark of this suggestion group has a destination parent chain that matches the
+  current parent chain of the node. If mismatch is found, it searches for a
+  different structure mark on the same node that has a matching parent chain. If
+  such mark is found, it's whole suggestion group Y will be reverted before
+  suggestion X. This one-level dependency check is limited (what if there are
+  multiple matching marks on the same node? What if the reversal destination is
+  unavailable?). A complete topological sort solution is required for that.
 
 - **Schema violations fail silently.** If a stored node type no longer accepts
   the child being inserted (e.g., a list changed type), the ProseMirror step
