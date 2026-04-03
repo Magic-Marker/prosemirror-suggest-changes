@@ -17,7 +17,6 @@ import {
   joinNodesAndMarkJoinPoints,
   removeZWSPDeletions,
 } from "./features/joinOnDelete/index.js";
-// import { rebaseStep } from "./rebaseStep.js";
 
 /**
  * Transform a replace step into its equivalent tracked steps.
@@ -57,11 +56,6 @@ export function suggestReplaceStep(
   prevSteps: Step[],
   suggestionId: SuggestionId,
 ) {
-  // const handled = handleStructureStep(step, prevSteps, trackedTransaction);
-  // if (handled) {
-  //   return true;
-  // }
-
   const { deletion, insertion } = getSuggestionMarks(state.schema);
 
   // Check for insertion and deletion marks directly
@@ -435,19 +429,3 @@ export function suggestReplaceStep(
   }
   return markId === suggestionId;
 }
-
-// function handleStructureStep(
-//   step: ReplaceStep,
-//   prevSteps: Step[],
-//   trackedTransaction: Transaction,
-// ) {
-//   if ((step as ReplaceStep & { structure: boolean }).structure) {
-//     const rebasedStep = rebaseStep(step, prevSteps, trackedTransaction.steps);
-//     if (!rebasedStep || !(rebasedStep instanceof ReplaceStep)) {
-//       throw new Error("Failed to rebase replace step: unexpected step type");
-//     }
-//     trackedTransaction.step(rebasedStep);
-//     return true;
-//   }
-//   return false;
-// }

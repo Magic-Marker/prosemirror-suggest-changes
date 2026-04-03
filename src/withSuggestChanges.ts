@@ -24,9 +24,9 @@ import { isSuggestChangesEnabled, suggestChangesKey } from "./plugin.js";
 import { generateNextNumberId, type SuggestionId } from "./generateId.js";
 import { getSuggestionMarks } from "./utils.js";
 import { prependDeletionsWithZWSP } from "./prependDeletionsWithZWSP.js";
-import { suggestStructureChanges } from "./features/wrapUnwrapV2/structureChangesPlugin.js";
-import { type NodeIdGenerator } from "./features/wrapUnwrapV2/types.js";
-import { ensureStableIds } from "./features/wrapUnwrapV2/stableNodeIdsPlugin.js";
+import { suggestStructureChanges } from "./features/wrapUnwrap/structureChangesPlugin.js";
+import { type NodeIdGenerator } from "./features/wrapUnwrap/types.js";
+import { ensureStableIds } from "./features/wrapUnwrap/stableNodeIdsPlugin.js";
 
 type StepHandler<S extends Step> = (
   trackedTransaction: Transaction,

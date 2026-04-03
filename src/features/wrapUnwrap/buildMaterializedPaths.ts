@@ -33,7 +33,7 @@ export function buildMaterializedPaths(doc: Node): MaterializedPaths {
   });
 
   // now add the rest of the nodes
-  doc.descendants((node, pos, parent, childIndex) => {
+  doc.descendants((node, _pos, parent, childIndex) => {
     if (node.isText) return false;
 
     const nodeId = getNodeId(node);

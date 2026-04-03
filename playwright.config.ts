@@ -4,7 +4,6 @@ import { type TestOptions } from "./src/__tests__/playwrightBaseTest.js";
 export default defineConfig<TestOptions>({
   testDir: "./src",
   testMatch: "**/*.playwright.test.ts",
-  testIgnore: ["**/features/wrapUnwrap/__tests__/**"],
   fullyParallel: true,
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 2 : 0,

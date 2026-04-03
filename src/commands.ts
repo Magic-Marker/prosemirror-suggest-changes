@@ -20,7 +20,7 @@ import {
   revertAllStructureSuggestions,
   revertAllStructureSuggestionsOnNode,
   revertOneStructureSuggestion,
-} from "./features/wrapUnwrapV2/revertStructureSuggestions.js";
+} from "./features/wrapUnwrap/revertStructureSuggestions.js";
 
 /**
  * Given a node and a transform, add a set of steps to the
