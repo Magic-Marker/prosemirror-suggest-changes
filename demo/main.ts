@@ -121,7 +121,13 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
 const content = `
 - Item 1
 - Item 2
+  - Item 2.1
+    - Item 2.2
+  - Item 2.3
+  - Item 2.4
 - Item 3
+- Item 4
+- Item 5
 `;
 
 const doc = await unified()
