@@ -37,6 +37,11 @@ declare global {
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      revertSuggestion: (
+        suggestionId: SuggestionId,
+        opts?: { structure: boolean },
+      ) => void;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }

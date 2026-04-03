@@ -18,6 +18,7 @@ import { suggestReplaceStep } from "./replaceStep.js";
 import { getSuggestionMarks } from "./utils.js";
 import { applySuggestionsToRange } from "./commands.js";
 import { type SuggestionId } from "./generateId.js";
+import { handleStructureStep } from "./features/wrapUnwrap/handleStructureStep.js";
 
 /**
  * This detects and handles changes from `setNodeMarkup` so that these are tracked as a modification
@@ -167,7 +168,18 @@ export function suggestReplaceAroundStep(
   prevSteps: Step[],
   suggestionId: SuggestionId,
 ) {
-  const handled = suggestSetNodeMarkup(
+  let handled = handleStructureStep(
+    trackedTransaction,
+    step,
+    prevSteps,
+    suggestionId,
+  );
+
+  if (handled) {
+    return true;
+  }
+
+  handled = suggestSetNodeMarkup(
     trackedTransaction,
     state,
     doc,
@@ -182,10 +194,13 @@ export function suggestReplaceAroundStep(
 
   const applied = step.apply(doc).doc;
   if (!applied) return false;
+
   const from = step.getMap().map(step.from, -1);
   const to = step.getMap().map(step.to, 1);
+
   const blockRange = applied.resolve(from).blockRange(applied.resolve(to));
   if (!blockRange) return false;
+
   const replace = replaceStep(
     doc,
     step.getMap().invert().map(blockRange.start),
@@ -193,6 +208,7 @@ export function suggestReplaceAroundStep(
     applySuggestionsToRange(applied, blockRange.start, blockRange.end),
   );
   if (!replace) return false;
+
   return suggestReplaceStep(
     trackedTransaction,
     state,

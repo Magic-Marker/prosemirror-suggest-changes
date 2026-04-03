@@ -266,10 +266,10 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -307,10 +307,10 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
         type: "doc",
         content: [
           {
-            type: "ordered_list",
+            type: "orderedList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -348,10 +348,10 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -403,10 +403,10 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
                     type: "paragraph",
@@ -438,16 +438,16 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
         type: "doc",
         content: [
           {
-            type: "bullet_list",
+            type: "bulletList",
             content: [
               {
-                type: "list_item",
+                type: "listItem",
                 content: [
                   {
-                    type: "bullet_list",
+                    type: "bulletList",
                     content: [
                       {
-                        type: "list_item",
+                        type: "listItem",
                         content: [
                           {
                             type: "paragraph",
@@ -492,16 +492,16 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
             type: "blockquote",
             content: [
               {
-                type: "bullet_list",
+                type: "bulletList",
                 content: [
                   {
-                    type: "list_item",
+                    type: "listItem",
                     content: [
                       {
-                        type: "bullet_list",
+                        type: "bulletList",
                         content: [
                           {
-                            type: "list_item",
+                            type: "listItem",
                             content: [
                               {
                                 type: "paragraph",

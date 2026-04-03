@@ -1,21 +1,27 @@
 import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { type Mark, Schema } from "prosemirror-model";
-import { nodes, marks } from "prosemirror-schema-basic";
-import { baseKeymap, chainCommands } from "prosemirror-commands";
+import { Schema, type Mark } from "prosemirror-model";
 import { history, redo, undo } from "prosemirror-history";
+import { baseKeymap, chainCommands, lift, wrapIn } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import {
   bulletList,
-  orderedList,
+  liftListItem,
   listItem,
+  orderedList,
+  sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
-import { addSuggestionMarks } from "../src/schema.js";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
-import { experimental_ensureSelection } from "../src/index.js";
+import {
+  addSuggestionMarks,
+  experimental_ensureSelection,
+} from "../src/index.js";
+import { type SuggestionId } from "../src/generateId.js";
+import * as commands from "../src/commands.js";
+import { marks, nodes } from "prosemirror-schema-basic";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -35,12 +41,31 @@ console.log(
 const schema = new Schema({
   nodes: {
     ...nodes,
-    ordered_list: { ...orderedList, group: "block", content: "list_item+" },
-    bullet_list: { ...bulletList, group: "block", content: "list_item+" },
-    list_item: {
+    doc: {
+      ...nodes.doc,
+      marks: "insertion deletion modification structure",
+    },
+    blockquote: {
+      ...nodes.blockquote,
+      group: "block",
+      marks: "insertion deletion modification structure",
+    },
+    orderedList: {
+      ...orderedList,
+      group: "block",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
+    },
+    bulletList: {
+      ...bulletList,
+      group: "block",
+      content: "listItem+",
+      marks: "insertion deletion modification structure",
+    },
+    listItem: {
       ...listItem,
       content: "block+",
-      marks: "insertion deletion modification",
+      marks: "insertion deletion modification structure",
     },
   },
   marks: addSuggestionMarks(marks, {
@@ -82,13 +107,18 @@ let state = EditorState.create({
       ...baseKeymap,
       // Handle Enter key for list items
       Enter: chainCommands(
-        splitListItem(schema.nodes.list_item),
+        splitListItem(schema.nodes.listItem),
         baseKeymap["Enter"] ?? (() => false),
       ),
       "Shift-Enter": enterCommand,
       "Mod-z": undo,
       "Mod-Shift-z": redo,
       "Mod-y": redo,
+      // handle lift and sink for list items
+      Tab: sinkListItem(schema.nodes.listItem),
+      "Shift-Tab": liftListItem(schema.nodes.listItem),
+      "Mod-u": wrapIn(schema.nodes.blockquote),
+      "Mod-l": lift,
     }),
     history(),
     suggestChanges(),
@@ -175,6 +205,11 @@ declare global {
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      revertSuggestion: (
+        suggestionId: SuggestionId,
+        opts?: { structure: boolean },
+      ) => void;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
     };
   }
 }
@@ -310,6 +345,26 @@ window.pmEditor = {
 
   getDOMTextContentOfChildAtIndex(index: number) {
     return view.dom.childNodes[index].textContent ?? "";
+  },
+
+  revertSuggestion(suggestionId: SuggestionId, opts?: { structure: boolean }) {
+    const command = commands.revertSuggestion(
+      suggestionId,
+      undefined,
+      undefined,
+      opts,
+    );
+    command(view.state, view.dispatch);
+  },
+
+  revertStructureSuggestion(suggestionId: SuggestionId) {
+    const command = commands.revertSuggestion(
+      suggestionId,
+      undefined,
+      undefined,
+      { structure: true },
+    );
+    command(view.state, view.dispatch);
   },
 };
 
