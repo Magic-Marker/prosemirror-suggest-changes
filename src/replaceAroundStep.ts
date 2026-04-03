@@ -18,7 +18,6 @@ import { suggestReplaceStep } from "./replaceStep.js";
 import { getSuggestionMarks } from "./utils.js";
 import { applySuggestionsToRange } from "./commands.js";
 import { type SuggestionId } from "./generateId.js";
-// import { rebaseStep } from "./rebaseStep.js";
 
 /**
  * This detects and handles changes from `setNodeMarkup` so that these are tracked as a modification
@@ -168,12 +167,6 @@ export function suggestReplaceAroundStep(
   prevSteps: Step[],
   suggestionId: SuggestionId,
 ) {
-  console.log("suggestReplaceAroundStep", step);
-  // let handled = handleStructureStep(step, prevSteps, trackedTransaction);
-  // if (handled) {
-  //   return true;
-  // }
-
   const handled = suggestSetNodeMarkup(
     trackedTransaction,
     state,
@@ -189,13 +182,10 @@ export function suggestReplaceAroundStep(
 
   const applied = step.apply(doc).doc;
   if (!applied) return false;
-
   const from = step.getMap().map(step.from, -1);
   const to = step.getMap().map(step.to, 1);
-
   const blockRange = applied.resolve(from).blockRange(applied.resolve(to));
   if (!blockRange) return false;
-
   const replace = replaceStep(
     doc,
     step.getMap().invert().map(blockRange.start),
@@ -203,7 +193,6 @@ export function suggestReplaceAroundStep(
     applySuggestionsToRange(applied, blockRange.start, blockRange.end),
   );
   if (!replace) return false;
-
   return suggestReplaceStep(
     trackedTransaction,
     state,
@@ -213,21 +202,3 @@ export function suggestReplaceAroundStep(
     suggestionId,
   );
 }
-
-// function handleStructureStep(
-//   step: ReplaceAroundStep,
-//   prevSteps: Step[],
-//   trackedTransaction: Transaction,
-// ) {
-//   if ((step as ReplaceAroundStep & { structure: boolean }).structure) {
-//     const rebasedStep = rebaseStep(step, prevSteps, trackedTransaction.steps);
-//     if (!rebasedStep || !(rebasedStep instanceof ReplaceAroundStep)) {
-//       throw new Error(
-//         "Failed to rebase replace around step: unexpected step type",
-//       );
-//     }
-//     trackedTransaction.step(rebasedStep);
-//     return true;
-//   }
-//   return false;
-// }

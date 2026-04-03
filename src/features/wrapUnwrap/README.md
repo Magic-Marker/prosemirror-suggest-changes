@@ -1,198 +1,127 @@
-# Structure Suggestion Tracking & Reversal
+# ProseMirror Structure Changes Tracking
 
-## Purpose
+Detect structural changes to list hierarchies and stores revertible operations
+as node marks — enabling suggestion mode for structural edits like wrapping,
+outdenting, and moving items between lists.
 
-Track structural changes (wrap/unwrap in blockquotes, list item lift/sink) in
-ProseMirror as "suggestions" that can be reverted later, without losing the
-ability to reconstruct the original document state.
+## Prerequisites
 
----
+- All block nodes must have stable, unique string IDs via an `id` attribute.
+- Lists must follow `ListNode → ListItemNode → ContentNode[]` structure.
+- List item children must be block nodes, not text.
+- Nested lists are supported.
 
-## Why Marks on Nodes?
+## Core Idea
 
-**The Problem**: Document positions are ephemeral. A position like `from: 10`
-becomes invalid after any edit before it.
+The plugin compares two documents and determines what happened to each content
+node by comparing its **materialized path** — its full ancestor chain from
+immediate parent up to the document root.
 
-**The Solution**: Anchor positions to **actual nodes** in the document using
-marks. To recover a position:
+Marks are placed on **content nodes** (paragraphs, headings), not on lists or
+list items. Content nodes are the invariant — they survive wrapping and
+unwrapping. Lists and list items are created and destroyed around them, making
+them unsuitable as mark targets.
 
-1. Find the marked node (which moves with document edits)
-2. Compute position from node's current `pos` + the `position` attribute:
-   - `position: "start"` → use `pos`
-   - `position: "end"` → use `pos + node.nodeSize`
+Each `Parent` entry in the chain stores the parent's ID, type, attrs, marks,
+sibling IDs, and child index — enough to recreate the parent node during
+reversal and place the child at the correct position.
 
-This way, positions are **self-healing** — they remain valid as long as the
-marked nodes exist.
+## Detection
 
-**Why "start" vs "end"?** Because the 4 positions of a `ReplaceAroundStep` don't
-always align with node boundaries in the same way. The mark must be placed on a
-node that **exists in the final document**, and the position must be derivable
-from that node's boundaries.
+The plugin builds materialized paths for the before-doc and after-doc, then
+cross-references them:
 
----
+- **Node in both, chain changed, list involved** → `move` op. Stores the
+  before-chain.
+- **Node only in after-doc, list involved** → `add` op. No positional data.
+- **Node only in before-doc** → deleted, no action.
 
-## Mark Structure
+Chain equality means same length and matching node IDs at every level. Sibling
+or index changes alone don't count as a move — this avoids false positives from
+index compaction when a neighbor is removed.
 
-### For `ReplaceAroundStep` (4 marks)
+All ops from the same transaction share a suggestion ID for grouped revert.
 
-Each mark contains:
+## Reversal
 
-| Field       | Purpose                                                 |
-| ----------- | ------------------------------------------------------- |
-| `id`        | Suggestion ID (groups marks together)                   |
-| `value`     | `"from"` \| `"to"` \| `"gapFrom"` \| `"gapTo"`          |
-| `position`  | `"start"` \| `"end"` (how to derive position from node) |
-| `type`      | `"replaceAround"`                                       |
-| `slice`     | JSON of the slice for the **inverse** step              |
-| `insert`    | Where gap content goes in the slice                     |
-| `structure` | Boolean flag for structural step                        |
+### Reverting `move`
 
-### For `ReplaceStep` (2 marks)
+1. Walk the stored before-chain top-down, verifying each ancestor exists **in
+   the correct parent** (not just anywhere in the doc). Stop at the first
+   mismatch — that's the deepest surviving ancestor.
+2. Recreate missing ancestors below the survivor using stored type/attrs/marks.
+3. Insert the reconstructed subtree into the survivor, positioned using stored
+   sibling IDs (right sibling first, then left, then end of parent as fallback).
+4. Delete the content node from its current location and prune empty ancestors
+   upward.
 
-Only `from` and `to` marks are needed (no gap positions).
+### Reverting `add`
 
-| Field       | Purpose                                    |
-| ----------- | ------------------------------------------ |
-| `id`        | Suggestion ID                              |
-| `value`     | `"from"` \| `"to"`                         |
-| `position`  | `"start"` \| `"end"`                       |
-| `type`      | `"replace"`                                |
-| `slice`     | JSON of the slice for the **inverse** step |
-| `structure` | Boolean flag                               |
+Delete the node and prune empty ancestors.
 
-### Mark Nesting
+### Empty ancestor pruning
 
-Marks are nested around content in the document:
+After deletion, walk upward. At each level, if the parent has exactly one child
+(the one being removed), expand the deletion to include that parent. This avoids
+leaving behind empty list items or lists, and sidesteps ProseMirror's schema
+constraint that list items must have content.
 
-```javascript
-doc(
-  structure[from, position:start](
-    structure[to, position:end](
-      blockquote(
-        structure[gapFrom, position:start](
-          structure[gapTo, position:end](
-            paragraph("Hello World")
-          ))))))
-```
+## Performance
 
-When traversing with `nodesBetween`, we find each marked node and compute
-positions from it.
+### Mark application
 
----
+Materialized path construction, operation derivation, and mark application are
+each O(N) where N is the number of nodes in the document. Can be potentially
+improved by not going into textblock nodes (to make sure text nodes are not
+visited). Parent chain comparison at each node is O(D) for nesting depth D
+(practically ≤ 10). **Effectively O(N) - linear.** Skipped entirely when
+`docChanged` is false.
 
-## How Reversal Works
+### Suggestion revert (explicit user action)
 
-The `revertStructureSuggestion(suggestionId)` command:
+**O(M × N)** where M is marks in the group. The dominant cost is rebuilding the
+node-to-children map and rescanning for the next mark after each individual
+revert. Negligible for typical documents; cacheable if needed for large docs
+with many grouped marks.
 
-```
-1. FIND the main suggestion's marks
-   └── findStructureMarkGroupBySuggestionId(suggestionId)
-       └── Scan document for marks with matching ID
-       └── Collect: markFrom, markTo, [markGapFrom, markGapTo]
+## Known Limitations
 
-2. FIND nested suggestions within the range
-   └── nodesBetween(from, to) to find all structure marks
-   └── Collect all unique suggestion IDs
+- **No reorder detection.** Same-list reordering is not tracked yet. The data is
+  stored (sibling IDs and indices), but detection requires comparing relative
+  order of surviving peers, not raw indices. Planned.
 
-3. SORT by decreasing ID (revert newest first)
-   └── [3, 2, 1] — important for nested changes!
+- **No topological sorting of reverts.** Marks are reverted in document order.
+  If mark A depends on mark B recreating a needed ancestor first, A's revert
+  fails gracefully. Future improvement: build a dependency graph and
+  topologically sort before reverting.
 
-4. For EACH suggestion, REVERT:
-   └── Compute positions: getPosFromMark(mark, pos, node)
-   └── Deserialize slice from JSON
-   └── Reconstruct inverse step:
-       - ReplaceAroundStep(from, to, gapFrom, gapTo, slice, insert, structure)
-       - or ReplaceStep(from, to, slice, structure)
-   └── Remove the marks
-   └── Apply the step
-```
+- **However**, a basic single-step dependency check is implemented. When the
+  plugin is asked to revert a suggestion X, it will verify that every structure
+  mark of this suggestion group has a destination parent chain that matches the
+  current parent chain of the node. If mismatch is found, it searches for a
+  different structure mark on the same node that has a matching parent chain. If
+  such mark is found, it's whole suggestion group Y will be reverted before
+  suggestion X. This one-level dependency check is limited (what if there are
+  multiple matching marks on the same node? What if the reversal destination is
+  unavailable?). A complete topological sort solution is required for that.
 
-**Why reverse order?** If step 1 created structure A, and step 2 modified within
-A, you must undo step 2 before step 1, otherwise positions break.
+- **Schema violations fail silently.** If a stored node type no longer accepts
+  the child being inserted (e.g., a list changed type), the ProseMirror step
+  fails and no rollback is attempted.
 
----
+## Design Decisions
 
-## How Tests Work
+**Materialized paths over step interpretation.** ProseMirror's `ReplaceStep` and
+`ReplaceAroundStep` encode positional mutations, not semantic intent. A list
+split is a single `ReplaceStep` that's hard to decompose into "item X was
+outdented." Comparing ancestor chains gives direct semantic answers.
 
-Each test file has 3 data structures:
+**Materialized paths over JSON tree diffing.** Early design explored diffing
+list subtrees with jsondiffpatch. Abandoned because patch paths require
+interpretation to determine affected content nodes, cross-list moves appear as
+unrelated remove/add patches needing correlation, and map comparison answers
+"where was node X" directly.
 
-```typescript
-// 1. Initial document state (before any changes)
-const initialState = doc(paragraph("Hello World"));
-
-// 2. Final state (after applying steps, NO marks)
-const finalState = doc(blockquote(paragraph("Hello World")));
-
-// 3. Final state WITH structure marks embedded
-//    (manually constructed to simulate what forward tracking would produce)
-const finalStateWithMarks = doc(
-  structure({ id: 1, data: { value: "from", position: "start", ... } },
-    structure({ id: 1, data: { value: "to", position: "end", ... } },
-      blockquote(
-        structure({ id: 1, data: { value: "gapFrom", ... } },
-          structure({ id: 1, data: { value: "gapTo", ... } },
-            paragraph("Hello World")
-          )))))
-);
-
-// The steps that transform initial → final
-const steps = [{ stepType: "replaceAround", from: 0, to: 13, ... }];
-
-// The inverse steps that transform final → initial
-const inverseSteps = [{ stepType: "replaceAround", from: 0, to: 15, ... }];
-```
-
-Three test cases per scenario:
-
-```typescript
-// Test 1: Forward transformation works
-it("applies steps correctly", () => {
-  assertDocumentChanged(initialState, finalState, applySteps(steps));
-});
-
-// Test 2: Inverse steps work (sanity check)
-it("applies inverse steps correctly", () => {
-  assertDocumentChanged(
-    finalState,
-    initialState,
-    applySteps(inverseSteps.reverse()),
-  );
-});
-
-// Test 3: THE MAIN TEST - revert from marks works
-it("reverts via structure suggestion", () => {
-  assertDocumentChanged(
-    finalStateWithMarks,
-    initialState,
-    revertStructureSuggestion(1),
-  );
-});
-```
-
----
-
-## What's Missing: Forward Tracking
-
-The code that would:
-
-1. Intercept `ReplaceAroundStep` / `ReplaceStep` in suggest-changes mode
-2. Apply the step to get the new document
-3. Compute the inverse step
-4. Place structure marks on appropriate nodes with:
-   - Position encoding (which node, start vs end)
-   - Inverse step data (slice, insert, structure flag)
-
-Currently `suggestReplaceAroundStep` in `replaceAroundStep.ts` converts
-structural operations to `ReplaceStep` and uses insertion/deletion marks
-instead, losing the structural information needed for proper reversal.
-
----
-
-## Additional Notes
-
-### Offset Fields
-
-The marks contain offset fields (`gapFromOffset`, `fromOffset`, `toOffset`,
-`gapToOffset`) and a `debug` object with computed inverse positions. These are
-present in test data but **not currently used** by the revert code — positions
-are computed purely from node position + `position` field.
+**Sibling IDs over indices for positioning.** Indices shift when neighbors
+change. Sibling IDs are stable. Index is stored alongside for future reorder
+detection but unused during revert.

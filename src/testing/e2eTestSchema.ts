@@ -2,7 +2,7 @@ import { Schema } from "prosemirror-model";
 import { bulletList, listItem, orderedList } from "prosemirror-schema-list";
 import { addSuggestionMarks } from "../schema.js";
 import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
-import { addIdAttr } from "../features/wrapUnwrapV2/addIdAttr.js";
+import { addIdAttr } from "../features/wrapUnwrap/addIdAttr.js";
 
 export function createSchema(
   deletionMarksVisibility: "hidden" | "visible" = "visible",

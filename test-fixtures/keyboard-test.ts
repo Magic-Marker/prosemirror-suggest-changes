@@ -19,7 +19,7 @@ import {
 } from "../src/index.js";
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
-import { generateNodeId } from "../src/features/wrapUnwrapV2/generateNodeId.js";
+import { generateNodeId } from "../src/features/wrapUnwrap/generateNodeId.js";
 import { createSchema } from "../src/testing/e2eTestSchema.js";
 
 const searchParams = new URLSearchParams(window.location.search);

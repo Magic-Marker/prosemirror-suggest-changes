@@ -4,15 +4,7 @@ import {
   toPmMark,
   toPmNode,
 } from "@handlewithcare/remark-prosemirror";
-import {
-  baseKeymap,
-  chainCommands,
-  toggleMark,
-  /* todo: check
-  wrapIn,
-  lift,
-  */
-} from "prosemirror-commands";
+import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
@@ -28,7 +20,6 @@ import {
   experimental_ensureSelection,
   experimental_stableNodeIds,
   addSuggestionMarks,
-  // experimental_structureChangesPlugin,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
@@ -45,8 +36,8 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import { Schema } from "prosemirror-model";
 import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
-import { addIdAttr } from "../src/features/wrapUnwrapV2/addIdAttr.js";
-import { generateNodeId } from "../src/features/wrapUnwrapV2/generateNodeId.js";
+import { addIdAttr } from "../src/features/wrapUnwrap/addIdAttr.js";
+import { generateNodeId } from "../src/features/wrapUnwrap/generateNodeId.js";
 
 const nodes = { ...schemaNodes };
 for (const [key, nodeSpec] of Object.entries(nodes)) {
@@ -167,7 +158,6 @@ const editorState = EditorState.create({
     }),
     history(),
     suggestChanges(),
-    // experimental_structureChangesPlugin(),
     experimental_ensureSelection(),
   ],
 });

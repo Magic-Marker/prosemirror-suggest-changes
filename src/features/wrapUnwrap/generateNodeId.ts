@@ -2,10 +2,10 @@
 import { type Node } from "prosemirror-model";
 
 export function generateNodeId(
-  node: Node,
-  pos: number,
-  parent: Node | null,
-  index: number,
+  _node: Node,
+  _pos: number,
+  _parent: Node | null,
+  _index: number,
 ) {
   if (
     typeof crypto !== "undefined" &&

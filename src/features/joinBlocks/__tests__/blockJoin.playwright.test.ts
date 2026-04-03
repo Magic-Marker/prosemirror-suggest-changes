@@ -259,6 +259,11 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
   });
 
   test.describe.skip("List Item Block Join Behavior", () => {
+    // todo[lists]: tested behavior does not match default prosemirror behavior
+    // default prosemirror behavior:
+    // pressing enter adds a second list item with an empty paragraph
+    // pressing backspace removes the second list item but moves its paragraph to the first list item
+    // the backspace needs to be pressed twice to remove the paragraph as well and return to the initial state
     test("Bullet list: Enter then Backspace should rejoin list items", async ({
       page,
     }) => {
@@ -300,6 +305,7 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
     });
 
+    // todo[lists]: same as above
     test("Ordered list: Enter then Backspace should rejoin list items", async ({
       page,
     }) => {
@@ -341,6 +347,7 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
     });
 
+    // todo[lists] same as above, the backspace needs to be pressed twice after enter as per default prosemirror behavior
     test("List item: Enter at middle of text then Backspace", async ({
       page,
     }) => {
@@ -398,6 +405,7 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
     });
 
+    // todo[lists] same as above
     test("List item: Multiple sequential splits/joins", async ({ page }) => {
       const { initialState, initialDoc } = await setupDocFromJSON(page, {
         type: "doc",
@@ -431,6 +439,7 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
     });
 
+    // todo[lists] same
     test("Deeply nested list (3 levels): Enter then Backspace should rejoin all levels", async ({
       page,
     }) => {
@@ -482,6 +491,7 @@ test.describe("Block Join E2E - Real Keyboard Events", () => {
       assertDocFullyReverted(finalState, finalDoc, initialState, initialDoc);
     });
 
+    // todo[lists] same
     test("Extremely nested structure (4 levels): Enter then Backspace should rejoin all levels", async ({
       page,
     }) => {

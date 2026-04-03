@@ -38,9 +38,9 @@ export {
 export {
   stableNodeIds as experimental_stableNodeIds,
   stableNodeIdsKey as experimental_stableNodeIdsKey,
-} from "./features/wrapUnwrapV2/stableNodeIdsPlugin.js";
+} from "./features/wrapUnwrap/stableNodeIdsPlugin.js";
 
 export {
   structureChangesPlugin as experimental_structureChangesPlugin,
   structureChangesKey as experimental_structureChangesKey,
-} from "./features/wrapUnwrapV2/structureChangesPlugin.js";
+} from "./features/wrapUnwrap/structureChangesPlugin.js";

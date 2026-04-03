@@ -31,7 +31,7 @@ export function structureChangesPlugin(
 ) {
   return new Plugin({
     key: structureChangesKey,
-    appendTransaction(transactions, oldState, newState) {
+    appendTransaction(transactions, _oldState, newState) {
       if (transactions.some((tr) => !isEnabled(tr, newState))) {
         console.warn(
           "tracking changes is disabled, skipping structure changes plugin",

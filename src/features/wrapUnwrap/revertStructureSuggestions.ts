@@ -190,7 +190,7 @@ function revertStructureMarkGroup(tr: Transform, suggestionId: SuggestionId) {
       "at pos",
       structureMark.pos,
       "at node",
-      `${String(getNodeId(structureMark.node))}::${structureMark.node.type.name}::"${structureMark.node.textContent}"`,
+      structureMark.node.toString(),
       { structureMark },
     );
     revertStructureMark(tr, structureMark.mark, structureMark.pos);
@@ -216,7 +216,7 @@ function revertStructureMark(tr: Transform, mark: Mark, pos: number) {
     "revertStructureMark",
     mark.attrs["id"],
     "at node",
-    `${String(getNodeId(node))}::${node.type.name}::"${node.textContent}"`,
+    node.toString(),
     {
       node,
       mark,
@@ -255,14 +255,11 @@ function revertStructureMark(tr: Transform, mark: Mark, pos: number) {
 }
 
 function revertAdd(op: AddOp, tr: Transform, node: Node, pos: number) {
-  console.log(
-    "revertAdd",
-    "node",
-    `${String(getNodeId(node))}::${node.type.name}::"${node.textContent}"`,
-    "was added at",
+  console.log("revertAdd", "node", node.toString(), "was added at", pos, {
+    op,
+    node,
     pos,
-    { op, node, pos },
-  );
+  });
   deleteNodeWithParents(tr, node, pos);
 }
 
@@ -270,7 +267,7 @@ function revertMove(op: MoveOp, tr: Transform, node: Node, pos: number) {
   console.log(
     "revertMove",
     "node",
-    `${String(getNodeId(node))}::${node.type.name}::"${node.textContent}"`,
+    node.toString(),
     "was moved from",
     op.from,
     { op, node },
@@ -280,7 +277,7 @@ function revertMove(op: MoveOp, tr: Transform, node: Node, pos: number) {
   console.log(
     "revertMove",
     "deepest surviving parent is",
-    `${String(getNodeId(parent.node))}::${parent.node.type.name}::"${parent.node.textContent}"`,
+    parent.node.toString(),
     { parent },
   );
 
@@ -288,7 +285,7 @@ function revertMove(op: MoveOp, tr: Transform, node: Node, pos: number) {
   console.log(
     "revertMove",
     "wrapped node in parent chain is",
-    `${String(getNodeId(child))}::${child.type.name}::"${child.textContent}"`,
+    child.toString(),
     { child },
   );
 
@@ -347,8 +344,6 @@ function findOrderedSuggestionIdsToRevert(
 
     if (attrs.data.op.op !== "move") return false;
 
-    console.log("check match", attrs, parentChain.chain);
-
     return !sameParentChain(attrs.data.op.to, parentChain.chain);
   });
 
@@ -384,7 +379,7 @@ function findOrderedSuggestionIdsToRevert(
 }
 
 function findNextStructureMark(doc: Node, suggestionId: SuggestionId) {
-  console.log("findNextStructureMark", suggestionId, "TEST", doc.toString());
+  console.log("findNextStructureMark", suggestionId);
   const { structure } = getSuggestionMarks(doc.type.schema);
 
   let structureMark = null as { mark: Mark; node: Node; pos: number } | null;
@@ -578,7 +573,7 @@ function deleteNodeWithParents(transform: Transform, node: Node, pos: number) {
   console.log(
     "deleteNodeWithParents",
     "initial delete range covers node",
-    `${String(getNodeId(node))}::${node.type.name}::"${node.textContent}"`,
+    node.toString(),
     { deleteFrom, deleteTo, $mappedPos },
   );
 
@@ -592,7 +587,7 @@ function deleteNodeWithParents(transform: Transform, node: Node, pos: number) {
     console.log(
       "deleteNodeWithParents",
       "expanded delete range to cover node",
-      `${String(getNodeId($mappedPos.nodeAfter))}::${$mappedPos.nodeAfter.type.name}::"${$mappedPos.nodeAfter.textContent}"`,
+      $mappedPos.nodeAfter.toString(),
       {
         deleteFrom,
         deleteTo,
@@ -604,8 +599,7 @@ function deleteNodeWithParents(transform: Transform, node: Node, pos: number) {
   console.log(
     "deleteNodeWithParents",
     "final delete range covers node",
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    `${String(getNodeId($mappedPos.nodeAfter!))}::${$mappedPos.nodeAfter!.type.name}::"${$mappedPos.nodeAfter!.textContent}"`,
+    $mappedPos.nodeAfter?.toString(),
     { deleteFrom, deleteTo, $mappedPos },
   );
   transform.delete(deleteFrom, deleteTo);
