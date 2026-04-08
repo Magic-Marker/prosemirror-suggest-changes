@@ -25,8 +25,13 @@ import { generateNextNumberId, type SuggestionId } from "./generateId.js";
 import { getSuggestionMarks } from "./utils.js";
 import { prependDeletionsWithZWSP } from "./prependDeletionsWithZWSP.js";
 import { suggestStructureChanges } from "./features/wrapUnwrap/structureChangesPlugin.js";
-import { type NodeIdGenerator } from "./features/wrapUnwrap/types.js";
-import { ensureStableIds } from "./features/wrapUnwrap/stableNodeIdsPlugin.js";
+
+const TRACE_ENABLED = true;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[withSuggestChanges]", ...args);
+}
 
 type StepHandler<S extends Step> = (
   trackedTransaction: Transaction,
@@ -191,7 +196,11 @@ export function withSuggestChanges(
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
   opts?: {
     experimental_trackStructureChanges?: boolean;
-    experimental_generateNodeId?: NodeIdGenerator;
+    experimental_ensureUniqueNodeIds?: (
+      transactions: Transaction[],
+      oldDoc: Node,
+      newDoc: Node,
+    ) => Transform;
   },
 ): EditorView["dispatch"] {
   const dispatch =
@@ -218,39 +227,49 @@ export function withSuggestChanges(
 
     if (isEnabled) {
       let structureChangesTransform: Transform | null = null;
+      const docBefore = tr.docs[0];
 
       if (
+        tr.docChanged &&
+        docBefore &&
         opts?.experimental_trackStructureChanges &&
-        typeof opts.experimental_generateNodeId === "function"
+        typeof opts.experimental_ensureUniqueNodeIds === "function"
       ) {
-        const stableIdsTransform = ensureStableIds(
+        trace("trying to track structure changes first...");
+        // after a transaction, some nodes may not yet have unique ids (they were just added, and the unique id plugin has not yet run)
+        // this hook allows to "post-process" the transaction and add the missing ids
+        // basically it allows to run the core logic of the unique ids plugin earlier
+        const uniqueNodeIdsTransform = opts.experimental_ensureUniqueNodeIds(
+          [tr],
+          docBefore,
           tr.doc,
-          opts.experimental_generateNodeId,
         );
+        const docAfter = uniqueNodeIdsTransform.doc;
+        trace("unique node ids set", docAfter);
+
         // try running structure changes first
         // if handled, then ignore the main plugin
         // otherwise use the main plugin
-        const docBefore = tr.docs[0];
-        const docAfter = stableIdsTransform.doc;
-        if (docBefore && tr.docChanged) {
-          structureChangesTransform = suggestStructureChanges(
-            docBefore,
-            docAfter,
-            generateId,
+        structureChangesTransform = suggestStructureChanges(
+          docBefore,
+          docAfter,
+          generateId,
+        );
+        trace(
+          "structure changes transform completed",
+          structureChangesTransform,
+        );
+        if (structureChangesTransform.steps.length > 0) {
+          uniqueNodeIdsTransform.steps.forEach((step) => {
+            transaction.step(step);
+          });
+          structureChangesTransform.steps.forEach((step) => {
+            transaction.step(step);
+          });
+          trace(
+            "applied unique id transform and structure changes transform to the transaction",
+            transaction,
           );
-          if (structureChangesTransform.steps.length > 0) {
-            console.log(
-              "withSuggestChanges",
-              "structure changes, applying transform",
-              { structureChangesTransform },
-            );
-            stableIdsTransform.steps.forEach((step) => {
-              transaction.step(step);
-            });
-            structureChangesTransform.steps.forEach((step) => {
-              transaction.step(step);
-            });
-          }
         }
       }
 
@@ -258,24 +277,19 @@ export function withSuggestChanges(
         structureChangesTransform == null ||
         structureChangesTransform.steps.length === 0
       ) {
-        console.log(
-          "withSuggestChanges",
-          "no structure changes, using main plugin",
-          { structureChangesTransform },
-        );
+        trace("running the main suggestions plugin...");
         transaction = transformToSuggestionTransaction(
           tr,
           this.state,
           generateId,
         );
+        trace("main suggestions plugin completed", transaction);
       }
     }
 
     if (transaction.docChanged) {
       prependDeletionsWithZWSP(transaction);
     }
-
-    console.log("withSuggestChanges", "final transaction", { transaction });
 
     dispatch.call(this, transaction);
   };

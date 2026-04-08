@@ -8,7 +8,8 @@ import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
-import { EditorState, Plugin } from "prosemirror-state";
+import { EditorState, Plugin, type Transaction } from "prosemirror-state";
+import { type Node } from "prosemirror-model";
 import {
   applySuggestions,
   enableSuggestChanges,
@@ -18,8 +19,8 @@ import {
   toggleSuggestChanges,
   withSuggestChanges,
   experimental_ensureSelection,
-  experimental_stableNodeIds,
   addSuggestionMarks,
+  experimental_uniqueNodeIdsPlugin,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
@@ -37,7 +38,8 @@ import remarkParse from "remark-parse";
 import { Schema } from "prosemirror-model";
 import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
 import { addIdAttr } from "../src/features/wrapUnwrap/addIdAttr.js";
-import { generateNodeId } from "../src/features/wrapUnwrap/generateNodeId.js";
+import { ensureUniqueNodeIds } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
+import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueNodeId.js";
 
 const nodes = { ...schemaNodes };
 for (const [key, nodeSpec] of Object.entries(nodes)) {
@@ -136,7 +138,10 @@ const editorState = EditorState.create({
   schema,
   doc,
   plugins: [
-    experimental_stableNodeIds(generateNodeId),
+    experimental_uniqueNodeIdsPlugin({
+      attributeName: "id",
+      generateID: generateUniqueNodeId,
+    }),
     keymap({
       ...baseKeymap,
       Enter: chainCommands(splitListItem(schema.nodes.listItem), enterCommand),
@@ -222,7 +227,15 @@ const view = new EditorView(editorEl, {
   plugins,
   dispatchTransaction: withSuggestChanges(undefined, undefined, {
     experimental_trackStructureChanges: true,
-    experimental_generateNodeId: generateNodeId,
+    experimental_ensureUniqueNodeIds: (
+      transactions: Transaction[],
+      oldDoc: Node,
+      newDoc: Node,
+    ) =>
+      ensureUniqueNodeIds(transactions, oldDoc, newDoc, {
+        attributeName: "id",
+        generateID: generateUniqueNodeId,
+      }),
   }),
 });
 

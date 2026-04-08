@@ -167,13 +167,21 @@ function revertStructureMarkGroupInOrder(
   tr: Transform,
   suggestionId: SuggestionId,
 ) {
-  console.group("reverting structure mark group", suggestionId);
+  console.group(
+    "revertStructureMarkGroupInOrder",
+    "reverting structure mark group",
+    suggestionId,
+  );
   const suggestionIds = findOrderedSuggestionIdsToRevert(
     tr.doc,
     suggestionId,
     buildMaterializedPaths(tr.doc),
   );
-  console.log("suggestion groups to revert", suggestionIds);
+  console.log(
+    "revertStructureMarkGroupInOrder",
+    "suggestion groups to revert",
+    suggestionIds,
+  );
   for (const suggestionId of suggestionIds) {
     revertStructureMarkGroup(tr, suggestionId);
   }
@@ -181,10 +189,15 @@ function revertStructureMarkGroupInOrder(
 }
 
 function revertStructureMarkGroup(tr: Transform, suggestionId: SuggestionId) {
-  console.group("reverting structure suggestion", suggestionId);
+  console.group(
+    "revertStructureMarkGroup",
+    "reverting structure suggestion",
+    suggestionId,
+  );
   let structureMark = findNextStructureMark(tr.doc, suggestionId);
   while (structureMark !== null) {
     console.groupCollapsed(
+      "revertStructureMarkGroup",
       "reverting structure mark",
       structureMark.mark.attrs["id"],
       "at pos",
@@ -347,7 +360,7 @@ function findOrderedSuggestionIdsToRevert(
     return !sameParentChain(attrs.data.op.to, parentChain.chain);
   });
 
-  console.log("mismatch?", mismatch);
+  console.log("findOrderedSuggestionIdsToRevert", "mismatch?", mismatch);
 
   if (mismatch == null) {
     return Array.from(suggestionIds).reverse();

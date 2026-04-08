@@ -34,6 +34,7 @@ export function structureChangesPlugin(
     appendTransaction(transactions, _oldState, newState) {
       if (transactions.some((tr) => !isEnabled(tr, newState))) {
         console.warn(
+          "structureChangesPlugin",
           "tracking changes is disabled, skipping structure changes plugin",
           [...transactions],
         );
@@ -45,7 +46,7 @@ export function structureChangesPlugin(
         (transaction) => transaction.docChanged,
       );
       if (!docChanged) {
-        console.warn("doc not changed, skipping structure changes plugin", [
+        console.warn("structureChangesPlugin", "doc not changed, skipping", [
           ...transactions,
         ]);
         return;
@@ -60,7 +61,8 @@ export function structureChangesPlugin(
       // do nothing if there isn't a pair of docs to compare
       if (!oldDoc || !newDoc) {
         console.warn(
-          "old or new doc is missing, skipping structure changes plugin",
+          "structureChangesPlugin",
+          "old or new doc is missing, skipping",
           {
             oldDoc,
             newDoc,
@@ -77,11 +79,12 @@ export function structureChangesPlugin(
         const nodeId = getNodeId(node);
         if (nodeId == null) {
           console.warn(
+            "structureChangesPlugin",
             "node",
             node.type.name,
             "at pos",
             pos,
-            "is missing a stable id",
+            "is missing a unique id",
             { id: node.attrs["id"] as unknown },
           );
           idsSettled = false;
@@ -95,11 +98,12 @@ export function structureChangesPlugin(
         const nodeId = getNodeId(node);
         if (nodeId == null) {
           console.warn(
+            "structureChangesPlugin",
             "node",
             node.type.name,
             "at pos",
             pos,
-            "is missing a stable id",
+            "is missing a unique id",
             { id: node.attrs["id"] as unknown },
           );
           idsSettled = false;
@@ -108,9 +112,9 @@ export function structureChangesPlugin(
         return true;
       });
 
-      // do nothing if some nodes are missing stable ids - the diff is not possible then
+      // do nothing if some nodes are missing unique ids - the diff is not possible then
       if (!idsSettled) {
-        console.warn("ids not settled, skipping structure changes plugin", {
+        console.warn("structureChangesPlugin", "ids not settled, skipping", {
           oldDoc,
           newDoc,
           transactions: [...transactions],
@@ -166,13 +170,15 @@ export function suggestStructureChanges(
   const pathsBefore = buildMaterializedPaths(docBefore);
   const pathsAfter = buildMaterializedPaths(docAfter);
 
-  console.log("materialized paths", {
+  console.log("suggestStructureChanges", "materialized paths", {
     pathsBefore: Object.fromEntries(pathsBefore.entries()),
     pathsAfter: Object.fromEntries(pathsAfter.entries()),
   });
 
   const ops = getOps(pathsBefore, pathsAfter);
-  console.log("ops", { ops: Object.fromEntries(ops.entries()) });
+  console.log("suggestStructureChanges", "ops", {
+    ops: Object.fromEntries(ops.entries()),
+  });
 
   const transform = new Transform(docAfter);
 
