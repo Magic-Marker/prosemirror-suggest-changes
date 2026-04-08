@@ -36,9 +36,9 @@ export {
 } from "./ensureSelectionPlugin.js";
 
 export {
-  stableNodeIds as experimental_stableNodeIds,
-  stableNodeIdsKey as experimental_stableNodeIdsKey,
-} from "./features/wrapUnwrap/stableNodeIdsPlugin.js";
+  uniqueNodeIdsPlugin as experimental_uniqueNodeIdsPlugin,
+  uniqueNodeIdsPluginKey as experimental_uniqueNodeIdsPluginKey,
+} from "./features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 
 export {
   structureChangesPlugin as experimental_structureChangesPlugin,

@@ -74,10 +74,6 @@ export function ensureSelection() {
     },
 
     appendTransaction(_transactions, oldState, newState) {
-      console.log(
-        "ensureSelectionPlugin.appendTransaction",
-        newState.selection.toJSON(),
-      );
       const pluginState = ensureSelectionKey.getState(newState);
 
       if (!(newState.selection instanceof TextSelection)) {

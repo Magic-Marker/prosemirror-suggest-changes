@@ -1,12 +1,5 @@
 import { type Attrs, type Node } from "prosemirror-model";
 
-export type NodeIdGenerator = (
-  node: Node,
-  pos: number,
-  parent: Node | null,
-  index: number,
-) => string;
-
 interface NonDocNodeWithChildren {
   node: Node;
   pos: number;

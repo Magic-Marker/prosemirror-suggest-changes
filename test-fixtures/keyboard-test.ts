@@ -1,6 +1,10 @@
-import { EditorState, TextSelection } from "prosemirror-state";
+import {
+  EditorState,
+  TextSelection,
+  type Transaction,
+} from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { type Mark } from "prosemirror-model";
+import { type Mark, type Node } from "prosemirror-model";
 import { history, redo, undo } from "prosemirror-history";
 import { baseKeymap, chainCommands, lift, wrapIn } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
@@ -14,13 +18,14 @@ import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
 import {
   experimental_ensureSelection,
-  experimental_stableNodeIds,
+  experimental_uniqueNodeIdsPlugin,
   revertSuggestions,
 } from "../src/index.js";
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
-import { generateNodeId } from "../src/features/wrapUnwrap/generateNodeId.js";
 import { createSchema } from "../src/testing/e2eTestSchema.js";
+import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueNodeId.js";
+import { ensureUniqueNodeIds } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -67,7 +72,10 @@ let state = EditorState.create({
   doc,
   schema,
   plugins: [
-    experimental_stableNodeIds(generateNodeId),
+    experimental_uniqueNodeIdsPlugin({
+      attributeName: "id",
+      generateID: generateUniqueNodeId,
+    }),
     keymap({
       ...baseKeymap,
       // Handle Enter key for list items
@@ -116,7 +124,15 @@ const dispatch = withSuggestChanges(
   undefined,
   {
     experimental_trackStructureChanges: true,
-    experimental_generateNodeId: generateNodeId,
+    experimental_ensureUniqueNodeIds: (
+      transactions: Transaction[],
+      oldDoc: Node,
+      newDoc: Node,
+    ) =>
+      ensureUniqueNodeIds(transactions, oldDoc, newDoc, {
+        attributeName: "id",
+        generateID: generateUniqueNodeId,
+      }),
   },
 );
 

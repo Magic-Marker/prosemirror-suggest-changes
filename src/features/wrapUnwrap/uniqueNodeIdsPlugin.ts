@@ -1,54 +1,69 @@
 import { type Node } from "prosemirror-model";
-import { Plugin, PluginKey } from "prosemirror-state";
+import { Plugin, PluginKey, type Transaction } from "prosemirror-state";
 import { getNodeId } from "./getNodeId.js";
 import { Transform } from "prosemirror-transform";
-import { type NodeIdGenerator } from "./types.js";
 
-// stable ids plugin
+// unique ids plugin
 // https://discuss.prosemirror.net/t/how-to-avoid-copying-attributes-to-new-paragraph/4568/2
 // (also checks and fix duplicates that inevitably appear)
 
-export const stableNodeIdsKey = new PluginKey<{ completedInitialRun: boolean }>(
-  "@handlewithcare/prosemirror-suggest-changes-stable-node-ids",
-);
+export const uniqueNodeIdsPluginKey = new PluginKey<{
+  completedInitialRun: boolean;
+}>("@handlewithcare/prosemirror-suggest-changes-unique-node-ids");
 
-export const STABLE_NODE_IDS_PLUGIN_META = "stable-node-ids-plugin";
+export const UNIQUE_NODE_IDS_PLUGIN_META = "unique-node-ids-plugin";
 
-export function stableNodeIds(generateNodeId: NodeIdGenerator) {
+export function uniqueNodeIdsPlugin({
+  attributeName,
+  generateID,
+}: {
+  attributeName: string;
+  generateID: () => string;
+}) {
   return new Plugin<{ completedInitialRun: boolean }>({
-    key: stableNodeIdsKey,
-    appendTransaction(transactions, _oldState, newState) {
-      console.log("stableNodeIdsPlugin.appendTransaction");
-      const pluginState = stableNodeIdsKey.getState(newState);
+    key: uniqueNodeIdsPluginKey,
+    appendTransaction(transactions, oldState, newState) {
+      console.log("uniqueNodeIdsPlugin.appendTransaction");
+      const pluginState = uniqueNodeIdsPluginKey.getState(newState);
 
       // do nothing if doc hasn't changed (but make sure it runs initially)
       const docChanged = transactions.some(
         (transaction) => transaction.docChanged,
       );
       if (!docChanged && pluginState?.completedInitialRun) {
-        console.warn("doc not changed, skipping stable node ids plugin", [
+        console.warn("uniqueNodeIdsPlugin", "doc not changed, skipping", [
           ...transactions,
         ]);
         return;
       }
 
-      console.groupCollapsed("stableNodeIdsPlugin", "appendTransaction");
-      console.log("stableNodeIdsPlugin", "appendTransaction", [
+      console.groupCollapsed("uniqueNodeIdsPlugin", "appendTransaction");
+      console.log("uniqueNodeIdsPlugin", "appendTransaction", [
         ...transactions,
       ]);
 
       const tr = newState.tr;
-      const transform = ensureStableIds(tr.doc, generateNodeId);
+
+      const transform = ensureUniqueNodeIds(
+        transactions as Transaction[],
+        oldState.doc,
+        newState.doc,
+        {
+          attributeName,
+          generateID,
+        },
+      );
+
       transform.steps.forEach((step) => {
         tr.step(step);
       });
 
-      console.log("tr steps", tr.steps);
+      console.log("ensureUniqueNodeIdsPlugin", "tr steps", tr.steps);
       console.groupEnd();
 
       if (!tr.steps.length) return;
 
-      tr.setMeta(stableNodeIdsKey, STABLE_NODE_IDS_PLUGIN_META);
+      tr.setMeta(uniqueNodeIdsPluginKey, UNIQUE_NODE_IDS_PLUGIN_META);
       return tr;
     },
     state: {
@@ -56,9 +71,9 @@ export function stableNodeIds(generateNodeId: NodeIdGenerator) {
         return { completedInitialRun: false };
       },
       apply(tr, value) {
-        const meta = tr.getMeta(stableNodeIdsKey) as string | undefined;
+        const meta = tr.getMeta(uniqueNodeIdsPluginKey) as string | undefined;
         if (
-          meta === STABLE_NODE_IDS_PLUGIN_META &&
+          meta === UNIQUE_NODE_IDS_PLUGIN_META &&
           !value.completedInitialRun
         ) {
           return { completedInitialRun: true };
@@ -69,15 +84,20 @@ export function stableNodeIds(generateNodeId: NodeIdGenerator) {
   });
 }
 
-export function ensureStableIds(
-  doc: Node,
-  generateNodeId: NodeIdGenerator,
+export function ensureUniqueNodeIds(
+  _transactions: Transaction[],
+  _oldDoc: Node,
+  newDoc: Node,
+  options: {
+    attributeName: string;
+    generateID: () => string;
+  },
 ): Transform {
-  const tr = new Transform(doc);
+  const tr = new Transform(newDoc);
 
   const nodeIds = new Set<string>();
 
-  tr.doc.descendants((node, pos, parent, index) => {
+  tr.doc.descendants((node, pos) => {
     if (node.isText) return false;
 
     const nodeId = getNodeId(node);
@@ -90,18 +110,19 @@ export function ensureStableIds(
 
     // nodeId is set and it is duplicated
     if (nodeId != null && nodeIds.has(nodeId)) {
-      const id = generateNodeId(node, pos, parent, index);
+      const id = options.generateID();
       nodeIds.add(id);
       tr.setNodeMarkup(
         pos,
         node.type,
         {
           ...node.attrs,
-          id,
+          [options.attributeName]: id,
         },
         node.marks,
       );
       console.log(
+        "ensureUniqueNodeIds",
         "fixed duplicate id",
         id,
         "for node",
@@ -115,19 +136,20 @@ export function ensureStableIds(
 
     // node id is not set
     if (nodeId == null) {
-      const id = generateNodeId(node, pos, parent, index);
+      const id = options.generateID();
       nodeIds.add(id);
       tr.setNodeMarkup(
         pos,
         node.type,
         {
           ...node.attrs,
-          id,
+          [options.attributeName]: id,
         },
         node.marks,
       );
       console.log(
-        "set stable id",
+        "ensureUniqueNodeIds",
+        "set unique id",
         id,
         "for node",
         node.type.name,
