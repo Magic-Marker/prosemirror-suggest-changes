@@ -227,10 +227,10 @@ export function withSuggestChanges(
 
     if (isEnabled) {
       let structureChangesTransform: Transform | null = null;
-      const docBefore = tr.docs[0];
+      const docBefore = transaction.docs[0];
 
       if (
-        tr.docChanged &&
+        transaction.docChanged &&
         docBefore &&
         opts?.experimental_trackStructureChanges &&
         typeof opts.experimental_ensureUniqueNodeIds === "function"
@@ -240,9 +240,9 @@ export function withSuggestChanges(
         // this hook allows to "post-process" the transaction and add the missing ids
         // basically it allows to run the core logic of the unique ids plugin earlier
         const uniqueNodeIdsTransform = opts.experimental_ensureUniqueNodeIds(
-          [tr],
+          [transaction],
           docBefore,
-          tr.doc,
+          transaction.doc,
         );
         const docAfter = uniqueNodeIdsTransform.doc;
         trace("unique node ids set", docAfter);
@@ -274,8 +274,9 @@ export function withSuggestChanges(
       }
 
       if (
-        structureChangesTransform == null ||
-        structureChangesTransform.steps.length === 0
+        transaction.docChanged &&
+        (structureChangesTransform == null ||
+          structureChangesTransform.steps.length === 0)
       ) {
         trace("running the main suggestions plugin...");
         transaction = transformToSuggestionTransaction(
