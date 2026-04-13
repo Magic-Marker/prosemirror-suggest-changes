@@ -239,10 +239,18 @@ export function withSuggestChanges(
         // after a transaction, some nodes may not yet have unique ids (they were just added, and the unique id plugin has not yet run)
         // this hook allows to "post-process" the transaction and add the missing ids
         // basically it allows to run the core logic of the unique ids plugin earlier
+        const perfUid = performance.now();
         const uniqueNodeIdsTransform = opts.experimental_ensureUniqueNodeIds(
           [transaction],
           docBefore,
           transaction.doc,
+        );
+        trace(
+          "perf",
+          "structure",
+          "ensureUniqueNodsIds took",
+          Number((performance.now() - perfUid).toFixed(2)),
+          "ms",
         );
         const docAfter = uniqueNodeIdsTransform.doc;
         trace("unique node ids set", docAfter);
@@ -250,10 +258,18 @@ export function withSuggestChanges(
         // try running structure changes first
         // if handled, then ignore the main plugin
         // otherwise use the main plugin
+        const perfStructure = performance.now();
         structureChangesTransform = suggestStructureChanges(
           docBefore,
           docAfter,
           generateId,
+        );
+        trace(
+          "perf",
+          "structure",
+          "suggestStructureChanges took",
+          Number((performance.now() - perfStructure).toFixed(2)),
+          "ms",
         );
         trace(
           "structure changes transform completed",
@@ -279,10 +295,18 @@ export function withSuggestChanges(
           structureChangesTransform.steps.length === 0)
       ) {
         trace("running the main suggestions plugin...");
+        const perfSuggestions = performance.now();
         transaction = transformToSuggestionTransaction(
           tr,
           this.state,
           generateId,
+        );
+        trace(
+          "perf",
+          "suggestions",
+          "transformToSuggestionTransaction took",
+          Number((performance.now() - perfSuggestions).toFixed(2)),
+          "ms",
         );
         trace("main suggestions plugin completed", transaction);
       }

@@ -6,7 +6,15 @@ import {
 } from "./types.js";
 import { type Node } from "prosemirror-model";
 
+const TRACE_ENABLED = true;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[structureChanges]", ...args);
+}
+
 export function buildMaterializedPaths(doc: Node): MaterializedPaths {
+  const perfPaths = performance.now();
   const paths: MaterializedPaths = new Map();
 
   // add direct doc children first since they have a specific parent signature due to doc not having an ID
@@ -74,6 +82,14 @@ export function buildMaterializedPaths(doc: Node): MaterializedPaths {
 
     return true;
   });
+
+  trace(
+    "perf",
+    "buildMaterializedPaths",
+    "took",
+    Number((performance.now() - perfPaths).toFixed(2)),
+    "ms",
+  );
 
   return paths;
 }
