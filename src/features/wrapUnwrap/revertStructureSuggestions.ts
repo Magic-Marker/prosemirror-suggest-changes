@@ -360,11 +360,18 @@ function findOrderedSuggestionIdsToRevert(
     return !sameParentChain(attrs.data.op.to, parentChain.chain);
   });
 
-  console.log("findOrderedSuggestionIdsToRevert", "mismatch?", mismatch);
-
   if (mismatch == null) {
     return Array.from(suggestionIds).reverse();
   }
+
+  console.log(
+    "findOrderedSuggestionIdsToRevert",
+    "suggestion",
+    suggestionId,
+    "contains mark with a mismatched 'to':",
+    mismatch,
+    "searching a different suggestion with the matching 'to'...",
+  );
 
   // find first mark on the node that does have a matching op.to
   const match = mismatch.node.marks.find((mark) => {
@@ -385,6 +392,11 @@ function findOrderedSuggestionIdsToRevert(
   });
 
   if (match) {
+    console.log(
+      "findOrderedSuggestionIdsToRevert",
+      "found suggestin with matching 'to'",
+      match,
+    );
     suggestionIds.add(match.attrs["id"] as SuggestionId);
   }
 

@@ -15,6 +15,13 @@ import { isSuggestChangesEnabled, suggestChangesKey } from "../../plugin.js";
 import { buildMaterializedPaths } from "./buildMaterializedPaths.js";
 import { sameParentChain } from "./sameParentChain.js";
 
+const TRACE_ENABLED = true;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[structureChanges]", ...args);
+}
+
 export const structureChangesKey = new PluginKey(
   "@handlewithcare/prosemirror-suggest-changes-structure-changes",
 );
@@ -122,9 +129,7 @@ export function structureChangesPlugin(
         return;
       }
 
-      console.log("structureChangesPlugin", "appendTransaction", [
-        ...transactions,
-      ]);
+      trace("structureChangesPlugin", "appendTransaction", [...transactions]);
 
       const transform = suggestStructureChanges(oldDoc, newDoc, generateId);
 
@@ -170,13 +175,13 @@ export function suggestStructureChanges(
   const pathsBefore = buildMaterializedPaths(docBefore);
   const pathsAfter = buildMaterializedPaths(docAfter);
 
-  console.log("suggestStructureChanges", "materialized paths", {
+  trace("suggestStructureChanges", "materialized paths", {
     pathsBefore: Object.fromEntries(pathsBefore.entries()),
     pathsAfter: Object.fromEntries(pathsAfter.entries()),
   });
 
   const ops = getOps(pathsBefore, pathsAfter);
-  console.log("suggestStructureChanges", "ops", {
+  trace("suggestStructureChanges", "ops", {
     ops: Object.fromEntries(ops.entries()),
   });
 
@@ -192,6 +197,7 @@ function addMarks(
   tr: Transform,
   suggestionId: SuggestionId,
 ) {
+  const perfAddMarks = performance.now();
   const { structure } = getSuggestionMarks(tr.doc.type.schema);
   tr.doc.descendants((node, pos) => {
     if (node.isText) return true;
@@ -206,6 +212,13 @@ function addMarks(
 
     return true;
   });
+  trace(
+    "perf",
+    "addMarks",
+    "took",
+    Number((performance.now() - perfAddMarks).toFixed(2)),
+    "ms",
+  );
 }
 
 function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
