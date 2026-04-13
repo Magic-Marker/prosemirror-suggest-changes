@@ -23,7 +23,7 @@ interface NodeParent {
   childIndex: number;
 }
 
-interface StructureMarkAttrs {
+export interface StructureMarkAttrs {
   data: { op: Op };
 }
 
