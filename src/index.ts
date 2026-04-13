@@ -37,4 +37,7 @@ export {
 
 export { guardStructureMarkAttrs } from "./features/wrapUnwrap/types.js";
 
-export type { Op as StructureOp } from "./features/wrapUnwrap/types.js";
+export type {
+  Op as StructureOp,
+  StructureMarkAttrs,
+} from "./features/wrapUnwrap/types.js";
