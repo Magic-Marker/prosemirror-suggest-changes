@@ -10,6 +10,8 @@ export interface DocWithChildren extends Omit<NonDocNodeWithChildren, "pos"> {
   pos: null;
 }
 
+// todo[structure]: this may be not needed,
+// maybe there is no need to build this in advance when you can just iterate node.children directly,
 export type NodeWithChildren = NonDocNodeWithChildren | DocWithChildren;
 
 interface NodeParent {
@@ -19,6 +21,10 @@ interface NodeParent {
   nodeMarks: object[];
   childSiblingIds: [string | null, string | null];
   childIndex: number;
+}
+
+interface StructureMarkAttrs {
+  data: { op: Op };
 }
 
 export interface DocParent extends Omit<NodeParent, "nodeId"> {
@@ -57,7 +63,7 @@ export function guardDocParent(
 
 export function guardStructureMarkAttrs(
   attrs: Attrs,
-): attrs is { data: { op: Op } } {
+): attrs is StructureMarkAttrs {
   if (!("data" in attrs)) return false;
 
   const data = attrs["data"] as unknown;
