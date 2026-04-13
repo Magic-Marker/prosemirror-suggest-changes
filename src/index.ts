@@ -35,12 +35,6 @@ export {
   isEnsureSelectionEnabled as experimental_isEnsureSelectionEnabled,
 } from "./ensureSelectionPlugin.js";
 
-export {
-  uniqueNodeIdsPlugin as experimental_uniqueNodeIdsPlugin,
-  uniqueNodeIdsPluginKey as experimental_uniqueNodeIdsPluginKey,
-} from "./features/wrapUnwrap/uniqueNodeIdsPlugin.js";
+export { guardStructureMarkAttrs } from "./features/wrapUnwrap/types.js";
 
-export {
-  structureChangesPlugin as experimental_structureChangesPlugin,
-  structureChangesKey as experimental_structureChangesKey,
-} from "./features/wrapUnwrap/structureChangesPlugin.js";
+export type { Op as StructureOp } from "./features/wrapUnwrap/types.js";

@@ -18,14 +18,16 @@ import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
 import {
   experimental_ensureSelection,
-  experimental_uniqueNodeIdsPlugin,
   revertSuggestions,
 } from "../src/index.js";
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
 import { createSchema } from "../src/testing/e2eTestSchema.js";
 import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueNodeId.js";
-import { ensureUniqueNodeIds } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
+import {
+  ensureUniqueNodeIds,
+  uniqueNodeIdsPlugin,
+} from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -72,7 +74,7 @@ let state = EditorState.create({
   doc,
   schema,
   plugins: [
-    experimental_uniqueNodeIdsPlugin({
+    uniqueNodeIdsPlugin({
       attributeName: "id",
       generateID: generateUniqueNodeId,
     }),

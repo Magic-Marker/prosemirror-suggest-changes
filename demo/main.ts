@@ -20,7 +20,6 @@ import {
   withSuggestChanges,
   experimental_ensureSelection,
   addSuggestionMarks,
-  experimental_uniqueNodeIdsPlugin,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
@@ -38,7 +37,10 @@ import remarkParse from "remark-parse";
 import { Schema } from "prosemirror-model";
 import { marks, nodes as schemaNodes } from "prosemirror-schema-basic";
 import { addIdAttr } from "../src/features/wrapUnwrap/addIdAttr.js";
-import { ensureUniqueNodeIds } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
+import {
+  ensureUniqueNodeIds,
+  uniqueNodeIdsPlugin,
+} from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueNodeId.js";
 
 const nodes = { ...schemaNodes };
@@ -138,7 +140,7 @@ const editorState = EditorState.create({
   schema,
   doc,
   plugins: [
-    experimental_uniqueNodeIdsPlugin({
+    uniqueNodeIdsPlugin({
       attributeName: "id",
       generateID: generateUniqueNodeId,
     }),
