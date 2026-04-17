@@ -9,7 +9,7 @@ import { history, redo, undo } from "prosemirror-history";
 import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
 import { EditorState, Plugin, type Transaction } from "prosemirror-state";
-import { type Node } from "prosemirror-model";
+import { type Mark, type Node } from "prosemirror-model";
 import {
   applySuggestions,
   enableSuggestChanges,
@@ -20,6 +20,7 @@ import {
   withSuggestChanges,
   experimental_ensureSelection,
   addSuggestionMarks,
+  suggestChangesKey,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
@@ -42,6 +43,9 @@ import {
   uniqueNodeIdsPlugin,
 } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueNodeId.js";
+import { getSuggestionMarks } from "../src/utils.js";
+import { Transform } from "prosemirror-transform";
+import { revertStructureMark } from "../src/features/wrapUnwrap/revert/revertStructureSuggestions.js";
 
 const nodes = { ...schemaNodes };
 for (const [key, nodeSpec] of Object.entries(nodes)) {
@@ -113,16 +117,21 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   },
 };
 
-const content = `
+const content = `Paragraph 1
+
+Paragraph 2
 - Item 1
 - Item 2
   - Item 2.1
-    - Item 2.2
+  - Item 2.2
   - Item 2.3
-  - Item 2.4
 - Item 3
-- Item 4
-- Item 5
+
+Paragraph 3
+
+Paragraph 4
+
+Paragraph 5
 `;
 
 const doc = await unified()
@@ -227,18 +236,66 @@ const editorEl = document.getElementById("editor")!;
 const view = new EditorView(editorEl, {
   state: editorState,
   plugins,
-  dispatchTransaction: withSuggestChanges(undefined, undefined, {
-    experimental_trackStructureChanges: true,
-    experimental_ensureUniqueNodeIds: (
-      transactions: Transaction[],
-      oldDoc: Node,
-      newDoc: Node,
-    ) =>
-      ensureUniqueNodeIds(transactions, oldDoc, newDoc, {
-        attributeName: "id",
-        generateID: generateUniqueNodeId,
-      }),
-  }),
+  dispatchTransaction: withSuggestChanges(
+    function (this: EditorView, tr: Transaction) {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const view = this;
+      const { structure } = getSuggestionMarks(this.state.schema);
+
+      const newState = this.state.apply(tr);
+
+      const structureMarks: { node: Node; mark: Mark; pos: number }[] = [];
+      newState.doc.descendants((node, pos) => {
+        node.marks.forEach((mark) => {
+          if (mark.type === structure) structureMarks.push({ node, mark, pos });
+        });
+        return true;
+      });
+      console.log("structureMarks", structureMarks);
+
+      setTimeout(() => {
+        const elements: HTMLElement[] = [];
+        structureMarks.forEach((mark) => {
+          const element = document.createElement("button");
+          element.addEventListener("click", () => {
+            const transform = new Transform(view.state.doc);
+            revertStructureMark(transform, mark.mark, mark.pos);
+            const tr = view.state.tr;
+            transform.steps.forEach((step) => tr.step(step));
+            tr.setMeta(suggestChangesKey, { skip: true });
+            view.dispatch(tr);
+          });
+          element.textContent = `Revert structure mark id="${mark.mark.attrs["id"] as string}" on node ${mark.node.toString()}`;
+          elements.push(element);
+        });
+        console.log("elements", elements);
+
+        const container = document.createElement("div");
+        container.id = "structure-marks";
+        container.append(...elements);
+
+        const parent = view.dom.parentElement;
+        const existing = parent?.querySelector("#structure-marks");
+        if (existing) parent?.removeChild(existing);
+        parent?.append(container);
+      }, 0);
+
+      this.updateState(newState);
+    },
+    undefined,
+    {
+      experimental_trackStructureChanges: true,
+      experimental_ensureUniqueNodeIds: (
+        transactions: Transaction[],
+        oldDoc: Node,
+        newDoc: Node,
+      ) =>
+        ensureUniqueNodeIds(transactions, oldDoc, newDoc, {
+          attributeName: "id",
+          generateID: generateUniqueNodeId,
+        }),
+    },
+  ),
 });
 
 enableSuggestChanges(view.state, view.dispatch);

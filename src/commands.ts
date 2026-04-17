@@ -14,13 +14,13 @@ import { type SuggestionId } from "./generateId.js";
 import { ZWSP } from "./constants.js";
 import { maybeRevertJoinMark } from "./features/joinOnDelete/index.js";
 import {
-  applyAllStructureSuggestions,
-  applyAllStructureSuggestionsOnNode,
-  applyOneStructureSuggestion,
   revertAllStructureSuggestions,
-  revertAllStructureSuggestionsOnNode,
-  revertOneStructureSuggestion,
-} from "./features/wrapUnwrap/revertStructureSuggestions.js";
+  revertStructureSuggestion,
+} from "./features/wrapUnwrap/revert/index.js";
+import {
+  applyAllStructureSuggestions,
+  applyStructureSuggestion,
+} from "./features/wrapUnwrap/apply/index.js";
 
 /**
  * Given a node and a transform, add a set of steps to the
@@ -239,7 +239,7 @@ export function applySuggestionsToNode(node: Node) {
   const { deletion, insertion } = getSuggestionMarks(node.type.schema);
 
   // first, create a structure transform that applies all structure changes on the given node
-  const structureTransform = applyAllStructureSuggestionsOnNode(node);
+  const structureTransform = applyAllStructureSuggestions(node);
 
   // then start a clear transform from the document where the structure changes are applied
   const suggestionsTransform = new Transform(structureTransform.doc);
@@ -271,7 +271,7 @@ export function applySuggestionsToRange(doc: Node, from: number, to: number) {
   const nodeRange = doc.resolve(from).blockRange(doc.resolve(to))!;
 
   // create a structure transform that applies all structure changes on the given node range
-  const structureTransform = applyAllStructureSuggestionsOnNode(
+  const structureTransform = applyAllStructureSuggestions(
     doc,
     nodeRange.start,
     nodeRange.end,
@@ -369,7 +369,7 @@ export function applySuggestionsInRange(from?: number, to?: number): Command {
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     // create a structure transform that applies all structure changes on the given node range
-    const structureTransform = applyAllStructureSuggestionsOnNode(
+    const structureTransform = applyAllStructureSuggestions(
       state.doc,
       from,
       to,
@@ -431,7 +431,7 @@ export function applySuggestion(
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     // create a structure transform that applies the given structure change on the given node
-    const structureTransform = applyOneStructureSuggestion(
+    const structureTransform = applyStructureSuggestion(
       state.doc,
       suggestionId,
     );
@@ -536,7 +536,7 @@ export function revertSuggestionsInRange(from?: number, to?: number): Command {
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     // create a structure transform that reverts all structure changes on the given node range
-    const structureTransform = revertAllStructureSuggestionsOnNode(
+    const structureTransform = revertAllStructureSuggestions(
       state.doc,
       from,
       to,
@@ -598,7 +598,7 @@ export function revertSuggestion(
     const { deletion, insertion } = getSuggestionMarks(state.schema);
 
     // create a structure transform that reverts the given structure change on the given node
-    const structureTransform = revertOneStructureSuggestion(
+    const structureTransform = revertStructureSuggestion(
       state.doc,
       suggestionId,
     );
