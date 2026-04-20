@@ -45,7 +45,7 @@ export const schema = new Schema({
     },
     listItem: {
       ...listItem,
-      content: "block+",
+      content: "paragraph block*",
       marks: "difficulty insertion deletion modification structure",
     },
   },

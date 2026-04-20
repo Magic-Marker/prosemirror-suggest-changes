@@ -81,7 +81,7 @@ export const schema = new Schema({
     },
     listItem: {
       ...listNodes.listItem,
-      content: "block+",
+      content: "paragraph block*",
       marks: "insertion deletion modification structure",
     },
   },

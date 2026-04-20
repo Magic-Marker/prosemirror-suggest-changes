@@ -1,4 +1,4 @@
-import { type Node } from "prosemirror-model";
+import { type ResolvedPos, type Node } from "prosemirror-model";
 import { getSuggestionMarks } from "../../../utils.js";
 import { type Mark } from "prosemirror-model";
 import { getNodeId } from "../getNodeId.js";
@@ -88,18 +88,18 @@ function revertOneStructureSuggestion(
     suggestionId,
   );
   let structureMark = findNextStructureMark(tr.doc, suggestionId);
-  while (structureMark !== null) {
+  while (structureMark != null) {
     console.groupCollapsed(
       "revertStructureSuggestion",
       "reverting structure mark",
       structureMark.mark.attrs["id"],
       "at pos",
-      structureMark.pos,
+      structureMark.$pos.pos,
       "at node",
       structureMark.node.toString(),
       { structureMark },
     );
-    revertStructureMark(tr, structureMark.mark, structureMark.pos);
+    revertStructureMark(tr, structureMark.mark, structureMark.$pos.pos);
     console.groupEnd();
     structureMark = findNextStructureMark(tr.doc, suggestionId);
   }
@@ -248,28 +248,29 @@ function buildOrderedSuggestionIds(
   return Array.from(suggestionIds).reverse();
 }
 
-function findNextStructureMark(doc: Node, suggestionId: SuggestionId) {
+function findNextStructureMark(node: Node, suggestionId: SuggestionId) {
   console.log("findNextStructureMark", suggestionId);
-  const { structure } = getSuggestionMarks(doc.type.schema);
+  const { structure } = getSuggestionMarks(node.type.schema);
 
-  let structureMark = null as { mark: Mark; node: Node; pos: number } | null;
+  const structureMarks: { mark: Mark; node: Node; $pos: ResolvedPos }[] = [];
 
-  doc.nodesBetween(0, doc.content.size, (node, pos) => {
-    const mark = node.marks.find(
+  node.descendants((descendant, pos) => {
+    const mark = descendant.marks.find(
       (mark) => mark.type === structure && mark.attrs["id"] === suggestionId,
     );
-    if (mark) {
-      structureMark = { mark, node, pos };
-    }
-    return structureMark === null;
+    if (mark == null) return true;
+    structureMarks.push({ mark, node: descendant, $pos: node.resolve(pos) });
+    return true;
   });
 
-  if (structureMark) {
+  structureMarks.sort((a, b) => b.$pos.depth - a.$pos.depth);
+
+  if (structureMarks[0]) {
     console.log(
       "findStructureMark",
       "found structure mark with id",
       suggestionId,
-      { structureMark, suggestionId },
+      { structureMark: structureMarks[0], suggestionId },
     );
   } else {
     console.log(
@@ -279,5 +280,5 @@ function findNextStructureMark(doc: Node, suggestionId: SuggestionId) {
     );
   }
 
-  return structureMark;
+  return structureMarks[0];
 }
