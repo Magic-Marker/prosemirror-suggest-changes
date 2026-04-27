@@ -46,6 +46,7 @@ import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueN
 import { getSuggestionMarks } from "../src/utils.js";
 import { Transform } from "prosemirror-transform";
 import { revertStructureMark } from "../src/features/wrapUnwrap/revert/revertStructureSuggestions.js";
+import { ZWSP } from "../src/constants.js";
 
 const nodes = { ...schemaNodes };
 for (const [key, nodeSpec] of Object.entries(nodes)) {
@@ -117,21 +118,15 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   },
 };
 
-const content = `Paragraph 1
-
-Paragraph 2
-- Item 1
+const content = `- Item 1
 - Item 2
   - Item 2.1
-  - Item 2.2
+    - Item 2.2
   - Item 2.3
+  - Item 2.4
 - Item 3
-
-Paragraph 3
-
-Paragraph 4
-
-Paragraph 5
+- Item 4
+- Item 5
 `;
 
 const doc = await unified()
@@ -168,8 +163,18 @@ const editorState = EditorState.create({
     }),
     inputRules({
       rules: [
-        wrappingInputRule(/^\s*([-+*])\s$/, schema.nodes.bulletList),
-        wrappingInputRule(/^\s*([0-9]+\.)\s$/, schema.nodes.orderedList),
+        wrappingInputRule(
+          // ^ string start, [${ZWSP}\\s]* zero or more ZWSP or whitespace, ([-+*]) one of -+* , \\s one whitespace, $ end of string
+          // "u" flag treats \u as unicode code points instead of literal "u"
+          new RegExp(`^[${ZWSP}\\s]*([-+*])\\s$`, "u"),
+          schema.nodes.bulletList,
+        ),
+        // ^ string start, [${ZWSP}\\s]* zero or more ZWSP or whitespace, ([0-9]+\\.) digit followed by dot, \\s one whitespace, $ end of string
+        // "u" flag treats \u as unicode code points instead of literal "u"
+        wrappingInputRule(
+          new RegExp(`^[${ZWSP}\\s]*([0-9]+\\.)\\s$`, "u"),
+          schema.nodes.orderedList,
+        ),
       ],
     }),
     history(),
