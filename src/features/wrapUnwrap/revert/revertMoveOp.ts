@@ -51,94 +51,52 @@ export function revertMoveOp(
   deleteNodeUpwards(tr, node, mappedPos);
 }
 
-export function getNodesWithChildren(doc: Node) {
-  const nodesWithChildren = new Map<string, NodeWithChildren>();
-
-  const docWithChildren: DocWithChildren = {
-    node: doc,
-    pos: null,
-    children: new Set<string>(),
-  };
-
-  doc.children.forEach((child) => {
-    const nodeId = getNodeId(child);
-    if (nodeId == null) return;
-    docWithChildren.children.add(nodeId);
-  });
-
-  nodesWithChildren.set("__doc__", docWithChildren);
-
-  doc.descendants((node, pos) => {
-    if (node.isText) return true;
-
-    const nodeId = getNodeId(node);
-    if (nodeId == null) return true;
-
-    if (nodesWithChildren.has(nodeId)) return true;
-
-    const children = node.children.reduce((acc, child) => {
-      const childId = getNodeId(child);
-      if (childId == null) return acc;
-      acc.add(childId);
-      return acc;
-    }, new Set<string>());
-
-    nodesWithChildren.set(nodeId, {
-      node,
-      pos,
-      children,
-    });
-
-    return true;
-  });
-
-  return nodesWithChildren;
-}
-
 // given a chain of parent node descriptors, follow the chain from top to bottom as long as nodes exist
 // return the deepest existing parent node descriptor, along with the actual node and the pos in the current document
 // also return the remaining part of the chain
 export function getDeepestSurvivingParent(parentChain: Parent[], doc: Node) {
   const chain = [...parentChain].reverse();
 
-  const currentNodes = getNodesWithChildren(doc);
-
-  let currentNode = currentNodes.get("__doc__"); // get doc node with children from current doc
-  if (!guardDocWithChildren(currentNode)) {
-    throw new Error("doc not found in nodesWithChildren");
+  const root = chain.shift();
+  if (root == null) {
+    throw new Error("Parent chain is empty");
   }
 
-  let parent = chain.shift(); // get doc node descriptor from parent chain
-  if (!guardDocParent(parent)) {
-    throw new Error("doc parent not found in op chain");
-  }
+  let result: { parent: Parent; node: Node; pos: number | null } = {
+    parent: root,
+    node: doc,
+    pos: null,
+  };
 
-  let remainingChain: Parent[] = [];
+  let remainingChain: Parent[] = [...chain];
 
-  for (const [index, nextParent] of chain.entries()) {
-    const nextNodeWithChildren = currentNodes.get(nextParent.nodeId);
+  // follow the chain up-down
+  // look for the node with the matching id in the children of the previously found node
+  for (const [index, item] of chain.entries()) {
+    let found = false as boolean;
 
-    // nextParent does not exist in the current document at all
-    if (nextNodeWithChildren == null) {
-      remainingChain = chain.slice(index);
-      break;
-    }
+    result.node.forEach((child, offset) => {
+      if (found) return;
+      if (child.attrs["id"] !== item.nodeId) return;
 
-    // nextParent exists in the document, but in a different parent chain
-    if (!currentNode.children.has(nextParent.nodeId)) {
-      remainingChain = chain.slice(index);
-      break;
-    }
+      found = true;
+      const pos = result.pos == null ? offset : result.pos + 1 + offset;
+      result = {
+        parent: item,
+        node: child,
+        pos,
+      };
+      remainingChain = chain.slice(index + 1);
+    });
 
-    currentNode = nextNodeWithChildren;
-    parent = nextParent;
+    if (!found) break;
   }
 
   return {
-    parent,
-    node: currentNode.node,
-    pos: currentNode.pos,
-    remainingChain: [...remainingChain].reverse(),
+    parent: result.parent,
+    node: result.node,
+    pos: result.pos,
+    remainingChain: remainingChain.reverse(),
   };
 }
 
