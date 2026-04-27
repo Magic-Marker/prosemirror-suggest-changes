@@ -1,4 +1,4 @@
-import { type Node } from "prosemirror-model";
+import { type Node, type ResolvedPos } from "prosemirror-model";
 import { getSuggestionMarks } from "../../../utils.js";
 import { type Mark } from "prosemirror-model";
 import { getNodeId } from "../getNodeId.js";
@@ -248,36 +248,31 @@ function buildOrderedSuggestionIds(
   return Array.from(suggestionIds).reverse();
 }
 
-function findNextStructureMark(doc: Node, suggestionId: SuggestionId) {
-  console.log("findNextStructureMark", suggestionId);
-  const { structure } = getSuggestionMarks(doc.type.schema);
+function findNextStructureMark(node: Node, suggestionId: SuggestionId) {
+  const { structure } = getSuggestionMarks(node.type.schema);
 
-  let structureMark = null as { mark: Mark; node: Node; pos: number } | null;
+  const structureMarks: {
+    mark: Mark;
+    node: Node;
+    pos: number;
+    $pos: ResolvedPos;
+  }[] = [];
 
-  doc.nodesBetween(0, doc.content.size, (node, pos) => {
-    const mark = node.marks.find(
+  node.descendants((descendant, pos) => {
+    const mark = descendant.marks.find(
       (mark) => mark.type === structure && mark.attrs["id"] === suggestionId,
     );
-    if (mark) {
-      structureMark = { mark, node, pos };
-    }
-    return structureMark === null;
+    if (mark == null) return true;
+    structureMarks.push({
+      mark,
+      node: descendant,
+      pos,
+      $pos: node.resolve(pos),
+    });
+    return true;
   });
 
-  if (structureMark) {
-    console.log(
-      "findStructureMark",
-      "found structure mark with id",
-      suggestionId,
-      { structureMark, suggestionId },
-    );
-  } else {
-    console.log(
-      "findStructureMark",
-      "no structure mark found with id",
-      suggestionId,
-    );
-  }
+  structureMarks.sort((a, b) => b.$pos.depth - a.$pos.depth);
 
-  return structureMark;
+  return structureMarks[0] ?? null;
 }
