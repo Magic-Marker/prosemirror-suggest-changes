@@ -1,18 +1,4 @@
-import { type Attrs, type Node } from "prosemirror-model";
-
-interface NonDocNodeWithChildren {
-  node: Node;
-  pos: number;
-  children: Set<string>;
-}
-
-export interface DocWithChildren extends Omit<NonDocNodeWithChildren, "pos"> {
-  pos: null;
-}
-
-// todo[structure]: this may be not needed,
-// maybe there is no need to build this in advance when you can just iterate node.children directly,
-export type NodeWithChildren = NonDocNodeWithChildren | DocWithChildren;
+import { type Attrs } from "prosemirror-model";
 
 interface NodeParent {
   nodeId: string;
@@ -72,10 +58,4 @@ export function guardStructureMarkAttrs(
   if (!("op" in data)) return false;
 
   return true;
-}
-
-export function guardDocWithChildren(
-  nodeWithChildren: NodeWithChildren | undefined,
-): nodeWithChildren is DocWithChildren {
-  return nodeWithChildren != null && nodeWithChildren.pos === null;
 }
