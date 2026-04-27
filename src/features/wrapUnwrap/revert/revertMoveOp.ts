@@ -157,7 +157,13 @@ export function wrapNodeInParentChain(parentChain: Parent[], node: Node) {
 
     const marks = parent.nodeMarks.map((mark) => schema.markFromJSON(mark));
 
-    child = nodeType.create(parent.nodeAttrs, child, marks);
+    const parentNode = nodeType.createAndFill(parent.nodeAttrs, child, marks);
+    if (parentNode == null)
+      throw new Error(
+        `Unable to create node ${nodeType.name} with child ${child.toString()}`,
+      );
+
+    child = parentNode;
     child.check();
   }
 
