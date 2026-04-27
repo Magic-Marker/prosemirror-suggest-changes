@@ -3,13 +3,7 @@ import { type MoveOp } from "../types.js";
 import { type Node } from "prosemirror-model";
 import { deleteNodeUpwards } from "./deleteNodeUpwards.js";
 import { getNodeId } from "../getNodeId.js";
-import {
-  type DocWithChildren,
-  guardDocParent,
-  guardDocWithChildren,
-  type NodeWithChildren,
-  type Parent,
-} from "../types.js";
+import { type Parent } from "../types.js";
 
 export function revertMoveOp(
   op: MoveOp,
@@ -35,17 +29,18 @@ export function revertMoveOp(
   );
 
   const child = wrapNodeInParentChain(parent.remainingChain, node);
-  console.log(
-    "revertMoveOp",
-    "wrapped node in parent chain is",
-    child.toString(),
-    { child },
+  const insertTo = findInsertionPos(
+    parent.node,
+    parent.pos,
+    parent.parent,
+    child,
   );
 
-  const insertionPos = findInsertionPos(parent.node, parent.pos, parent.parent);
-  console.log("revertMoveOp", "insertion pos", { insertionPos });
-
-  tr.insert(insertionPos, child);
+  if (typeof insertTo === "number") {
+    tr.insert(insertTo, child);
+  } else {
+    tr.replaceWith(insertTo.from, insertTo.to, child);
+  }
 
   const mappedPos = tr.mapping.map(pos);
   deleteNodeUpwards(tr, node, mappedPos);
@@ -135,6 +130,7 @@ export function findInsertionPos(
   node: Node,
   pos: number | null,
   parent: Parent,
+  child: Node,
 ) {
   let leftSibling = null as { node: Node; pos: number } | null;
   let rightSibling = null as { node: Node; pos: number } | null;
@@ -159,6 +155,18 @@ export function findInsertionPos(
   });
 
   if (rightSibling != null) {
+    // special case: we need to insert as the first child, but the existing first child is an empty node of the same type
+    // in this case, we need to replace the existing first child with the new node
+    const firstChild = node.children[0];
+    if (
+      parent.childSiblingIds[0] == null &&
+      firstChild?.type === child.type &&
+      firstChild.textContent === ""
+    ) {
+      const from = pos != null ? pos + 1 : 0;
+      return { from, to: from + firstChild.nodeSize };
+    }
+
     // insert before right sibling
     return rightSibling.pos;
   }
