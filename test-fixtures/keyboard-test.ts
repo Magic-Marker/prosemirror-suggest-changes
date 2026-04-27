@@ -28,6 +28,8 @@ import {
   ensureUniqueNodeIds,
   uniqueNodeIdsPlugin,
 } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
+import { inputRules } from "prosemirror-inputrules";
+import { listInputRules } from "../src/listInputRules.js";
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -94,6 +96,11 @@ let state = EditorState.create({
       "Shift-Tab": liftListItem(schema.nodes.listItem),
       "Mod-u": wrapIn(schema.nodes.blockquote),
       "Mod-l": lift,
+    }),
+    inputRules({
+      rules: [
+        ...listInputRules(schema.nodes.bulletList, schema.nodes.orderedList),
+      ],
     }),
     history(),
     suggestChanges(),

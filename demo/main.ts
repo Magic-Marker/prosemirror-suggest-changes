@@ -6,7 +6,7 @@ import {
 } from "@handlewithcare/remark-prosemirror";
 import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
-import { inputRules, wrappingInputRule } from "prosemirror-inputrules";
+import { inputRules } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
 import { EditorState, Plugin, type Transaction } from "prosemirror-state";
 import { type Mark, type Node } from "prosemirror-model";
@@ -46,7 +46,7 @@ import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueN
 import { getSuggestionMarks } from "../src/utils.js";
 import { Transform } from "prosemirror-transform";
 import { revertStructureMark } from "../src/features/wrapUnwrap/revert/revertStructureSuggestions.js";
-import { ZWSP } from "../src/constants.js";
+import { listInputRules } from "../src/listInputRules.js";
 
 const nodes = { ...schemaNodes };
 for (const [key, nodeSpec] of Object.entries(nodes)) {
@@ -127,6 +127,8 @@ const content = `- Item 1
 - Item 3
 - Item 4
 - Item 5
+
+Paragraph 1
 `;
 
 const doc = await unified()
@@ -163,18 +165,7 @@ const editorState = EditorState.create({
     }),
     inputRules({
       rules: [
-        wrappingInputRule(
-          // ^ string start, [${ZWSP}\\s]* zero or more ZWSP or whitespace, ([-+*]) one of -+* , \\s one whitespace, $ end of string
-          // "u" flag treats \u as unicode code points instead of literal "u"
-          new RegExp(`^[${ZWSP}\\s]*([-+*])\\s$`, "u"),
-          schema.nodes.bulletList,
-        ),
-        // ^ string start, [${ZWSP}\\s]* zero or more ZWSP or whitespace, ([0-9]+\\.) digit followed by dot, \\s one whitespace, $ end of string
-        // "u" flag treats \u as unicode code points instead of literal "u"
-        wrappingInputRule(
-          new RegExp(`^[${ZWSP}\\s]*([0-9]+\\.)\\s$`, "u"),
-          schema.nodes.orderedList,
-        ),
+        ...listInputRules(schema.nodes.bulletList, schema.nodes.orderedList),
       ],
     }),
     history(),

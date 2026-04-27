@@ -41,3 +41,5 @@ export type {
   Op as StructureOp,
   StructureMarkAttrs,
 } from "./features/wrapUnwrap/types.js";
+
+export { wrappingInputRule as experimental_wrappingInputRule } from "./wrappingInputRule.js";
