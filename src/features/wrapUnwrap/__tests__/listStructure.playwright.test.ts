@@ -1077,4 +1077,95 @@ test.describe("Structure changes in lists", () => {
     docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
     expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
   });
+
+  test("Create a bullet list with an input rule after a paragraph split, and revert", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Item One" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Item Two" }],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page, deletionMarksVisibility);
+    const docJSON = await editorPage.getDocJSON();
+
+    expect(await editorPage.editor.locator("ul").count()).toBe(0);
+
+    // press Enter to create a new Paragraph
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(50);
+
+    await page.keyboard.press("-");
+    await page.waitForTimeout(50);
+    await page.keyboard.press("Space");
+    await page.waitForTimeout(50);
+
+    expect(await editorPage.editor.locator("ul").count()).toBe(1);
+
+    let docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).not.toBeTruthy();
+
+    await editorPage.revertAll();
+
+    docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
+  });
+
+  test("Create an ordered list with an input rule after a paragraph split, and revert", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Item One" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Item Two" }],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page, deletionMarksVisibility);
+    const docJSON = await editorPage.getDocJSON();
+
+    expect(await editorPage.editor.locator("ol").count()).toBe(0);
+
+    // press Enter to create a new Paragraph
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(50);
+
+    await page.keyboard.insertText("1. ");
+
+    expect(await editorPage.editor.locator("ol").count()).toBe(1);
+
+    let docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).not.toBeTruthy();
+
+    await editorPage.revertAll();
+
+    docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
+  });
 });
