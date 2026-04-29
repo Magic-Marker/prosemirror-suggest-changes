@@ -89,7 +89,7 @@ function revertOneStructureSuggestion(
   );
   let structureMark = findNextStructureMark(tr.doc, suggestionId);
   while (structureMark !== null) {
-    console.groupCollapsed(
+    console.group(
       "revertStructureSuggestion",
       "reverting structure mark",
       structureMark.mark.attrs["id"],
