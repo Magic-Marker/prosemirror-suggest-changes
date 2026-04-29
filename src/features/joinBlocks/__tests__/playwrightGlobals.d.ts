@@ -34,6 +34,7 @@ declare global {
       logState: () => void;
       replaceDoc: (doc: unknown) => void;
       getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorMarksJSON: () => unknown[];
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;

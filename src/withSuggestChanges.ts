@@ -226,7 +226,10 @@ export function withSuggestChanges(
     let transaction = tr;
 
     if (isEnabled) {
-      let structureChangesTransform: Transform | null = null;
+      let structureChangesResult: {
+        handled: boolean;
+        transform: Transform;
+      } | null = null;
       const docBefore = transaction.docs[0];
 
       if (
@@ -259,7 +262,7 @@ export function withSuggestChanges(
         // if handled, then ignore the main plugin
         // otherwise use the main plugin
         const perfStructure = performance.now();
-        structureChangesTransform = suggestStructureChanges(
+        structureChangesResult = suggestStructureChanges(
           docBefore,
           docAfter,
           generateId,
@@ -273,13 +276,13 @@ export function withSuggestChanges(
         );
         trace(
           "structure changes transform completed",
-          structureChangesTransform,
+          structureChangesResult.transform,
         );
-        if (structureChangesTransform.steps.length > 0) {
+        if (structureChangesResult.handled) {
           uniqueNodeIdsTransform.steps.forEach((step) => {
             transaction.step(step);
           });
-          structureChangesTransform.steps.forEach((step) => {
+          structureChangesResult.transform.steps.forEach((step) => {
             transaction.step(step);
           });
           trace(
@@ -289,11 +292,7 @@ export function withSuggestChanges(
         }
       }
 
-      if (
-        transaction.docChanged &&
-        (structureChangesTransform == null ||
-          structureChangesTransform.steps.length === 0)
-      ) {
+      if (transaction.docChanged && structureChangesResult?.handled !== true) {
         trace("running the main suggestions plugin...");
         const perfSuggestions = performance.now();
         transaction = transformToSuggestionTransaction(

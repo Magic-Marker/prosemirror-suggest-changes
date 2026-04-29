@@ -76,6 +76,9 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
   ambiguous.
 - Structure marks belong on non-list content/block nodes. `getOps` skips nodes
   whose type is in `LIST_NODES`.
+- A node with an unaccepted structure `add` mark is still provisional new
+  structure. Moving it must not add structure `move` marks until the `add` mark
+  is accepted.
 - Stored parent descriptors must remain sufficient to recreate missing ancestor
   wrappers and position the restored node near stable siblings.
 - Apply/revert cleanup transactions must set `suggestChangesKey` meta with
@@ -93,8 +96,8 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
 5. All structure ops from that detection pass share one suggestion ID.
 6. A transform over the after-doc adds `structure` node marks to affected
    content nodes. The mark data stores the operation.
-7. If structure marks were added, the normal text-suggestion transform is
-   skipped for that transaction.
+7. If structure detection handled the transaction, the normal text-suggestion
+   transform is skipped for that transaction.
 8. Applying a structure suggestion removes the structure marks.
 9. Reverting a structure suggestion uses the stored operation data to delete
    added nodes or move existing nodes back to their previous parent chain.
@@ -147,6 +150,13 @@ for future work and debugging, but index shifts alone are not treated as moves.
 
 `sameParentChain` compares only chain length and ancestor IDs. It deliberately
 does not compare parent attrs, marks, sibling IDs, or indexes.
+
+When `addMarks` sees a `move` op for a node that already carries a structure
+`add` mark, it suppresses the new `move` mark. This mirrors insertion-mark
+behavior: provisional new structure can be rearranged freely until accepted. If
+the `add` suggestion is reverted, the node is deleted from its current location.
+If the `add` suggestion is applied, the structure mark is removed and later
+structure edits produce `move` marks normally.
 
 ## Structure Mark Data
 
@@ -240,10 +250,17 @@ There are two integration paths:
 - `withSuggestChanges`: the important experimental path. It can run structure
   detection first when `experimental_trackStructureChanges` and
   `experimental_ensureUniqueNodeIds` are provided. If structure detection
-  produces marks, the normal suggestion transform is skipped for that
+  handles the transaction, the normal suggestion transform is skipped for that
   transaction.
 - `structureChangesPlugin`: an append-transaction plugin path that also compares
   old and new docs, but is not the primary path for current hardening.
+
+`suggestStructureChanges` returns `{ handled, transform }`. `handled` is based
+on whether structure ops were detected, not whether the transform contains
+steps. This distinction matters when every detected op is intentionally
+suppressed, such as moving a node that still has a structure `add` mark.
+`withSuggestChanges` uses `handled` to avoid falling back to normal text
+suggestion tracking for a transaction structure tracking already understood.
 
 Structure tracking should be skipped for transactions from history, collab, yjs
 undo/redo, yjs change origin, or transactions carrying `suggestChangesKey` skip
