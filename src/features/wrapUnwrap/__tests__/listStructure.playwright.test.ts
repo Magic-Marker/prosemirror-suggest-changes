@@ -2,6 +2,20 @@ import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { eq } from "prosemirror-test-builder";
+import { type Attrs } from "prosemirror-model";
+import { guardStructureMarkAttrs, type StructureMarkAttrs } from "../types.js";
+
+interface StructureMark {
+  type: "structure";
+  attrs: StructureMarkAttrs;
+}
+
+function isStructureMark(mark: unknown): mark is StructureMark {
+  if (mark === null || typeof mark !== "object") return false;
+  if (!("type" in mark) || mark.type !== "structure") return false;
+  if (!("attrs" in mark)) return false;
+  return guardStructureMarkAttrs(mark.attrs as Attrs);
+}
 
 test.describe("Structure changes in lists", () => {
   test("Revert a single outdent (last item)", async ({
@@ -1159,6 +1173,171 @@ test.describe("Structure changes in lists", () => {
     await page.keyboard.insertText("1. ");
 
     expect(await editorPage.editor.locator("ol").count()).toBe(1);
+
+    let docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).not.toBeTruthy();
+
+    await editorPage.revertAll();
+
+    docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
+  });
+
+  test("Moving an add-marked list item does not add a move mark", async ({
+    page,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "orderedList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item One" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item Two" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    // press Enter to create a new list item
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(50);
+
+    // press shift+tab to outdent the new item
+    await page.keyboard.press("Shift+Tab");
+    await page.waitForTimeout(50);
+
+    const structureMarks = (
+      await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
+    ).filter(isStructureMark);
+
+    expect(structureMarks).toHaveLength(1);
+    expect(structureMarks[0]?.attrs.data.op.op).toBe("add");
+  });
+
+  test("Moving an accepted add-marked list item creates a move mark", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "orderedList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item One" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item Two" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    // press Enter to create a new list item
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(50);
+
+    const editorPage = new EditorPage(page, deletionMarksVisibility);
+    await editorPage.applyAll();
+
+    // press shift+tab to outdent the accepted item
+    await page.keyboard.press("Shift+Tab");
+    await page.waitForTimeout(50);
+
+    const structureMarks = (
+      await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
+    ).filter(isStructureMark);
+
+    expect(structureMarks).toHaveLength(1);
+    expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
+  });
+
+  test("Revert a moved add-marked list item", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "orderedList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item One" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item Two" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page, deletionMarksVisibility);
+    const docJSON = await editorPage.getDocJSON();
+
+    // press Enter to create a new list item
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(50);
+
+    // press shift+tab to outdent the new item
+    await page.keyboard.press("Shift+Tab");
+    await page.waitForTimeout(50);
 
     let docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
     expect(eq(docs.currentDoc, docs.expectedDoc)).not.toBeTruthy();

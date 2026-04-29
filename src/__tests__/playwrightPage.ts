@@ -43,6 +43,12 @@ export class EditorPage {
     );
   }
 
+  async getProseMirrorMarksJSON(): Promise<unknown[]> {
+    return await this.page.evaluate(() => {
+      return window.pmEditor.getProseMirrorMarksJSON();
+    });
+  }
+
   async getProseMirrorSelection(): Promise<{ anchor: number; head: number }> {
     return await this.page.evaluate(() => {
       return window.pmEditor.getProseMirrorSelection();
@@ -77,6 +83,11 @@ export class EditorPage {
 
   async revertAll() {
     await this.page.getByText("Revert all").click();
+    await this.page.waitForTimeout(100);
+  }
+
+  async applyAll() {
+    await this.page.getByText("Apply all").click();
     await this.page.waitForTimeout(100);
   }
 }

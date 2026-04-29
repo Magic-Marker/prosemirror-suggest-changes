@@ -169,6 +169,13 @@ function updateStatus() {
 }
 
 function renderButtons() {
+  const applyAllButton = document.createElement("button");
+  applyAllButton.appendChild(document.createTextNode("Apply all"));
+  applyAllButton.addEventListener("click", () => {
+    commands.applySuggestions(view.state, view.dispatch);
+    view.focus();
+  });
+
   const revertAllButton = document.createElement("button");
   revertAllButton.appendChild(document.createTextNode("Revert all"));
   revertAllButton.addEventListener("click", () => {
@@ -179,7 +186,7 @@ function renderButtons() {
   if (!container) {
     throw new Error("Buttons container not found");
   }
-  container.appendChild(revertAllButton);
+  container.append(applyAllButton, revertAllButton);
 }
 
 // Initial status
@@ -216,6 +223,7 @@ declare global {
       clearTransactions: () => void;
       logState: () => void;
       getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorMarksJSON: () => unknown[];
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
@@ -346,6 +354,14 @@ window.pmEditor = {
       marks.push(...node.marks);
     });
     return marks.filter((mark) => mark.type.name === name).length;
+  },
+
+  getProseMirrorMarksJSON() {
+    const marks: Mark[] = [];
+    view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
+      marks.push(...node.marks);
+    });
+    return marks.map((mark): unknown => mark.toJSON());
   },
 
   getProseMirrorSelection() {

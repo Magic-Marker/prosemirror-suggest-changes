@@ -8,7 +8,11 @@ import {
 import { getSuggestionMarks } from "../../utils.js";
 import { generateNextNumberId, type SuggestionId } from "../../generateId.js";
 import { getNodeId } from "./getNodeId.js";
-import { type Op, type MaterializedPaths } from "./types.js";
+import {
+  guardStructureMarkAttrs,
+  type Op,
+  type MaterializedPaths,
+} from "./types.js";
 import { LIST_NODES, STRUCTURE_CHANGES_ADD_MARKS } from "./constants.js";
 import { Transform } from "prosemirror-transform";
 import { isSuggestChangesEnabled, suggestChangesKey } from "../../plugin.js";
@@ -131,7 +135,7 @@ export function structureChangesPlugin(
 
       trace("structureChangesPlugin", "appendTransaction", [...transactions]);
 
-      const transform = suggestStructureChanges(oldDoc, newDoc, generateId);
+      const { transform } = suggestStructureChanges(oldDoc, newDoc, generateId);
 
       const tr = newState.tr;
       transform.steps.forEach((step) => {
@@ -167,7 +171,7 @@ export function suggestStructureChanges(
   docBefore: Node,
   docAfter: Node,
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
-): Transform {
+): { handled: boolean; transform: Transform } {
   const suggestionId = generateId
     ? generateId(docBefore.type.schema, docBefore)
     : generateNextNumberId(docBefore.type.schema, docBefore);
@@ -189,7 +193,7 @@ export function suggestStructureChanges(
 
   addMarks(ops, transform, suggestionId);
 
-  return transform;
+  return { handled: ops.size > 0, transform };
 }
 
 function addMarks(
@@ -208,6 +212,8 @@ function addMarks(
     const op = ops.get(nodeId);
     if (op == null) return true;
 
+    if (op.op === "move" && hasStructureAddMark(node)) return true;
+
     tr.addNodeMark(pos, structure.create({ id: suggestionId, data: { op } }));
 
     return true;
@@ -219,6 +225,15 @@ function addMarks(
     Number((performance.now() - perfAddMarks).toFixed(2)),
     "ms",
   );
+}
+
+function hasStructureAddMark(node: Node) {
+  const { structure } = getSuggestionMarks(node.type.schema);
+  return node.marks.some((mark) => {
+    if (mark.type !== structure) return false;
+    if (!guardStructureMarkAttrs(mark.attrs)) return false;
+    return mark.attrs.data.op.op === "add";
+  });
 }
 
 function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
