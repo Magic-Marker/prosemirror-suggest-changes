@@ -1,4 +1,4 @@
-import { type Node, type ResolvedPos } from "prosemirror-model";
+import { type Node } from "prosemirror-model";
 import { getSuggestionMarks } from "../../../utils.js";
 import { type Mark } from "prosemirror-model";
 import { getNodeId } from "../getNodeId.js";
@@ -10,46 +10,77 @@ import { buildMaterializedPaths } from "../buildMaterializedPaths.js";
 import { revertAddOp } from "./revertAddOp.js";
 import { revertMoveOp } from "./revertMoveOp.js";
 
-export function revertStructureSuggestionsInNode({
+const TRACE_ENABLED = true;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[revertStructureSuggestions]", ...args);
+}
+
+export function revertStructureSuggestionsInDoc({
   tr,
-  node,
   suggestionId,
   from,
   to,
 }: {
   tr: Transform;
-  node: Node;
   suggestionId?: SuggestionId;
   from?: number | undefined;
   to?: number | undefined;
 }) {
-  const { structure } = getSuggestionMarks(node.type.schema);
+  if (suggestionId) {
+    // when suggestionId is given, just revert it, no other logic required
+    revertStructureSuggestionWithPrerequisites(tr, suggestionId);
+    return;
+  }
 
-  // collect all structure mark ids
-  const suggestionIds = new Set<SuggestionId>();
+  if (from || to) {
+    // when range is given, find suggestion ids inside that range,
+    // but make sure to revert furthermost suggestions first
+    // todo: most likely a better strategy would be to search for the next suggestion in the updated doc after each reversal (and map from and to)
+    const { structure } = getSuggestionMarks(tr.doc.type.schema);
 
-  node.descendants((node, pos) => {
-    if (from !== undefined && pos < from) {
+    const structureMarks: { mark: Mark; node: Node; pos: number }[] = [];
+
+    tr.doc.descendants((node, pos) => {
+      if (from !== undefined && pos < from) {
+        return true;
+      }
+      if (to !== undefined && pos > to) {
+        return false;
+      }
+
+      if (node.isText) return true;
+      if (!structure.isInSet(node.marks)) return true;
+
+      node.marks.forEach((mark) => {
+        if (mark.type !== structure) return;
+        structureMarks.push({ mark, node, pos });
+      });
+
       return true;
-    }
-    if (to !== undefined && pos > to) {
-      return false;
-    }
-    if (node.isText) return true;
-    if (!structure.isInSet(node.marks)) return true;
-
-    node.marks.forEach((mark) => {
-      if (mark.type !== structure) return;
-      const markSuggestionId = mark.attrs["id"] as SuggestionId;
-      if (suggestionId != null && markSuggestionId !== suggestionId) return;
-      suggestionIds.add(markSuggestionId);
     });
 
-    return true;
-  });
+    structureMarks.sort((a, b) => b.pos - a.pos);
 
-  for (const suggestionId of suggestionIds) {
-    revertStructureSuggestionWithPrerequisites(tr, suggestionId);
+    const suggestionIds = new Set<SuggestionId>();
+    structureMarks.forEach(({ mark }) => {
+      suggestionIds.add(mark.attrs["id"] as SuggestionId);
+    });
+
+    for (const suggestionId of suggestionIds) {
+      revertStructureSuggestionWithPrerequisites(tr, suggestionId);
+    }
+
+    return;
+  }
+
+  // if no suggestion id nor range is given, revert all suggestions one by one, always take furthermost first
+  // after each reversal, the next suggestion is searched in the new doc after the previous reversal
+  let nextSuggestionId = findNextStructureSuggestion(tr.doc);
+  while (nextSuggestionId != null) {
+    revertStructureSuggestionWithPrerequisites(tr, nextSuggestionId);
+    nextSuggestionId = findNextStructureSuggestion(tr.doc);
   }
 }
 
@@ -57,53 +88,33 @@ function revertStructureSuggestionWithPrerequisites(
   tr: Transform,
   suggestionId: SuggestionId,
 ) {
-  console.group(
-    "revertStructureMarkGroupInOrder",
-    "reverting structure mark group",
-    suggestionId,
-  );
   const suggestionIds = buildOrderedSuggestionIds(
     tr.doc,
     suggestionId,
     buildMaterializedPaths(tr.doc),
   );
-  console.log(
-    "revertStructureMarkGroupInOrder",
-    "suggestion groups to revert",
-    suggestionIds,
-  );
+  trace("reverting structure suggestions: ", suggestionIds);
   for (const suggestionId of suggestionIds) {
     revertOneStructureSuggestion(tr, suggestionId);
   }
-  console.groupEnd();
 }
 
 function revertOneStructureSuggestion(
   tr: Transform,
   suggestionId: SuggestionId,
 ) {
-  console.group(
-    "revertStructureSuggestion",
-    "reverting structure suggestion",
-    suggestionId,
-  );
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED)
+    console.group("reverting structure suggestion: ", suggestionId);
+
   let structureMark = findNextStructureMark(tr.doc, suggestionId);
   while (structureMark !== null) {
-    console.group(
-      "revertStructureSuggestion",
-      "reverting structure mark",
-      structureMark.mark.attrs["id"],
-      "at pos",
-      structureMark.pos,
-      "at node",
-      structureMark.node.toString(),
-      { structureMark },
-    );
     revertStructureMark(tr, structureMark.mark, structureMark.pos);
-    console.groupEnd();
     structureMark = findNextStructureMark(tr.doc, suggestionId);
   }
-  console.groupEnd();
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED) console.groupEnd();
 }
 
 export function revertStructureMark(tr: Transform, mark: Mark, pos: number) {
@@ -114,17 +125,6 @@ export function revertStructureMark(tr: Transform, mark: Mark, pos: number) {
   if (!node) {
     throw new Error(`Node not found at position ${String(pos)}`);
   }
-  console.log(
-    "revertStructureMark",
-    mark.attrs["id"],
-    "at node",
-    node.toString(),
-    {
-      node,
-      mark,
-      pos,
-    },
-  );
 
   const attrs = mark.attrs;
   if (!guardStructureMarkAttrs(attrs)) {
@@ -137,6 +137,24 @@ export function revertStructureMark(tr: Transform, mark: Mark, pos: number) {
   }
 
   const op = attrs.data.op;
+
+  trace(
+    "reverting structure mark with suggestion id",
+    attrs.id,
+    "at node",
+    node.toString(),
+    "at pos",
+    pos,
+    "with op",
+    op.op,
+    {
+      mark,
+      node,
+      $pos: transform.doc.resolve(pos),
+      op,
+    },
+  );
+
   switch (op.op) {
     case "add": {
       revertAddOp(op, transform, node, pos);
@@ -209,15 +227,6 @@ function buildOrderedSuggestionIds(
     return Array.from(suggestionIds).reverse();
   }
 
-  console.log(
-    "findOrderedSuggestionIdsToRevert",
-    "suggestion",
-    suggestionId,
-    "contains mark with a mismatched 'to':",
-    mismatch,
-    "searching a different suggestion with the matching 'to'...",
-  );
-
   // find first mark on the node that does have a matching op.to
   const match = mismatch.node.marks.find((mark) => {
     if (mark.type !== structure) return false;
@@ -237,17 +246,36 @@ function buildOrderedSuggestionIds(
   });
 
   if (match) {
-    console.log(
-      "findOrderedSuggestionIdsToRevert",
-      "found suggestin with matching 'to'",
-      match,
-    );
     suggestionIds.add(match.attrs["id"] as SuggestionId);
   }
 
   return Array.from(suggestionIds).reverse();
 }
 
+function findNextStructureSuggestion(doc: Node): SuggestionId | null {
+  const { structure } = getSuggestionMarks(doc.type.schema);
+
+  const structureMarks: { mark: Mark; node: Node; pos: number }[] = [];
+
+  doc.descendants((node, pos) => {
+    if (node.isText) return true;
+    if (!structure.isInSet(node.marks)) return true;
+
+    node.marks.forEach((mark) => {
+      if (mark.type !== structure) return;
+      structureMarks.push({ mark, node, pos });
+    });
+
+    return true;
+  });
+
+  structureMarks.sort((a, b) => b.pos - a.pos);
+
+  return structureMarks[0]?.mark.attrs["id"] as SuggestionId | null;
+}
+
+// given a suggestion id, find next structure mark to revert that belongs to that suggestion
+// always take furthermost mark first
 function findNextStructureMark(node: Node, suggestionId: SuggestionId) {
   const { structure } = getSuggestionMarks(node.type.schema);
 
@@ -255,10 +283,26 @@ function findNextStructureMark(node: Node, suggestionId: SuggestionId) {
     mark: Mark;
     node: Node;
     pos: number;
-    $pos: ResolvedPos;
   }[] = [];
 
   node.descendants((descendant, pos) => {
+    // the assumption here is that a single node cannot have multiple structure marks with the same suggestion id
+    // check the invariant
+    const suggestionIds = new Set<SuggestionId>();
+    descendant.marks.forEach((mark) => {
+      if (mark.type !== structure) return;
+      const markSuggestionId = mark.attrs["id"] as SuggestionId;
+      if (suggestionIds.has(markSuggestionId)) {
+        console.warn(
+          "node",
+          node,
+          "has multiple structure marks with the same suggestion id",
+          markSuggestionId,
+        );
+      }
+      suggestionIds.add(markSuggestionId);
+    });
+
     const mark = descendant.marks.find(
       (mark) => mark.type === structure && mark.attrs["id"] === suggestionId,
     );
@@ -267,12 +311,11 @@ function findNextStructureMark(node: Node, suggestionId: SuggestionId) {
       mark,
       node: descendant,
       pos,
-      $pos: node.resolve(pos),
     });
     return true;
   });
 
-  structureMarks.sort((a, b) => b.$pos.depth - a.$pos.depth);
+  structureMarks.sort((a, b) => b.pos - a.pos);
 
   return structureMarks[0] ?? null;
 }

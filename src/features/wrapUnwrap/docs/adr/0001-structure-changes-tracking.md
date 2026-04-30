@@ -181,8 +181,7 @@ revert.
 - `from`: the node's parent chain before the edit.
 - `to`: the node's parent chain after the edit.
 
-The `to` chain is used for dependency checks; the `from` chain is used to
-reconstruct the old location.
+The `from` chain is used to reconstruct the old location.
 
 ## Applying Suggestions
 
@@ -190,18 +189,10 @@ Applying a structure suggestion accepts the structure edit. It does not move
 content. It removes all matching `structure` marks for the selected suggestion
 group or range.
 
-The public command flow applies structure suggestions before normal suggestion
-cleanup so one accept/reject action can handle structure, insertion, deletion,
-and modification marks together.
-
 ## Reverting Suggestions
 
-Revert works by suggestion group. `revertStructureSuggestionsInNode` collects
-matching suggestion IDs, then reverts each group.
-
-Within one group, `findNextStructureMark` repeatedly picks the deepest matching
-structure mark in the current document. This is important because reverting a
-child before its wrapper can avoid invalid intermediate list structures.
+Reverting a structure suggestion uses the stored operation data to either delete
+added nodes or move existing nodes back to their previous parent chain.
 
 ### Reverting `add`
 
@@ -227,22 +218,6 @@ ancestors that became empty.
 exactly one child, namely the node being removed. This avoids leaving empty
 `listItem` or list nodes that violate the schema.
 
-## Dependency Handling
-
-Structure suggestions can stack on the same node. If a node was moved by
-suggestion A and then moved again by suggestion B, reverting A may require
-reverting B first.
-
-The current dependency handling is intentionally limited:
-
-- For the requested suggestion, inspect its move marks.
-- If a mark's stored `to` chain does not match the node's current parent chain,
-  find another structure mark on the same node whose `to` chain does match.
-- Revert that matching suggestion group before the requested group.
-
-This is not a full dependency graph or topological sort. It does not handle all
-multi-node or multi-level dependency cases.
-
 ## Integration
 
 There are two integration paths:
@@ -265,11 +240,6 @@ suggestion tracking for a transaction structure tracking already understood.
 Structure tracking should be skipped for transactions from history, collab, yjs
 undo/redo, yjs change origin, or transactions carrying `suggestChangesKey` skip
 meta.
-
-`commands.ts` replays structure transforms before normal suggestion transforms
-when applying or reverting. Preserve this order: normal text suggestion cleanup
-may depend on the document shape after structure suggestions have been accepted
-or reverted.
 
 ## Why Not Use Step Interpretation?
 
@@ -301,8 +271,7 @@ these areas together:
 - Revert reconstruction: ensure missing ancestors can be recreated with attrs
   and marks.
 - Insertion placement: prefer stable sibling IDs over raw indexes.
-- Dependency ordering: add tests for stacked and interdependent suggestions.
-- Apply/revert commands: preserve skip meta and structure-before-text ordering.
+- Apply/revert commands: preserve skip meta.
 - Tests: cover user-level commands, not only low-level transforms.
 
 For same-parent reorder support, do not compare raw child indexes directly and
@@ -340,9 +309,6 @@ When structure tracking does not behave as expected:
   nodes.
 - Same-parent reorder is not tracked.
 - Parent-chain equality only compares ancestor IDs and chain length.
-- Revert dependency handling is partial and local to marks on the same node.
-- Complex cross-node structure suggestions can still revert in a surprising
-  order.
 - Schema-invalid reconstruction can throw or fail a ProseMirror step.
 - Revert can be lossy if stored parent node types, attrs, or marks no longer
   exist or no longer accept the child being restored.

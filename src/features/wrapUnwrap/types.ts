@@ -1,4 +1,5 @@
 import { type Attrs } from "prosemirror-model";
+import { type SuggestionId } from "../../generateId.js";
 
 interface NodeParent {
   nodeId: string;
@@ -10,6 +11,7 @@ interface NodeParent {
 }
 
 export interface StructureMarkAttrs {
+  id: SuggestionId;
   data: { op: Op };
 }
 

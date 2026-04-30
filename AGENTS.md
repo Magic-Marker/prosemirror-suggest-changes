@@ -71,7 +71,51 @@ work") require constant clarification.
 
 ## 5. Project-Specific Guidelines
 
-TBD
+### Working With The Demo Page To Explore, Test, And Debug
+
+The Vite demo is usually served at `http://localhost:5173/`. Before starting it,
+check whether it is already running, either by inspecting existing terminals or
+by navigating to the local URL with MCP. If it is not running, start it with
+`yarn demo`. When investigating editor behavior, prefer `@playwright/mcp`.
+
+Use Playwright MCP because it is closest to the existing e2e test environment:
+it gives reliable browser actions, accessibility snapshots, keyboard events, and
+page evaluation in one place. Prefer it over Cursor browser tools for
+ProseMirror state inspection, over Chrome DevTools MCP for routine editor
+workflows, and over Playwright CLI/scripts unless the user explicitly asks for a
+script or test.
+
+The demo exposes `window.pmView` as a ProseMirror `EditorView` instance. Use it
+through `browser_evaluate` for JSON-safe inspection and targeted setup, but
+reproduce editor bugs with real keyboard and click interactions whenever
+possible.
+
+Useful MCP tools for editor debugging:
+
+- `browser_evaluate`: inspect `window.pmView`, DOM subtrees, and JSON-safe
+  state.
+- `browser_snapshot`: find controls, refs/selectors, visible state, and optional
+  bounding boxes.
+- `browser_console_messages`: check runtime errors, warnings, and debug logs
+  after a repro.
+
+### Working With The Demo Editor
+
+Use `browser_snapshot` to find controls and confirm visible editor state. Click
+`.ProseMirror` or set a selection with `window.pmView` and call
+`window.pmView.focus()` before sending keyboard input.
+
+To focus a specific visible node, use `browser_click` with a CSS selector in the
+`target` argument, for example `target: ".ProseMirror p:nth-child(3)"`. Be more
+specific for nested structures, since list item paragraphs are not direct
+siblings of top-level paragraphs.
+
+Use `browser_type` with `target: ".ProseMirror"` and `slowly: true` when text
+should pass through ProseMirror input rules character by character, such as
+typing `- ` to start a list. Use `browser_press_key` for editor commands:
+`Enter`, `Backspace`, `Delete`, `Tab`, `Shift+Tab`, arrow keys, and modifier
+shortcuts. Use button clicks for UI actions such as `Apply all` and
+`Revert all`.
 
 ---
 

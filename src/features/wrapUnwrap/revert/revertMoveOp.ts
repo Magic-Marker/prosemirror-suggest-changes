@@ -11,22 +11,7 @@ export function revertMoveOp(
   node: Node,
   pos: number,
 ) {
-  console.log(
-    "revertMoveOp",
-    "node",
-    node.toString(),
-    "was moved from",
-    op.from,
-    { op, node },
-  );
-
   const parent = getDeepestSurvivingParent(op.from, tr.doc);
-  console.log(
-    "revertMoveOp",
-    "deepest surviving parent is",
-    parent.node.toString(),
-    { parent },
-  );
 
   const child = wrapNodeInParentChain(parent.remainingChain, node);
   const insertTo = findInsertionPos(
