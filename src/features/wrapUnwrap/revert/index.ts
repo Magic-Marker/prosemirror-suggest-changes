@@ -1,23 +1,23 @@
 import { Transform } from "prosemirror-transform";
-import { revertStructureSuggestionsInNode } from "./revertStructureSuggestions.js";
+import { revertStructureSuggestionsInDoc } from "./revertStructureSuggestions.js";
 import { type Node } from "prosemirror-model";
 import { type SuggestionId } from "../../../generateId.js";
 
 export function revertAllStructureSuggestions(
-  node: Node,
+  doc: Node,
   from?: number,
   to?: number,
 ) {
-  const tr = new Transform(node);
-  revertStructureSuggestionsInNode({ tr, node: tr.doc, from, to });
+  const tr = new Transform(doc);
+  revertStructureSuggestionsInDoc({ tr, from, to });
   return tr;
 }
 
 export function revertStructureSuggestion(
-  node: Node,
+  doc: Node,
   suggestionId: SuggestionId,
 ) {
-  const tr = new Transform(node);
-  revertStructureSuggestionsInNode({ tr, node: tr.doc, suggestionId });
+  const tr = new Transform(doc);
+  revertStructureSuggestionsInDoc({ tr, suggestionId });
   return tr;
 }

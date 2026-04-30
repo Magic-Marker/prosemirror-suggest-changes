@@ -295,3 +295,11 @@ const view = new EditorView(editorEl, {
 });
 
 enableSuggestChanges(view.state, view.dispatch);
+
+declare global {
+  interface Window {
+    pmView: EditorView;
+  }
+}
+
+window.pmView = view;
