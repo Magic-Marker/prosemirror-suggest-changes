@@ -1367,4 +1367,79 @@ test.describe("Structure changes in lists", () => {
     docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
     expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
   });
+
+  test("Indenting then outdenting a list item cancels inverse move marks", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "orderedList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item 1" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item 2" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item 3" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page, deletionMarksVisibility);
+    const docJSON = await editorPage.getDocJSON();
+
+    // move to Item 2
+    await page.keyboard.press("ArrowUp");
+
+    // press tab to indent Item 2
+    await page.keyboard.press("Tab");
+
+    let structureMarks = (
+      await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
+    ).filter(isStructureMark);
+
+    expect(structureMarks).toHaveLength(1);
+    expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
+
+    // press shift+tab to outdent Item 2 back to its original location
+    await page.keyboard.press("Shift+Tab");
+
+    structureMarks = (
+      await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
+    ).filter(isStructureMark);
+
+    expect(structureMarks).toHaveLength(0);
+
+    const docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
+  });
 });

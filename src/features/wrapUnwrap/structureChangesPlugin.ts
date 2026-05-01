@@ -10,6 +10,7 @@ import { generateNextNumberId, type SuggestionId } from "../../generateId.js";
 import { getNodeId } from "./getNodeId.js";
 import {
   guardStructureMarkAttrs,
+  type MoveOp,
   type Op,
   type MaterializedPaths,
 } from "./types.js";
@@ -212,7 +213,15 @@ function addMarks(
     const op = ops.get(nodeId);
     if (op == null) return true;
 
-    if (op.op === "move" && hasStructureAddMark(node)) return true;
+    if (op.op === "move") {
+      if (hasStructureAddMark(node)) return true;
+
+      const inverseMoveMark = findInverseStructureMoveMark(node, op);
+      if (inverseMoveMark) {
+        tr.removeNodeMark(pos, inverseMoveMark);
+        return true;
+      }
+    }
 
     tr.addNodeMark(pos, structure.create({ id: suggestionId, data: { op } }));
 
@@ -225,6 +234,22 @@ function addMarks(
     Number((performance.now() - perfAddMarks).toFixed(2)),
     "ms",
   );
+}
+
+function findInverseStructureMoveMark(node: Node, op: MoveOp) {
+  const { structure } = getSuggestionMarks(node.type.schema);
+  return node.marks.find((mark) => {
+    if (mark.type !== structure) return false;
+    if (!guardStructureMarkAttrs(mark.attrs)) return false;
+
+    const existingOp = mark.attrs.data.op;
+    if (existingOp.op !== "move") return false;
+
+    return (
+      sameParentChain(existingOp.from, op.to) &&
+      sameParentChain(existingOp.to, op.from)
+    );
+  });
 }
 
 function hasStructureAddMark(node: Node) {
