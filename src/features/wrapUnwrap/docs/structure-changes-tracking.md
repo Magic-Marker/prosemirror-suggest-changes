@@ -2,7 +2,7 @@
 
 Status: experimental, active hardening.
 
-This document explains the design of structure-change suggestions in
+This document explains the implementation of Structure suggestions in
 `src/features/wrapUnwrap`. It is meant to give a ProseMirror-proficient reader
 enough context to debug the current behavior, harden it, or extend it without
 breaking the core invariants.
@@ -23,7 +23,7 @@ structure before and after a transaction.
 
 ## Decision
 
-Track structure edits by comparing stable node IDs and their materialized parent
+Track structure edits by comparing stable node IDs and their materialized Parent
 chains before and after a transaction.
 
 The stable unit is the content/block node, not the list wrapper. Structure marks
@@ -51,17 +51,17 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
 ## File Map
 
 - `structureChangesPlugin.ts`: transaction integration and structure diffing.
-- `buildMaterializedPaths.ts`: builds node ID to parent-chain maps.
-- `sameParentChain.ts`: compares parent chains by ancestor IDs.
-- `types.ts`: operation, parent-chain, and structure mark attr types.
+- `buildMaterializedPaths.ts`: builds node ID to Parent chain maps.
+- `sameParentChain.ts`: compares Parent chains by ancestor IDs.
+- `types.ts`: operation, Parent chain, and Structure mark attr types.
 - `constants.ts`: structure tracking constants and list node names.
 - `addIdAttr.ts`: helper for adding an `id` attr to schema node specs.
 - `uniqueNodeIdsPlugin.ts`: demo/test ID-settling plugin and transform helper.
-- `apply/applyStructureSuggestions.ts`: accepts structure suggestions by
-  removing structure marks.
-- `revert/revertStructureSuggestions.ts`: grouped structure suggestion revert
+- `apply/applyStructureSuggestions.ts`: accepts Structure suggestions by
+  removing Structure marks.
+- `revert/revertStructureSuggestions.ts`: grouped Structure suggestion revert
   orchestration.
-- `revert/revertMoveOp.ts`: reconstructs previous parent chains for moved nodes.
+- `revert/revertMoveOp.ts`: reconstructs previous Parent chains for moved nodes.
 - `revert/revertAddOp.ts`: deletes added nodes.
 - `revert/deleteNodeUpwards.ts`: prunes now-empty ancestors after deletion.
 - `__tests__/listStructure.playwright.test.ts`: user-level list behavior
@@ -69,38 +69,42 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
 
 ## Required Invariants
 
-- Every non-text node must have a stable unique string `id` before structure
-  detection runs.
+- Every non-text document descendant that participates in structure tracking
+  must have a stable unique string `id` before structure detection runs. The
+  document root itself is represented by a synthetic `__doc__` parent.
 - Missing IDs should cause detection to bail rather than guess.
 - Duplicate IDs must be fixed before diffing; otherwise node correlation is
-  ambiguous.
+  ambiguous. The primary `withSuggestChanges` integration can run the unique-ID
+  transform before structure detection; the append-transaction plugin expects
+  IDs to already be settled.
 - Structure marks belong on non-list content/block nodes. `getOps` skips nodes
   whose type is in `LIST_NODES`.
-- A node with an unaccepted structure `add` mark is still provisional new
-  structure. Moving it must not add structure `move` marks until the `add` mark
-  is accepted.
+- A Structure add suggestion is still provisional new structure. Moving it must
+  not add Structure move suggestions until the add suggestion is accepted.
 - Stored parent descriptors must remain sufficient to recreate missing ancestor
   wrappers and position the restored node near stable siblings.
-- Apply/revert cleanup transactions must set `suggestChangesKey` meta with
-  `{ skip: true }` so they are not tracked as new suggestions.
+- Public apply/revert commands must set `suggestChangesKey` meta with
+  `{ skip: true }` so cleanup transactions are not tracked as new suggestions.
 
 ## End-To-End Flow
 
 1. A user transaction changes the document while suggest changes is enabled.
-2. The integration path ensures IDs on newly created or duplicated nodes before
-   structure diffing. In the dispatch wrapper, this is supplied through
-   `experimental_ensureUniqueNodeIds`.
+2. In the primary `withSuggestChanges` integration, the dispatch wrapper uses
+   `experimental_ensureUniqueNodeIds` to set IDs on newly created or duplicated
+   nodes before structure diffing. The append-transaction plugin path only
+   checks for missing IDs and bails when IDs are not settled.
 3. `suggestStructureChanges(docBefore, docAfter, generateId?)` builds
    materialized paths for both docs.
 4. `getOps` compares paths by node ID and derives `move` or `add` operations.
 5. All structure ops from that detection pass share one suggestion ID.
-6. A transform over the after-doc adds `structure` node marks to affected
-   content nodes. The mark data stores the operation.
+6. A transform over the after-doc updates `structure` node marks on affected
+   content nodes. It usually adds marks, but it can also remove an Inverse move.
+   The mark data stores the operation.
 7. If structure detection handled the transaction, the normal text-suggestion
    transform is skipped for that transaction.
-8. Applying a structure suggestion removes the structure marks.
-9. Reverting a structure suggestion uses the stored operation data to delete
-   added nodes or move existing nodes back to their previous parent chain.
+8. Applying a Structure suggestion removes the Structure marks.
+9. Reverting a Structure suggestion uses the stored operation data to delete
+   added nodes or move existing nodes back to their previous Parent chain.
 
 ## Materialized Paths
 
@@ -110,8 +114,8 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
 Map<string, { nodeType: string; chain: Parent[] }>;
 ```
 
-The key is a node ID. The chain is immediate-parent-first and eventually ends in
-a special document parent:
+The key is a node ID. The Parent chain is immediate-parent-first and eventually
+ends in a special document parent:
 
 ```ts
 {
@@ -140,27 +144,25 @@ for future work and debugging, but index shifts alone are not treated as moves.
 
 `getOps(beforePaths, afterPaths)` derives operations:
 
-- Existing non-list node with different parent chain, and a list node in either
-  old or new chain: `move`.
+- Existing non-list node with different Parent chain, and a list node in either
+  old or new Parent chain: `move`.
 - Non-list node that exists only in the after-doc and is inside a list: `add`.
 - Node that exists only in the before-doc: ignored here; normal deletion
   tracking handles deleted content.
-- Non-list node whose parent-chain IDs are unchanged: ignored, even if sibling
+- Non-list node whose Parent chain IDs are unchanged: ignored, even if sibling
   order or index changed.
 
-`sameParentChain` compares only chain length and ancestor IDs. It deliberately
-does not compare parent attrs, marks, sibling IDs, or indexes.
+`sameParentChain` compares only Parent chain length and ancestor IDs. It
+deliberately does not compare parent attrs, marks, sibling IDs, or indexes.
 
-When `addMarks` sees a `move` op for a node that already carries a structure
-`add` mark, it suppresses the new `move` mark. This mirrors insertion-mark
-behavior: provisional new structure can be rearranged freely until accepted. If
-the `add` suggestion is reverted, the node is deleted from its current location.
-If the `add` suggestion is applied, the structure mark is removed and later
-structure edits produce `move` marks normally.
+`addMarks` applies the local Structure add suggestion and Structure move
+suggestion rules: provisional adds absorb later moves, Inverse moves on the same
+node cancel, and non-cancelling moves can still stack. See
+[`0002-provisional-adds-and-inverse-moves.md`](adr/0002-provisional-adds-and-inverse-moves.md).
 
 ## Structure Mark Data
 
-A structure mark is a node mark with attrs shaped like:
+A Structure mark is a node mark with attrs shaped like:
 
 ```ts
 {
@@ -178,21 +180,26 @@ revert.
 
 `MoveOp` stores:
 
-- `from`: the node's parent chain before the edit.
-- `to`: the node's parent chain after the edit.
+- `from`: the node's Parent chain before the edit.
+- `to`: the node's Parent chain after the edit.
 
 The `from` chain is used to reconstruct the old location.
 
 ## Applying Suggestions
 
-Applying a structure suggestion accepts the structure edit. It does not move
-content. It removes all matching `structure` marks for the selected suggestion
-group or range.
+Applying a Structure suggestion accepts the structure edit. It does not move
+content. It removes matching `structure` marks. For range apply, the range
+selects suggestion IDs, then each selected Structure suggestion is applied as a
+whole group.
 
 ## Reverting Suggestions
 
-Reverting a structure suggestion uses the stored operation data to either delete
-added nodes or move existing nodes back to their previous parent chain.
+Reverting a Structure suggestion uses the stored operation data to either delete
+added nodes or move existing nodes back to their previous Parent chain.
+Structure revert ordering is decision-owned by
+[`0001-structure-suggestion-revert-order.md`](adr/0001-structure-suggestion-revert-order.md).
+For range revert, the range selects suggestion IDs, then each selected Structure
+suggestion is reverted as a whole group.
 
 ### Reverting `add`
 
@@ -204,7 +211,7 @@ ancestors that became empty.
 `revertMoveOp`:
 
 1. Finds the deepest still-existing ancestor from the stored `from` chain.
-2. Wraps the current node in the missing parent chain with stored types, attrs,
+2. Wraps the current node in the missing Parent chain with stored types, attrs,
    and marks.
 3. Finds an insertion position in the surviving parent using the stored right
    sibling, then left sibling, then end-of-parent fallback.
@@ -233,7 +240,9 @@ There are two integration paths:
 `suggestStructureChanges` returns `{ handled, transform }`. `handled` is based
 on whether structure ops were detected, not whether the transform contains
 steps. This distinction matters when every detected op is intentionally
-suppressed, such as moving a node that still has a structure `add` mark.
+suppressed, such as moving a node that still has a Structure add suggestion.
+Inverse moves are also handled by structure tracking, but they remove an
+existing mark and therefore can still produce transform steps.
 `withSuggestChanges` uses `handled` to avoid falling back to normal text
 suggestion tracking for a transaction structure tracking already understood.
 
@@ -289,10 +298,10 @@ When structure tracking does not behave as expected:
 - Inspect `buildMaterializedPaths` output for the moved node in both docs.
 - Check whether `sameParentChain` returns true; if so, detection will not create
   a move.
-- Confirm at least one parent chain contains a node from `LIST_NODES`.
+- Confirm at least one Parent chain contains a node from `LIST_NODES`.
 - Inspect the added `structure` mark and validate it with
   `guardStructureMarkAttrs`.
-- For failed reverts, inspect `op.from`, `op.to`, the current parent chain, and
+- For failed reverts, inspect `op.from`, `op.to`, the current Parent chain, and
   whether the stored parent node types still exist in the schema.
 - Check whether insertion chose right sibling, left sibling, or end-of-parent
   fallback.
@@ -308,7 +317,7 @@ When structure tracking does not behave as expected:
 - Only `orderedList`, `bulletList`, and `listItem` are recognized as structure
   nodes.
 - Same-parent reorder is not tracked.
-- Parent-chain equality only compares ancestor IDs and chain length.
+- Parent chain equality only compares ancestor IDs and chain length.
 - Schema-invalid reconstruction can throw or fail a ProseMirror step.
 - Revert can be lossy if stored parent node types, attrs, or marks no longer
   exist or no longer accept the child being restored.
@@ -325,14 +334,14 @@ Prefer scenario tests around user-observable behavior:
 - top, middle, and last list items
 - nested list outdent
 - multi-item indent and outdent
-- multiple sequential structure suggestions
+- multiple sequential Structure suggestions
 - outdenting from a list into the root document
 - creating bullet and ordered lists through input rules
 - applying and reverting individual suggestions
 - applying and reverting all suggestions
 - missing IDs and duplicate IDs
 - copied/pasted content and list-item splits
-- stacked structure marks on the same content node
+- stacked Structure marks on the same content node
 
 When changing revert reconstruction, include tests where siblings are missing so
 right-sibling, left-sibling, and end-of-parent placement paths are exercised.

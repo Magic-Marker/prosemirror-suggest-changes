@@ -14,12 +14,21 @@ node from one subtree to another, or an `add` when the marked node did not
 previously exist in the document. _Avoid_: wrapper mark, list mark
 
 **Structure add suggestion**: A provisional **Structure suggestion** for new
-structure that can be moved freely until accepted. _Avoid_: inserted list item,
+structure that can be moved freely until accepted and does not produce
+**Structure move suggestions** while provisional. _Avoid_: inserted list item,
 pending move
 
 **Structure move suggestion**: A **Structure suggestion** for relocating
-accepted structure between list parent chains. _Avoid_: indent mark, outdent
-mark
+accepted structure between **Parent chains**; **Inverse moves** cancel, while
+non-cancelling moves can stack. _Avoid_: indent mark, outdent mark
+
+**Parent chain**: The ordered ancestor chain that locates content within the
+document structure, compared by stable parent node IDs. _Avoid_: document
+position, DOM path
+
+**Inverse move**: A pair of **Structure move suggestions** where each move's
+source **Parent chain** equals the other move's destination **Parent chain**.
+_Avoid_: undo mark, reverse mark
 
 ## Relationships
 
@@ -28,10 +37,11 @@ mark
 - A single **Structure suggestion** can mark multiple nodes when one semantic
   edit changes multiple stable content nodes, such as outdenting a middle list
   item and splitting the surrounding list.
-- A **Structure add suggestion** becomes accepted when its **Structure marks**
-  are removed.
-- A **Structure add suggestion** does not produce **Structure move suggestions**
-  while it remains provisional.
+- A **Structure suggestion** becomes accepted when its **Structure marks** are
+  removed.
+- A **Structure suggestion** becomes rejected when its structural change is
+  undone: added structure is removed, and moved structure is restored to its
+  previous location.
 
 ## Example dialogue
 
