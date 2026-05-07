@@ -13,8 +13,10 @@ import {
   type MoveOp,
   type Op,
   type MaterializedPaths,
+  type Parent,
+  type StructuralContextPath,
 } from "./types.js";
-import { LIST_NODES, STRUCTURE_CHANGES_ADD_MARKS } from "./constants.js";
+import { DOC_NODE_ID, STRUCTURE_CHANGES_ADD_MARKS } from "./constants.js";
 import { Transform } from "prosemirror-transform";
 import { isSuggestChangesEnabled, suggestChangesKey } from "../../plugin.js";
 import { buildMaterializedPaths } from "./buildMaterializedPaths.js";
@@ -31,16 +33,14 @@ export const structureChangesKey = new PluginKey(
   "@handlewithcare/prosemirror-suggest-changes-structure-changes",
 );
 
-// const listStructure = {
-//   type: [LIST_NODE],
-//   children: [{ type: [LIST_ITEM_NODE] }],
-// };
-
-// const structures = [listStructure];
-
 export function structureChangesPlugin(
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
+  opts?: { experimental_trackStructures?: StructuralContextPath[] },
 ) {
+  const structuralContextPaths = getRequiredStructuralContextPaths(
+    opts?.experimental_trackStructures,
+  );
+
   return new Plugin({
     key: structureChangesKey,
     appendTransaction(transactions, _oldState, newState) {
@@ -136,7 +136,12 @@ export function structureChangesPlugin(
 
       trace("structureChangesPlugin", "appendTransaction", [...transactions]);
 
-      const { transform } = suggestStructureChanges(oldDoc, newDoc, generateId);
+      const { transform } = suggestStructureChanges(
+        oldDoc,
+        newDoc,
+        structuralContextPaths,
+        generateId,
+      );
 
       const tr = newState.tr;
       transform.steps.forEach((step) => {
@@ -171,6 +176,7 @@ function isEnabled(tr: Transaction, editorState: EditorState) {
 export function suggestStructureChanges(
   docBefore: Node,
   docAfter: Node,
+  structuralContextPaths: StructuralContextPath[],
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
 ): { handled: boolean; transform: Transform } {
   const suggestionId = generateId
@@ -185,7 +191,7 @@ export function suggestStructureChanges(
     pathsAfter: Object.fromEntries(pathsAfter.entries()),
   });
 
-  const ops = getOps(pathsBefore, pathsAfter);
+  const ops = getOps(pathsBefore, pathsAfter, structuralContextPaths);
   trace("suggestStructureChanges", "ops", {
     ops: Object.fromEntries(ops.entries()),
   });
@@ -195,6 +201,18 @@ export function suggestStructureChanges(
   addMarks(ops, transform, suggestionId);
 
   return { handled: ops.size > 0, transform };
+}
+
+export function getRequiredStructuralContextPaths(
+  structuralContextPaths: StructuralContextPath[] | undefined,
+) {
+  if (!structuralContextPaths?.length) {
+    throw new Error(
+      "experimental_trackStructures must be provided when structure tracking is enabled",
+    );
+  }
+
+  return structuralContextPaths;
 }
 
 function addMarks(
@@ -261,26 +279,34 @@ function hasStructureAddMark(node: Node) {
   });
 }
 
-function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
+function getOps(
+  beforePaths: MaterializedPaths,
+  afterPaths: MaterializedPaths,
+  structuralContextPaths: StructuralContextPath[],
+) {
   const ops = new Map<string, Op>();
+  const contextNodeTypes = getStructuralContextNodeTypes(
+    structuralContextPaths,
+  );
 
   // first take care of nodes that exist in both
   for (const [id, beforePath] of beforePaths) {
-    if (LIST_NODES.includes(beforePath.nodeType)) continue;
+    if (contextNodeTypes.has(beforePath.nodeType)) continue;
 
     const afterPath = afterPaths.get(id);
     // node was removed - do nothing
     if (afterPath == null) continue;
+    if (contextNodeTypes.has(afterPath.nodeType)) continue;
 
     const sameChain = sameParentChain(beforePath.chain, afterPath.chain);
     // node did not move anywhere - do nothing
     if (sameChain) continue;
 
-    const hasList =
-      beforePath.chain.some((parent) => LIST_NODES.includes(parent.nodeType)) ||
-      afterPath.chain.some((parent) => LIST_NODES.includes(parent.nodeType));
-    // node is outside lists
-    if (!hasList) continue;
+    const hasStructuralContext =
+      chainHasStructuralContext(beforePath.chain, structuralContextPaths) ||
+      chainHasStructuralContext(afterPath.chain, structuralContextPaths);
+    // node is outside configured structural contexts
+    if (!hasStructuralContext) continue;
 
     const op: Op = { op: "move", from: beforePath.chain, to: afterPath.chain };
     ops.set(id, op);
@@ -290,16 +316,17 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
   // (we don't care about nodes that exist only in beforePaths - they were deleted)
 
   for (const [id, afterPath] of afterPaths) {
-    if (LIST_NODES.includes(afterPath.nodeType)) continue;
+    if (contextNodeTypes.has(afterPath.nodeType)) continue;
 
     // ignore nodes that also exist in beforePaths - they are already handled
     if (beforePaths.has(id)) continue;
 
-    const hasList = afterPath.chain.some((parent) =>
-      LIST_NODES.includes(parent.nodeType),
+    const hasStructuralContext = chainHasStructuralContext(
+      afterPath.chain,
+      structuralContextPaths,
     );
-    // node is outside lists
-    if (!hasList) continue;
+    // node is outside configured structural contexts
+    if (!hasStructuralContext) continue;
 
     // node was added
     const op: Op = { op: "add" };
@@ -307,4 +334,46 @@ function getOps(beforePaths: MaterializedPaths, afterPaths: MaterializedPaths) {
   }
 
   return ops;
+}
+
+function getStructuralContextNodeTypes(
+  structuralContextPaths: StructuralContextPath[],
+) {
+  return new Set(structuralContextPaths.flat());
+}
+
+function chainHasStructuralContext(
+  chain: Parent[],
+  structuralContextPaths: StructuralContextPath[],
+) {
+  const topDownChain = [...chain]
+    .reverse()
+    .filter((parent) => parent.nodeType !== DOC_NODE_ID)
+    .map((parent) => parent.nodeType);
+
+  return structuralContextPaths.some((path) =>
+    containsContiguousPath(topDownChain, path),
+  );
+}
+
+// does a chain like: __doc__->nodeTypeA->nodeTypeB->nodeTypeC->nodeTypeD
+// contain a structural context path (a "sub chain") like nodeTypeB->nodeTypeC ?
+function containsContiguousPath(
+  chainNodeTypes: string[],
+  structuralContextPath: StructuralContextPath,
+) {
+  if (structuralContextPath.length > chainNodeTypes.length) return false;
+
+  for (
+    let start = 0;
+    start <= chainNodeTypes.length - structuralContextPath.length;
+    start++
+  ) {
+    const matches = structuralContextPath.every(
+      (nodeType, index) => chainNodeTypes[start + index] === nodeType,
+    );
+    if (matches) return true;
+  }
+
+  return false;
 }

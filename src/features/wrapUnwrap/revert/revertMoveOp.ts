@@ -162,5 +162,5 @@ export function findInsertionPos(
   }
 
   // insert at end of node
-  return pos != null ? pos + node.nodeSize - 1 : node.nodeSize - 1;
+  return pos != null ? pos + node.nodeSize - 1 : node.content.size;
 }

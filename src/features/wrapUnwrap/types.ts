@@ -1,5 +1,6 @@
 import { type Attrs } from "prosemirror-model";
 import { type SuggestionId } from "../../generateId.js";
+import { DOC_NODE_ID } from "./constants.js";
 
 interface NodeParent {
   nodeId: string;
@@ -15,9 +16,11 @@ export interface StructureMarkAttrs {
   data: { op: Op };
 }
 
+export type StructuralContextPath = readonly [string, ...string[]];
+
 export interface DocParent extends Omit<NodeParent, "nodeId"> {
-  nodeId: "__doc__";
-  nodeType: "__doc__";
+  nodeId: typeof DOC_NODE_ID;
+  nodeType: typeof DOC_NODE_ID;
 }
 
 export type Parent = NodeParent | DocParent;
@@ -44,8 +47,8 @@ export function guardDocParent(
 ): parent is DocParent {
   return (
     parent != null &&
-    parent.nodeId === "__doc__" &&
-    parent.nodeType === "__doc__"
+    parent.nodeId === DOC_NODE_ID &&
+    parent.nodeType === DOC_NODE_ID
   );
 }
 

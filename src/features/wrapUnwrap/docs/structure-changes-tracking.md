@@ -10,15 +10,16 @@ breaking the core invariants.
 ## Problem
 
 Text suggestions can be represented by retaining deleted content, marking
-inserted content, and tracking mark/attr changes. List structure edits are
+inserted content, and tracking mark/attr changes. Structural context edits are
 different: indenting, outdenting, wrapping, unwrapping, and list input rules can
 destroy and recreate wrapper nodes while the human-visible content node
 survives.
 
 ProseMirror steps are also not semantic enough for this feature. A list split,
-indent, or outdent may arrive as `ReplaceStep` or `ReplaceAroundStep` operations
-whose positions describe the mutation but do not directly say "this paragraph
-moved from list item A to list item B." This feature therefore compares document
+indent, outdent, or blockquote wrap may arrive as `ReplaceStep` or
+`ReplaceAroundStep` operations whose positions describe the mutation but do not
+directly say "this paragraph moved from list item A to list item B" or "this
+paragraph moved into a blockquote." This feature therefore compares document
 structure before and after a transaction.
 
 ## Decision
@@ -26,27 +27,55 @@ structure before and after a transaction.
 Track structure edits by comparing stable node IDs and their materialized Parent
 chains before and after a transaction.
 
-The stable unit is the content/block node, not the list wrapper. Structure marks
-are added to content nodes such as paragraphs or headings. List nodes and list
-items are treated as structural context because they are often created, split,
-merged, or removed during the edit.
+The stable unit is the content/block node, not the structural context wrapper.
+Structure marks are added to content nodes such as paragraphs or headings.
+Configured Structural context path nodes are treated as structural context
+because they are often created, split, merged, or removed during the edit.
 
 ## Scope
 
-This is not a general-purpose tree diff. Today it tracks list-related structure
-changes involving these node names:
+This is not a general-purpose tree diff. Consumers configure the structural
+contexts they want to track with concrete ProseMirror node type names:
 
-- `orderedList`
-- `bulletList`
-- `listItem`
+```ts
+experimental_trackStructures: [
+  ["orderedList", "listItem"],
+  ["bulletList", "listItem"],
+  ["blockquote"],
+];
+```
 
-The expected list shape is:
+Each Structural context path is a contiguous parent-child ancestor path, not
+loose node-type membership. The expected list shape is:
 
 ```text
 ListNode -> listItem -> block content
 ```
 
-Nested lists are supported. Same-parent reordering is not tracked yet.
+For blockquotes, the context shape is:
+
+```text
+blockquote -> block content
+```
+
+Nested configured structural contexts are supported. Same-parent reordering is
+not tracked yet.
+
+## Core Algorithm
+
+1. Ensure every non-text node has a stable unique ID.
+2. Build materialized Parent chains for the before-doc and after-doc.
+3. Ignore configured structural context nodes as Structure mark targets.
+4. For stable content nodes present in both docs:
+   - if the Parent chain changed, and either chain contains a configured
+     contiguous Structural context path, create a `move` op.
+5. For stable content nodes only present in the after-doc:
+   - if the after Parent chain contains a configured contiguous Structural
+     context path, create an `add` op.
+6. Add Structure marks to the affected content nodes.
+7. Applying removes Structure marks.
+8. Reverting uses stored Parent chains to delete added nodes or move existing
+   nodes back.
 
 ## File Map
 
@@ -54,7 +83,7 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
 - `buildMaterializedPaths.ts`: builds node ID to Parent chain maps.
 - `sameParentChain.ts`: compares Parent chains by ancestor IDs.
 - `types.ts`: operation, Parent chain, and Structure mark attr types.
-- `constants.ts`: structure tracking constants and list node names.
+- `constants.ts`: structure tracking constants.
 - `addIdAttr.ts`: helper for adding an `id` attr to schema node specs.
 - `uniqueNodeIdsPlugin.ts`: demo/test ID-settling plugin and transform helper.
 - `apply/applyStructureSuggestions.ts`: accepts Structure suggestions by
@@ -66,19 +95,22 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
 - `revert/deleteNodeUpwards.ts`: prunes now-empty ancestors after deletion.
 - `__tests__/listStructure.playwright.test.ts`: user-level list behavior
   coverage.
+- `__tests__/blockquoteStructure.playwright.test.ts`: user-level blockquote
+  behavior coverage.
 
 ## Required Invariants
 
 - Every non-text document descendant that participates in structure tracking
   must have a stable unique string `id` before structure detection runs. The
-  document root itself is represented by a synthetic `__doc__` parent.
+  document root itself is represented by a synthetic `DOC_NODE_ID` parent.
 - Missing IDs should cause detection to bail rather than guess.
 - Duplicate IDs must be fixed before diffing; otherwise node correlation is
   ambiguous. The primary `withSuggestChanges` integration can run the unique-ID
   transform before structure detection; the append-transaction plugin expects
   IDs to already be settled.
-- Structure marks belong on non-list content/block nodes. `getOps` skips nodes
-  whose type is in `LIST_NODES`.
+- Structure marks belong on stable content/block nodes beneath a configured
+  Structural context path. `getOps` skips nodes whose type appears in a
+  configured Structural context path.
 - A Structure add suggestion is still provisional new structure. Moving it must
   not add Structure move suggestions until the add suggestion is accepted.
 - Stored parent descriptors must remain sufficient to recreate missing ancestor
@@ -93,8 +125,8 @@ Nested lists are supported. Same-parent reordering is not tracked yet.
    `experimental_ensureUniqueNodeIds` to set IDs on newly created or duplicated
    nodes before structure diffing. The append-transaction plugin path only
    checks for missing IDs and bails when IDs are not settled.
-3. `suggestStructureChanges(docBefore, docAfter, generateId?)` builds
-   materialized paths for both docs.
+3. `suggestStructureChanges(docBefore, docAfter, structuralContextPaths, generateId?)`
+   builds materialized paths for both docs.
 4. `getOps` compares paths by node ID and derives `move` or `add` operations.
 5. All structure ops from that detection pass share one suggestion ID.
 6. A transform over the after-doc updates `structure` node marks on affected
@@ -119,8 +151,8 @@ ends in a special document parent:
 
 ```ts
 {
-  nodeId: "__doc__",
-  nodeType: "__doc__",
+  nodeId: DOC_NODE_ID,
+  nodeType: DOC_NODE_ID,
   nodeAttrs: {},
   nodeMarks: [],
   childSiblingIds: [leftSiblingId, rightSiblingId],
@@ -142,15 +174,16 @@ for future work and debugging, but index shifts alone are not treated as moves.
 
 ## Operation Detection
 
-`getOps(beforePaths, afterPaths)` derives operations:
+`getOps(beforePaths, afterPaths, structuralContextPaths)` derives operations:
 
-- Existing non-list node with different Parent chain, and a list node in either
-  old or new Parent chain: `move`.
-- Non-list node that exists only in the after-doc and is inside a list: `add`.
+- Existing non-context node with different Parent chain, and a configured
+  Structural context path in either old or new Parent chain: `move`.
+- Non-context node that exists only in the after-doc and is inside a configured
+  Structural context path: `add`.
 - Node that exists only in the before-doc: ignored here; normal deletion
   tracking handles deleted content.
-- Non-list node whose Parent chain IDs are unchanged: ignored, even if sibling
-  order or index changed.
+- Non-context node whose Parent chain IDs are unchanged: ignored, even if
+  sibling order or index changed.
 
 `sameParentChain` compares only Parent chain length and ancestor IDs. It
 deliberately does not compare parent attrs, marks, sibling IDs, or indexes.
@@ -230,12 +263,13 @@ exactly one child, namely the node being removed. This avoids leaving empty
 There are two integration paths:
 
 - `withSuggestChanges`: the important experimental path. It can run structure
-  detection first when `experimental_trackStructureChanges` and
-  `experimental_ensureUniqueNodeIds` are provided. If structure detection
-  handles the transaction, the normal suggestion transform is skipped for that
-  transaction.
+  detection first when `experimental_trackStructureChanges`,
+  `experimental_trackStructures`, and `experimental_ensureUniqueNodeIds` are
+  provided. If structure detection handles the transaction, the normal
+  suggestion transform is skipped for that transaction.
 - `structureChangesPlugin`: an append-transaction plugin path that also compares
-  old and new docs, but is not the primary path for current hardening.
+  old and new docs with the same `experimental_trackStructures` config, but is
+  not the primary path for current hardening.
 
 `suggestStructureChanges` returns `{ handled, transform }`. `handled` is based
 on whether structure ops were detected, not whether the transform contains
@@ -252,17 +286,18 @@ meta.
 
 ## Why Not Use Step Interpretation?
 
-Do not try to infer list semantics only from `ReplaceStep` or
+Do not try to infer structural context semantics only from `ReplaceStep` or
 `ReplaceAroundStep`. Those steps describe positional replacement mechanics, not
 the semantic intent. Comparing materialized paths answers the question this
 feature needs: "where was node X before, and where is node X now?"
 
-## Why Not Mark List Wrappers?
+## Why Not Mark Structural Context Nodes?
 
-List wrappers and list items are not stable across edits. ProseMirror list
-commands may split, join, remove, or recreate them. The content node, identified
-by stable ID, is the thing a user experiences as "the item that moved." Marking
-content nodes makes suggestions survive structural churn.
+Structural context nodes are not stable across edits. ProseMirror commands may
+split, join, remove, or recreate list wrappers, list items, and blockquotes. The
+content node, identified by stable ID, is the thing a user experiences as "the
+item that moved." Marking content nodes makes suggestions survive structural
+churn.
 
 ## Extending The Feature
 
@@ -270,8 +305,8 @@ When adding support for another structural edit or node family, review all of
 these areas together:
 
 - Node ID coverage: every relevant non-text node must get stable unique IDs.
-- Detection scope: update `LIST_NODES` or introduce a more general structure
-  classifier.
+- Detection scope: add a Structural context path made of concrete ProseMirror
+  node type names.
 - Schema assumptions: define the expected parent/child shape and invalid
   intermediate states.
 - Mark target: choose the stable node that survives the structural edit.
@@ -298,7 +333,8 @@ When structure tracking does not behave as expected:
 - Inspect `buildMaterializedPaths` output for the moved node in both docs.
 - Check whether `sameParentChain` returns true; if so, detection will not create
   a move.
-- Confirm at least one Parent chain contains a node from `LIST_NODES`.
+- Confirm at least one Parent chain contains a configured contiguous Structural
+  context path.
 - Inspect the added `structure` mark and validate it with
   `guardStructureMarkAttrs`.
 - For failed reverts, inspect `op.from`, `op.to`, the current Parent chain, and
@@ -312,10 +348,9 @@ When structure tracking does not behave as expected:
 
 ## Current Limitations / Risks
 
-- Experimental list-structure tracking only; not a complete structural diff
-  engine.
-- Only `orderedList`, `bulletList`, and `listItem` are recognized as structure
-  nodes.
+- Experimental configured structural context tracking only; not a complete
+  structural diff engine.
+- Configured node names are not runtime-validated against the schema.
 - Same-parent reorder is not tracked.
 - Parent chain equality only compares ancestor IDs and chain length.
 - Schema-invalid reconstruction can throw or fail a ProseMirror step.
@@ -336,6 +371,9 @@ Prefer scenario tests around user-observable behavior:
 - multi-item indent and outdent
 - multiple sequential Structure suggestions
 - outdenting from a list into the root document
+- wrapping and unwrapping content in blockquotes
+- nested configured structural contexts, such as blockquote content containing
+  lists
 - creating bullet and ordered lists through input rules
 - applying and reverting individual suggestions
 - applying and reverting all suggestions

@@ -23,13 +23,19 @@ import {
 import { type SuggestionId } from "../src/generateId.js";
 import * as commands from "../src/commands.js";
 import { createSchema } from "../src/testing/e2eTestSchema.js";
-import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueNodeId.js";
 import {
   ensureUniqueNodeIds,
   uniqueNodeIdsPlugin,
 } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 import { inputRules } from "prosemirror-inputrules";
 import { listInputRules } from "../src/listInputRules.js";
+
+// stable node ids for tests
+let nodeId = 0;
+const generateUniqueNodeId = () => {
+  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+  return `node-${nodeId++}`;
+};
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -133,6 +139,11 @@ const dispatch = withSuggestChanges(
   undefined,
   {
     experimental_trackStructureChanges: true,
+    experimental_trackStructures: [
+      ["orderedList", "listItem"],
+      ["bulletList", "listItem"],
+      ["blockquote"],
+    ],
     experimental_ensureUniqueNodeIds: (
       transactions: Transaction[],
       oldDoc: Node,
