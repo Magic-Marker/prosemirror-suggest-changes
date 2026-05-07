@@ -24,7 +24,11 @@ import { isSuggestChangesEnabled, suggestChangesKey } from "./plugin.js";
 import { generateNextNumberId, type SuggestionId } from "./generateId.js";
 import { getSuggestionMarks } from "./utils.js";
 import { prependDeletionsWithZWSP } from "./prependDeletionsWithZWSP.js";
-import { suggestStructureChanges } from "./features/wrapUnwrap/structureChangesPlugin.js";
+import {
+  getRequiredStructuralContextPaths,
+  suggestStructureChanges,
+} from "./features/wrapUnwrap/structureChangesPlugin.js";
+import { type StructuralContextPath } from "./features/wrapUnwrap/types.js";
 
 const TRACE_ENABLED = true;
 function trace(...args: unknown[]) {
@@ -196,6 +200,7 @@ export function withSuggestChanges(
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
   opts?: {
     experimental_trackStructureChanges?: boolean;
+    experimental_trackStructures?: StructuralContextPath[];
     experimental_ensureUniqueNodeIds?: (
       transactions: Transaction[],
       oldDoc: Node,
@@ -232,18 +237,23 @@ export function withSuggestChanges(
       } | null = null;
       const docBefore = transaction.docs[0];
 
+      const structuralContextPaths = opts?.experimental_trackStructureChanges
+        ? getRequiredStructuralContextPaths(opts.experimental_trackStructures)
+        : null;
+      const ensureUniqueNodeIds = opts?.experimental_ensureUniqueNodeIds;
+
       if (
         transaction.docChanged &&
         docBefore &&
-        opts?.experimental_trackStructureChanges &&
-        typeof opts.experimental_ensureUniqueNodeIds === "function"
+        structuralContextPaths &&
+        typeof ensureUniqueNodeIds === "function"
       ) {
         trace("trying to track structure changes first...");
         // after a transaction, some nodes may not yet have unique ids (they were just added, and the unique id plugin has not yet run)
         // this hook allows to "post-process" the transaction and add the missing ids
         // basically it allows to run the core logic of the unique ids plugin earlier
         const perfUid = performance.now();
-        const uniqueNodeIdsTransform = opts.experimental_ensureUniqueNodeIds(
+        const uniqueNodeIdsTransform = ensureUniqueNodeIds(
           [transaction],
           docBefore,
           transaction.doc,
@@ -265,6 +275,7 @@ export function withSuggestChanges(
         structureChangesResult = suggestStructureChanges(
           docBefore,
           docAfter,
+          structuralContextPaths,
           generateId,
         );
         trace(

@@ -4,6 +4,7 @@ import {
   type DocParent,
   type Parent,
 } from "./types.js";
+import { DOC_NODE_ID } from "./constants.js";
 import { type Node } from "prosemirror-model";
 
 const TRACE_ENABLED = true;
@@ -29,8 +30,8 @@ export function buildMaterializedPaths(doc: Node): MaterializedPaths {
     const rightSiblingId = rightSibling ? getNodeId(rightSibling) : null;
 
     const parent: DocParent = {
-      nodeId: "__doc__",
-      nodeType: "__doc__",
+      nodeId: DOC_NODE_ID,
+      nodeType: DOC_NODE_ID,
       nodeAttrs: {},
       nodeMarks: [],
       childSiblingIds: [leftSiblingId, rightSiblingId],

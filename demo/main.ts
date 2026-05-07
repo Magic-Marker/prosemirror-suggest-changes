@@ -4,7 +4,13 @@ import {
   toPmMark,
   toPmNode,
 } from "@handlewithcare/remark-prosemirror";
-import { baseKeymap, chainCommands, toggleMark } from "prosemirror-commands";
+import {
+  baseKeymap,
+  chainCommands,
+  lift,
+  toggleMark,
+  wrapIn,
+} from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { inputRules } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
@@ -42,11 +48,17 @@ import {
   ensureUniqueNodeIds,
   uniqueNodeIdsPlugin,
 } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
-import { generateUniqueNodeId } from "../src/features/wrapUnwrap/generateUniqueNodeId.js";
 import { getSuggestionMarks } from "../src/utils.js";
 import { Transform } from "prosemirror-transform";
 import { revertStructureMark } from "../src/features/wrapUnwrap/revert/revertStructureSuggestions.js";
 import { listInputRules } from "../src/listInputRules.js";
+
+// stable node ids for demo
+let nodeId = 0;
+const generateUniqueNodeId = () => {
+  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+  return `node-${nodeId++}`;
+};
 
 const nodes = { ...schemaNodes };
 for (const [key, nodeSpec] of Object.entries(nodes)) {
@@ -162,6 +174,8 @@ const editorState = EditorState.create({
       "Mod-z": undo,
       "Mod-Shift-z": redo,
       "Mod-y": redo,
+      "Mod-u": wrapIn(schema.nodes.blockquote),
+      "Mod-l": lift,
     }),
     inputRules({
       rules: [
@@ -281,6 +295,11 @@ const view = new EditorView(editorEl, {
     undefined,
     {
       experimental_trackStructureChanges: true,
+      experimental_trackStructures: [
+        ["orderedList", "listItem"],
+        ["bulletList", "listItem"],
+        ["blockquote"],
+      ],
       experimental_ensureUniqueNodeIds: (
         transactions: Transaction[],
         oldDoc: Node,

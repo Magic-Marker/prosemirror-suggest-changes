@@ -40,6 +40,7 @@ export { guardStructureMarkAttrs } from "./features/wrapUnwrap/types.js";
 export type {
   Op as StructureOp,
   StructureMarkAttrs,
+  StructuralContextPath,
 } from "./features/wrapUnwrap/types.js";
 
 export { wrappingInputRule as experimental_wrappingInputRule } from "./wrappingInputRule.js";
