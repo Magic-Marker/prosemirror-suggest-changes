@@ -70,6 +70,9 @@ not tracked yet.
    - if the Parent chain changed, and either chain contains a configured
      contiguous Structural context path, create a `move` op.
 5. For stable content nodes only present in the after-doc:
+   - if the node is non-empty and its raw text came from splitting an immediate
+     accepted sibling, return `reason: "split-derived-add"` so normal suggestion
+     tracking owns the transaction.
    - if the after Parent chain contains a configured contiguous Structural
      context path, create an `add` op.
 6. Add Structure marks to the affected content nodes.
@@ -180,6 +183,12 @@ for future work and debugging, but index shifts alone are not treated as moves.
   Structural context path in either old or new Parent chain: `move`.
 - Non-context node that exists only in the after-doc and is inside a configured
   Structural context path: `add`.
+- Non-empty non-context node that exists only in the after-doc but whose raw
+  text came from splitting an immediate accepted sibling: not a Structure op;
+  the transaction falls through with `reason: "split-derived-add"`.
+- If that immediate previous sibling or its content descendants have a Structure
+  add mark in the before-doc, split-derived detection is skipped and the new
+  node remains a Structure add.
 - Node that exists only in the before-doc: ignored here; normal deletion
   tracking handles deleted content.
 - Non-context node whose Parent chain IDs are unchanged: ignored, even if
@@ -192,6 +201,11 @@ deliberately does not compare parent attrs, marks, sibling IDs, or indexes.
 suggestion rules: provisional adds absorb later moves, Inverse moves on the same
 node cancel, and non-cancelling moves can still stack. See
 [`0002-provisional-adds-and-inverse-moves.md`](adr/0002-provisional-adds-and-inverse-moves.md).
+
+Join deletion markers are suppressed when either immediate textblock being
+joined still has a Structure add mark. The physical join still happens, but the
+provisional add is treated as cancelled rather than creating a separate join
+suggestion.
 
 ## Structure Mark Data
 
@@ -217,6 +231,20 @@ revert.
 - `to`: the node's Parent chain after the edit.
 
 The `from` chain is used to reconstruct the old location.
+
+## Join Marker Interaction
+
+Block joins normally insert a deletion-marked zero-width space with
+`type: "join"` so reverting can split the joined textblocks and restore their
+node markup. That marker is not created when either immediate joined textblock
+has a Structure add mark. In that case the added structure is still provisional,
+so joining it away cancels the pending add without introducing another review
+artifact.
+
+When debugging this path, inspect only the two nodes at the join boundary. Do
+not look at structural ancestors or unrelated nodes in the deletion range; the
+rule follows the same immediate node pair that would otherwise be serialized as
+`leftNode` and `rightNode` in the join mark attrs.
 
 ## Applying Suggestions
 
@@ -271,12 +299,15 @@ There are two integration paths:
   old and new docs with the same `experimental_trackStructures` config, but is
   not the primary path for current hardening.
 
-`suggestStructureChanges` returns `{ handled, transform }`. `handled` is based
-on whether structure ops were detected, not whether the transform contains
-steps. This distinction matters when every detected op is intentionally
+`suggestStructureChanges` returns `{ handled, transform, reason? }`. `handled`
+is based on whether structure ops were detected, not whether the transform
+contains steps. This distinction matters when every detected op is intentionally
 suppressed, such as moving a node that still has a Structure add suggestion.
 Inverse moves are also handled by structure tracking, but they remove an
 existing mark and therefore can still produce transform steps.
+`reason: "split-derived-add"` means a newly materialized content node came from
+splitting an immediate accepted sibling; the primary `withSuggestChanges` path
+lets the normal suggestion transform own the whole transaction.
 `withSuggestChanges` uses `handled` to avoid falling back to normal text
 suggestion tracking for a transaction structure tracking already understood.
 
@@ -337,6 +368,9 @@ When structure tracking does not behave as expected:
   context path.
 - Inspect the added `structure` mark and validate it with
   `guardStructureMarkAttrs`.
+- For unexpected Structure add suggestions, inspect the candidate previous
+  sibling IDs, the previous sibling subtree's before-doc Structure marks, and
+  the raw text comparison used to detect split-derived content.
 - For failed reverts, inspect `op.from`, `op.to`, the current Parent chain, and
   whether the stored parent node types still exist in the schema.
 - Check whether insertion chose right sibling, left sibling, or end-of-parent

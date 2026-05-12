@@ -467,7 +467,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
   });
 
   test.describe("Lists: join nodes inside lists and list items", () => {
-    test.skip("should revert document to original state after joining two paragraphs inside a list item and then splitting them again", async ({
+    test("should revert document to original state after joining two paragraphs inside a list item and then splitting them again", async ({
       page,
     }) => {
       const { initialState } = await setupDocFromJSON(page, {

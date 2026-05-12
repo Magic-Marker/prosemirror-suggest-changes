@@ -38,7 +38,7 @@ export function buildMaterializedPaths(doc: Node): MaterializedPaths {
       childIndex: index,
     };
 
-    paths.set(nodeId, { nodeType: node.type.name, chain: [parent] });
+    paths.set(nodeId, { nodeType: node.type.name, node, chain: [parent] });
   });
 
   // now add the rest of the nodes
@@ -79,7 +79,11 @@ export function buildMaterializedPaths(doc: Node): MaterializedPaths {
     };
 
     const chain: Parent[] = [parentDesc, ...parentChain.chain];
-    paths.set(nodeId, { nodeType: node.type.name, chain });
+    paths.set(nodeId, {
+      nodeType: node.type.name,
+      node,
+      chain,
+    });
 
     return true;
   });

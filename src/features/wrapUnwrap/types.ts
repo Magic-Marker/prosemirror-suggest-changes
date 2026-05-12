@@ -1,4 +1,4 @@
-import { type Attrs } from "prosemirror-model";
+import { type Attrs, type Node } from "prosemirror-model";
 import { type SuggestionId } from "../../generateId.js";
 import { DOC_NODE_ID } from "./constants.js";
 
@@ -39,7 +39,7 @@ export type Op = MoveOp | AddOp;
 
 export type MaterializedPaths = Map<
   string,
-  { chain: Parent[]; nodeType: string }
+  { chain: Parent[]; nodeType: string; node: Node }
 >;
 
 export function guardDocParent(
