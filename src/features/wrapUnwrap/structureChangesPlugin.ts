@@ -33,6 +33,14 @@ export const structureChangesKey = new PluginKey(
   "@handlewithcare/prosemirror-suggest-changes-structure-changes",
 );
 
+export type SuggestStructureChangesReason = "split-derived-add";
+
+export interface SuggestStructureChangesResult {
+  handled: boolean;
+  transform: Transform;
+  reason?: SuggestStructureChangesReason;
+}
+
 export function structureChangesPlugin(
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
   opts?: { experimental_trackStructures?: StructuralContextPath[] },
@@ -178,7 +186,7 @@ export function suggestStructureChanges(
   docAfter: Node,
   structuralContextPaths: StructuralContextPath[],
   generateId?: (schema: Schema, doc?: Node) => SuggestionId,
-): { handled: boolean; transform: Transform } {
+): SuggestStructureChangesResult {
   const suggestionId = generateId
     ? generateId(docBefore.type.schema, docBefore)
     : generateNextNumberId(docBefore.type.schema, docBefore);
@@ -191,12 +199,21 @@ export function suggestStructureChanges(
     pathsAfter: Object.fromEntries(pathsAfter.entries()),
   });
 
-  const ops = getOps(pathsBefore, pathsAfter, structuralContextPaths);
+  const { ops, reason } = getOps(
+    pathsBefore,
+    pathsAfter,
+    structuralContextPaths,
+  );
   trace("suggestStructureChanges", "ops", {
     ops: Object.fromEntries(ops.entries()),
+    reason,
   });
 
   const transform = new Transform(docAfter);
+
+  if (reason) {
+    return { handled: false, transform, reason };
+  }
 
   addMarks(ops, transform, suggestionId);
 
@@ -283,7 +300,7 @@ function getOps(
   beforePaths: MaterializedPaths,
   afterPaths: MaterializedPaths,
   structuralContextPaths: StructuralContextPath[],
-) {
+): { ops: Map<string, Op>; reason?: SuggestStructureChangesReason } {
   const ops = new Map<string, Op>();
   const contextNodeTypes = getStructuralContextNodeTypes(
     structuralContextPaths,
@@ -328,12 +345,17 @@ function getOps(
     // node is outside configured structural contexts
     if (!hasStructuralContext) continue;
 
+    // detect block split - if detected, bail out, and let the main plugin handle it
+    if (isSplitDerivedAdd(id, beforePaths, afterPaths, contextNodeTypes)) {
+      return { ops: new Map(), reason: "split-derived-add" };
+    }
+
     // node was added
     const op: Op = { op: "add" };
     ops.set(id, op);
   }
 
-  return ops;
+  return { ops };
 }
 
 function getStructuralContextNodeTypes(
@@ -376,4 +398,88 @@ function containsContiguousPath(
   }
 
   return false;
+}
+
+// detect block split - try to look at the node above, concatenate two text contents,
+// and see if it combines into a single node in the old document
+function isSplitDerivedAdd(
+  newNodeId: string,
+  beforePaths: MaterializedPaths,
+  afterPaths: MaterializedPaths,
+  contextNodeTypes: Set<string>,
+) {
+  const newNode = afterPaths.get(newNodeId)?.node;
+  if (!newNode || newNode.textContent === "") return false;
+
+  if (
+    matchesSplitDerivedPair(
+      newNodeId,
+      newNode.textContent,
+      beforePaths,
+      afterPaths,
+    )
+  ) {
+    return true;
+  }
+
+  const afterPath = afterPaths.get(newNodeId);
+  if (!afterPath) return false;
+
+  for (const parent of afterPath.chain) {
+    if (parent.nodeType === DOC_NODE_ID) continue;
+    if (!contextNodeTypes.has(parent.nodeType)) continue;
+
+    const parentNode = afterPaths.get(parent.nodeId)?.node;
+    if (!parentNode || parentNode.textContent === "") continue;
+
+    if (
+      matchesSplitDerivedPair(
+        parent.nodeId,
+        parentNode.textContent,
+        beforePaths,
+        afterPaths,
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function matchesSplitDerivedPair(
+  rightNodeId: string,
+  rightText: string,
+  beforePaths: MaterializedPaths,
+  afterPaths: MaterializedPaths,
+) {
+  const rightPath = afterPaths.get(rightNodeId);
+  const previousSiblingId = rightPath?.chain[0]?.childSiblingIds[0];
+  if (!previousSiblingId) return false;
+
+  const previousBefore = beforePaths.has(previousSiblingId)
+    ? beforePaths.get(previousSiblingId)?.node
+    : null;
+  const previousAfter = afterPaths.has(previousSiblingId)
+    ? afterPaths.get(previousSiblingId)?.node
+    : null;
+
+  if (!previousBefore || !previousAfter) return false;
+  if (hasStructureAddMarkInSubtree(previousBefore)) return false;
+
+  return previousBefore.textContent === previousAfter.textContent + rightText;
+}
+
+function hasStructureAddMarkInSubtree(node: Node) {
+  if (hasStructureAddMark(node)) return true;
+
+  let found = false;
+  node.descendants((descendant) => {
+    if (descendant.isText) return false;
+    if (!hasStructureAddMark(descendant)) return true;
+    found = true;
+    return false;
+  });
+
+  return found;
 }

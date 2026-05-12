@@ -12,6 +12,7 @@ import {
   revertSuggestion,
   revertSuggestions,
 } from "../../../commands.js";
+import { joinNodesAndMarkJoinPoints } from "../index.js";
 import {
   type TaggedNode,
   testBuilders,
@@ -27,6 +28,120 @@ function createJoinStep(
 }
 
 describe("handleJoinOnDelete", () => {
+  it("should join without a ZWSP marker when the right node has a Structure add mark", () => {
+    const structureAdd = testBuilders.schema.marks.structure.create({
+      id: 1,
+      data: { op: { op: "add" } },
+    });
+    const baseDoc = testBuilders.doc(
+      testBuilders.paragraph("first<a>"),
+      testBuilders.paragraph("<b>second"),
+    ) as TaggedNode;
+
+    const tagA = baseDoc.tag["a"];
+    const tagB = baseDoc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const doc = testBuilders.doc(
+      baseDoc.child(0),
+      baseDoc.child(1).mark([structureAdd]),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, tagB),
+    });
+
+    const transform = joinNodesAndMarkJoinPoints(editorState.tr, tagA, tagB, 1);
+
+    const expected = testBuilders.doc(testBuilders.paragraph("firstsecond"));
+
+    assert(
+      eq(transform.doc, expected),
+      `Expected ${transform.doc} to match ${expected}`,
+    );
+  });
+
+  it("should join without a ZWSP marker when the left node has a Structure add mark", () => {
+    const structureAdd = testBuilders.schema.marks.structure.create({
+      id: 1,
+      data: { op: { op: "add" } },
+    });
+    const baseDoc = testBuilders.doc(
+      testBuilders.paragraph("first<a>"),
+      testBuilders.paragraph("<b>second"),
+    ) as TaggedNode;
+
+    const tagA = baseDoc.tag["a"];
+    const tagB = baseDoc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const doc = testBuilders.doc(
+      baseDoc.child(0).mark([structureAdd]),
+      baseDoc.child(1),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, tagB),
+    });
+
+    const transform = joinNodesAndMarkJoinPoints(editorState.tr, tagA, tagB, 1);
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph("firstsecond").mark([structureAdd]),
+    );
+
+    assert(
+      eq(transform.doc, expected),
+      `Expected ${transform.doc} to match ${expected}`,
+    );
+  });
+
+  it("should keep adding a ZWSP marker when neither joined node has a Structure add mark", () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph("first<a>"),
+      testBuilders.paragraph("<b>second"),
+    ) as TaggedNode;
+
+    const tagA = doc.tag["a"];
+    const tagB = doc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, tagB),
+    });
+
+    const transform = joinNodesAndMarkJoinPoints(editorState.tr, tagA, tagB, 1);
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph(
+        "first",
+        testBuilders.deletion(
+          {
+            id: 1,
+            type: "join",
+            data: {
+              leftNode: { type: "paragraph", attrs: {}, marks: [] },
+              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+            },
+          },
+          ZWSP,
+        ),
+        "second",
+      ),
+    );
+
+    assert(
+      eq(transform.doc, expected),
+      `Expected ${transform.doc} to match ${expected}`,
+    );
+  });
+
   it("should join two sibling paragraphs with ZWSP marker", () => {
     const doc = testBuilders.doc(
       testBuilders.paragraph("first paragraph<a>"),

@@ -10,6 +10,7 @@ import { ZWSP } from "../../constants.js";
 import { type Transaction } from "prosemirror-state";
 import { type SuggestionId } from "../../generateId.js";
 import { getSuggestionMarks } from "../../utils.js";
+import { guardStructureMarkAttrs } from "../wrapUnwrap/types.js";
 
 interface JoinMarkAttrs {
   type: "join";
@@ -205,8 +206,13 @@ export function joinNodesAndMarkJoinPoints(
       attrs: $endOfNode.nodeAfter.attrs,
       marks: $endOfNode.nodeAfter.marks.map((mark) => mark.toJSON() as object),
     };
+    const shouldSuppressJoinMark =
+      hasStructureAddMark($endOfNode.nodeBefore) ||
+      hasStructureAddMark($endOfNode.nodeAfter);
 
     transform.join(mappedEndOfNode);
+
+    if (shouldSuppressJoinMark) return false;
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const joinStep = transform.steps[transform.steps.length - 1]!;
@@ -227,6 +233,17 @@ export function joinNodesAndMarkJoinPoints(
   });
 
   return transform;
+}
+
+function hasStructureAddMark(node: Node) {
+  const { structure } = getSuggestionMarks(node.type.schema);
+
+  return node.marks.some((mark) => {
+    if (mark.type !== structure) return false;
+    if (!guardStructureMarkAttrs(mark.attrs)) return false;
+
+    return mark.attrs.data.op.op === "add";
+  });
 }
 
 /**

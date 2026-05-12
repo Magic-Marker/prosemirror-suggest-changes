@@ -27,6 +27,7 @@ import { prependDeletionsWithZWSP } from "./prependDeletionsWithZWSP.js";
 import {
   getRequiredStructuralContextPaths,
   suggestStructureChanges,
+  type SuggestStructureChangesResult,
 } from "./features/wrapUnwrap/structureChangesPlugin.js";
 import { type StructuralContextPath } from "./features/wrapUnwrap/types.js";
 
@@ -231,10 +232,7 @@ export function withSuggestChanges(
     let transaction = tr;
 
     if (isEnabled) {
-      let structureChangesResult: {
-        handled: boolean;
-        transform: Transform;
-      } | null = null;
+      let structureChangesResult: SuggestStructureChangesResult | null = null;
       const docBefore = transaction.docs[0];
 
       const structuralContextPaths = opts?.experimental_trackStructureChanges
