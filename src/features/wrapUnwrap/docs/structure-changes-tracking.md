@@ -100,6 +100,8 @@ not tracked yet.
   coverage.
 - `__tests__/blockquoteStructure.playwright.test.ts`: user-level blockquote
   behavior coverage.
+- `__tests__/splitDetection.test.ts`: focused coverage for split-derived add
+  fallthrough, including provisional Structure add cases.
 
 ## Required Invariants
 
@@ -183,9 +185,10 @@ for future work and debugging, but index shifts alone are not treated as moves.
   Structural context path in either old or new Parent chain: `move`.
 - Non-context node that exists only in the after-doc and is inside a configured
   Structural context path: `add`.
-- Non-empty non-context node that exists only in the after-doc but whose raw
-  text came from splitting an immediate accepted sibling: not a Structure op;
-  the transaction falls through with `reason: "split-derived-add"`.
+- Non-empty non-context node that exists only in the after-doc, or one of its
+  configured structural ancestors, whose raw text came from splitting an
+  immediate accepted sibling: not a Structure op; the transaction falls through
+  with `reason: "split-derived-add"`.
 - If that immediate previous sibling or its content descendants have a Structure
   add mark in the before-doc, split-derived detection is skipped and the new
   node remains a Structure add.
