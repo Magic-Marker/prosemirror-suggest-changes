@@ -29,6 +29,7 @@ import {
 } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 import { inputRules } from "prosemirror-inputrules";
 import { listInputRules } from "../src/listInputRules.js";
+import { Step } from "prosemirror-transform";
 
 // stable node ids for tests
 let nodeId = 0;
@@ -236,8 +237,13 @@ declare global {
       getProseMirrorMarkCount: (name: string) => number;
       getProseMirrorMarksJSON: () => unknown[];
       getProseMirrorSelection: () => { anchor: number; head: number };
-      getTextContentOfChildAtIndex: (index: number) => string;
+      getTextContentOfChildAtIndex: (
+        index: number,
+        childIndexes?: number[],
+      ) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      dispatchTransactionWithSteps: (stepJSONs: object[]) => void;
+      setSuggestChangesEnabled: (enabled: boolean) => void;
       revertSuggestion: (
         suggestionId: SuggestionId,
         opts?: { structure: boolean },
@@ -379,12 +385,33 @@ window.pmEditor = {
     return view.state.selection.toJSON() as { anchor: number; head: number };
   },
 
-  getTextContentOfChildAtIndex(index: number) {
-    return view.state.doc.child(index).textContent;
+  getTextContentOfChildAtIndex(index: number, childIndexes?: number[]): string {
+    let node = view.state.doc.child(index);
+    if (childIndexes) {
+      for (const childIndex of childIndexes) {
+        node = node.child(childIndex);
+      }
+    }
+    return node.textContent;
   },
 
   getDOMTextContentOfChildAtIndex(index: number) {
     return view.dom.childNodes[index].textContent ?? "";
+  },
+
+  dispatchTransactionWithSteps(stepJSONs: object[]) {
+    const steps = stepJSONs.map((stepJSON) =>
+      Step.fromJSON(view.state.schema, stepJSON),
+    );
+    const tr = view.state.tr;
+    steps.forEach((step) => tr.step(step));
+    view.dispatch(tr);
+  },
+
+  setSuggestChangesEnabled(enabled: boolean) {
+    view.dispatch(
+      view.state.tr.setMeta(suggestChangesKey, { skip: true, enabled }),
+    );
   },
 
   revertSuggestion(suggestionId: SuggestionId) {

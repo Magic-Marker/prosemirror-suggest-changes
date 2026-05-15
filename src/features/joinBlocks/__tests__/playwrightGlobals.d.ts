@@ -1,5 +1,6 @@
 import type { EditorView } from "prosemirror-view";
 import type { Mark } from "prosemirror-model";
+import type { SuggestionId } from "../../../generateId.js";
 
 declare global {
   interface Window {
@@ -36,8 +37,13 @@ declare global {
       getProseMirrorMarkCount: (name: string) => number;
       getProseMirrorMarksJSON: () => unknown[];
       getProseMirrorSelection: () => { anchor: number; head: number };
-      getTextContentOfChildAtIndex: (index: number) => string;
+      getTextContentOfChildAtIndex: (
+        index: number,
+        childIndexes?: number[],
+      ) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      dispatchTransactionWithSteps: (stepJSONs: object[]) => void;
+      setSuggestChangesEnabled: (enabled: boolean) => void;
       revertSuggestion: (
         suggestionId: SuggestionId,
         opts?: { structure: boolean },

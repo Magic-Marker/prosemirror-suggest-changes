@@ -49,7 +49,7 @@ import {
   uniqueNodeIdsPlugin,
 } from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
 import { getSuggestionMarks } from "../src/utils.js";
-import { Transform } from "prosemirror-transform";
+import { Step, Transform } from "prosemirror-transform";
 import { revertStructureMark } from "../src/features/wrapUnwrap/revert/revertStructureSuggestions.js";
 import { listInputRules } from "../src/listInputRules.js";
 
@@ -62,12 +62,12 @@ const generateUniqueNodeId = () => {
 
 const nodes = { ...schemaNodes };
 for (const [key, nodeSpec] of Object.entries(nodes)) {
-  nodes[key] = addIdAttr(nodeSpec, key);
+  nodes[key] = addIdAttr(nodeSpec);
 }
 
 const listNodes = { orderedList, bulletList, listItem };
 for (const [key, nodeSpec] of Object.entries(listNodes)) {
-  listNodes[key] = addIdAttr(nodeSpec, key);
+  listNodes[key] = addIdAttr(nodeSpec);
 }
 
 export const schema = new Schema({
@@ -130,17 +130,10 @@ const remarkProseMirrorOptions: RemarkProseMirrorOptions = {
   },
 };
 
-const content = `- Item 1
+const content = `- Item 0
+- Item 1
 - Item 2
-  - Item 2.1
-    - Item 2.2
-  - Item 2.3
-  - Item 2.4
 - Item 3
-- Item 4
-- Item 5
-
-Paragraph 1
 `;
 
 const doc = await unified()
@@ -318,7 +311,15 @@ enableSuggestChanges(view.state, view.dispatch);
 declare global {
   interface Window {
     pmView: EditorView;
+    dispatchTransactionWithSteps: (stepJSONs: object[]) => void;
   }
 }
 
 window.pmView = view;
+
+window.dispatchTransactionWithSteps = (stepJSONs: object[]) => {
+  const steps = stepJSONs.map((stepJSON) => Step.fromJSON(schema, stepJSON));
+  const tr = view.state.tr;
+  steps.forEach((step) => tr.step(step));
+  view.dispatch(tr);
+};

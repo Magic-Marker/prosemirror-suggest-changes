@@ -71,6 +71,23 @@ work") require constant clarification.
 
 ## 5. Project-Specific Guidelines
 
+### Domain Documentation
+
+This repo uses the `grill-with-docs` convention for domain documentation. If the
+skill is available, use it before changing `CONTEXT.md`, `CONTEXT-MAP.md`, or
+`docs/adr/*`.
+
+If the skill is not available, tell the user clearly that `grill-with-docs` is
+the preferred workflow before changing these docs. Then use this fallback:
+
+- Start at `CONTEXT-MAP.md` to find the relevant bounded context.
+- Treat `CONTEXT.md` as canonical domain language, not scratch notes.
+- Treat `docs/adr/*` as durable decision records; add new ADRs sparingly.
+- When planning or implementing behavior changes, proactively call out relevant
+  `CONTEXT.md` or ADR updates even if the user did not explicitly ask for docs.
+- Update domain docs only when the domain language, cross-context relationship,
+  or durable decision changes; avoid doc churn for purely mechanical edits.
+
 ### Working With The Demo Page To Explore, Test, And Debug
 
 The Vite demo is usually served at `http://localhost:5173/`. Before starting it,

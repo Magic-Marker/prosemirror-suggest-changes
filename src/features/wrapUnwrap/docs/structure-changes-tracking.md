@@ -205,10 +205,9 @@ suggestion rules: provisional adds absorb later moves, Inverse moves on the same
 node cancel, and non-cancelling moves can still stack. See
 [`0002-provisional-adds-and-inverse-moves.md`](adr/0002-provisional-adds-and-inverse-moves.md).
 
-Join deletion markers are suppressed when either immediate textblock being
-joined still has a Structure add mark. The physical join still happens, but the
-provisional add is treated as cancelled rather than creating a separate join
-suggestion.
+Block join suggestions are suppressed when any joined node still has a Structure
+add mark. The physical join still happens, but the provisional add is treated as
+cancelled rather than creating a separate Block join suggestion.
 
 ## Structure Mark Data
 
@@ -235,19 +234,20 @@ revert.
 
 The `from` chain is used to reconstruct the old location.
 
-## Join Marker Interaction
+## Block Join Suggestion Interaction
 
 Block joins normally insert a deletion-marked zero-width space with
-`type: "join"` so reverting can split the joined textblocks and restore their
-node markup. That marker is not created when either immediate joined textblock
-has a Structure add mark. In that case the added structure is still provisional,
-so joining it away cancels the pending add without introducing another review
-artifact.
+`type: "join"` so reverting can split the joined nodes and restore their node
+markup. New Block join suggestions serialize joined nodes as child-first
+`leftNodes` and `rightNodes` arrays, with one pair per joined depth up to the
+current maximum depth of 2. Legacy documents may still contain `leftNode` and
+`rightNode`; that shape is normalized to one-item arrays before revert.
 
-When debugging this path, inspect only the two nodes at the join boundary. Do
-not look at structural ancestors or unrelated nodes in the deletion range; the
-rule follows the same immediate node pair that would otherwise be serialized as
-`leftNode` and `rightNode` in the join mark attrs.
+The marker is not created when any joined node has a Structure add mark before
+serialization. In that case the added structure is still provisional, so joining
+it away cancels the pending add without introducing another review artifact.
+When debugging this path, inspect the joined-node pairs that would be serialized
+in the Block join suggestion, not unrelated nodes in the deletion range.
 
 ## Applying Suggestions
 
