@@ -23,10 +23,10 @@ structure that can be moved freely until accepted and does not produce
 **Structure move suggestions** while provisional. _Avoid_: inserted list item,
 pending move
 
-**Provisional add join cancellation**: A block join where either immediate
-joined content node still has a **Structure add suggestion**; the join is
-performed, but no separate join suggestion is created. _Avoid_: provisional join
-mark, add deletion
+**Provisional add join cancellation**: A block join where any joined node
+already has a **Structure add suggestion**; the join is performed, but no
+separate **Block join suggestion** is created. _Avoid_: provisional join mark,
+add deletion
 
 **Split-derived content node**: A newly materialized content node whose text
 came from splitting an accepted sibling, not a sibling that is still a
@@ -87,9 +87,9 @@ _Avoid_: undo mark, reverse mark
 > that split."
 >
 > **Dev:** "If an empty list item is still a Structure add suggestion and the
-> user Backspaces it back into the previous item, do we keep a join suggestion?"
-> **Domain expert:** "No. That is **Provisional add join cancellation**: perform
-> the join and leave no extra pending suggestion."
+> user Backspaces it back into the previous item, do we keep a Block join
+> suggestion?" **Domain expert:** "No. That is **Provisional add join
+> cancellation**: perform the join and leave no extra pending suggestion."
 >
 > **Dev:** "If I wrap a paragraph in a blockquote, is the blockquote the
 > suggestion target?" **Domain expert:** "No. The blockquote is part of the

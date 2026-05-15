@@ -236,8 +236,8 @@ describe("ReplaceStep", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -578,8 +578,8 @@ describe("ReplaceStep", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -636,8 +636,8 @@ describe("ReplaceStep", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,

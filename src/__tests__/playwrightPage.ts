@@ -21,17 +21,27 @@ export class EditorPage {
     return this.page.locator(this.selectors.editor);
   }
 
-  async getParagraphText(index: number): Promise<string> {
+  async getParagraphText(
+    index: number,
+    childIndexes?: number[],
+  ): Promise<string> {
     return await this.page.evaluate(
-      ({ index }) => {
-        return window.pmEditor.getTextContentOfChildAtIndex(index);
+      ({ index, childIndexes }) => {
+        return window.pmEditor.getTextContentOfChildAtIndex(
+          index,
+          childIndexes,
+        );
       },
-      { index },
+      { index, childIndexes },
     );
   }
 
   async getParagraphCount(): Promise<number> {
     return await this.editor.locator("p").count();
+  }
+
+  async getListItemCount(): Promise<number> {
+    return await this.editor.locator("li").count();
   }
 
   async getProseMirrorMarkCount(name: string): Promise<number> {

@@ -9,12 +9,12 @@ export function createSchema(
 ) {
   const nodes = { ...schemaNodes };
   for (const [key, nodeSpec] of Object.entries(nodes)) {
-    nodes[key as keyof typeof nodes] = addIdAttr(nodeSpec, key);
+    nodes[key as keyof typeof nodes] = addIdAttr(nodeSpec);
   }
 
   const listNodes = { orderedList, bulletList, listItem };
   for (const [key, nodeSpec] of Object.entries(listNodes)) {
-    listNodes[key as keyof typeof listNodes] = addIdAttr(nodeSpec, key);
+    listNodes[key as keyof typeof listNodes] = addIdAttr(nodeSpec);
   }
 
   // Create schema with suggestion marks and list support
