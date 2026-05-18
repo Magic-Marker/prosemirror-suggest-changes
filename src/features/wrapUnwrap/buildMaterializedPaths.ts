@@ -43,7 +43,7 @@ export function buildMaterializedPaths(doc: Node): MaterializedPaths {
 
   // now add the rest of the nodes
   doc.descendants((node, _pos, parent, childIndex) => {
-    if (node.isText) return false;
+    if (node.isInline) return false;
 
     const nodeId = getNodeId(node);
     if (nodeId == null) return true;

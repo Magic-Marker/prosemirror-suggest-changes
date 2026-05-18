@@ -67,14 +67,14 @@ not tracked yet.
 2. Build materialized Parent chains for the before-doc and after-doc.
 3. Ignore configured structural context nodes as Structure mark targets.
 4. For stable content nodes present in both docs:
-   - if the Parent chain changed, and either chain contains a configured
-     contiguous Structural context path, create a `move` op.
+   - if the Parent chain changed, and either chain is a direct child of a
+     configured contiguous Structural context path, create a `move` op.
 5. For stable content nodes only present in the after-doc:
    - if the node is non-empty and its raw text came from splitting an immediate
      accepted sibling, return `reason: "split-derived-add"` so normal suggestion
      tracking owns the transaction.
-   - if the after Parent chain contains a configured contiguous Structural
-     context path, create an `add` op.
+   - if the after Parent chain is a direct child of a configured contiguous
+     Structural context path, create an `add` op.
 6. Add Structure marks to the affected content nodes.
 7. Applying removes Structure marks.
 8. Reverting uses stored Parent chains to delete added nodes or move existing
@@ -113,9 +113,9 @@ not tracked yet.
   ambiguous. The primary `withSuggestChanges` integration can run the unique-ID
   transform before structure detection; the append-transaction plugin expects
   IDs to already be settled.
-- Structure marks belong on stable content/block nodes beneath a configured
-  Structural context path. `getOps` skips nodes whose type appears in a
-  configured Structural context path.
+- Structure marks belong on stable content/block nodes whose immediate parent
+  chain ends with a configured Structural context path. `getOps` skips nodes
+  whose type appears in a configured Structural context path.
 - A Structure add suggestion is still provisional new structure. Moving it must
   not add Structure move suggestions until the add suggestion is accepted.
 - Stored parent descriptors must remain sufficient to recreate missing ancestor
@@ -181,10 +181,11 @@ for future work and debugging, but index shifts alone are not treated as moves.
 
 `getOps(beforePaths, afterPaths, structuralContextPaths)` derives operations:
 
-- Existing non-context node with different Parent chain, and a configured
-  Structural context path in either old or new Parent chain: `move`.
-- Non-context node that exists only in the after-doc and is inside a configured
-  Structural context path: `add`.
+- Existing non-context node with different Parent chain, and either old or new
+  Parent chain is a direct child of a configured Structural context path:
+  `move`.
+- Non-context node that exists only in the after-doc and whose Parent chain is a
+  direct child of a configured Structural context path: `add`.
 - Non-empty non-context node that exists only in the after-doc, or one of its
   configured structural ancestors, whose raw text came from splitting an
   immediate accepted sibling: not a Structure op; the transaction falls through
@@ -367,8 +368,8 @@ When structure tracking does not behave as expected:
 - Inspect `buildMaterializedPaths` output for the moved node in both docs.
 - Check whether `sameParentChain` returns true; if so, detection will not create
   a move.
-- Confirm at least one Parent chain contains a configured contiguous Structural
-  context path.
+- Confirm at least one Parent chain is a direct child of a configured
+  contiguous Structural context path.
 - Inspect the added `structure` mark and validate it with
   `guardStructureMarkAttrs`.
 - For unexpected Structure add suggestions, inspect the candidate previous

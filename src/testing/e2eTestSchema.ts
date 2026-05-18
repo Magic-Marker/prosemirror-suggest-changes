@@ -47,6 +47,7 @@ export function createSchema(
         content: "paragraph block*",
         marks: "insertion deletion modification structure",
       },
+      hardBreak: { ...nodes.hard_break },
     },
     marks: addSuggestionMarks(marks, {
       experimental_deletions: deletionMarksVisibility,
