@@ -378,26 +378,30 @@ function chainHasStructuralContext(
   );
 }
 
-// does a chain like: __doc__->nodeTypeA->nodeTypeB->nodeTypeC->nodeTypeD
-// contain a structural context path (a "sub chain") like nodeTypeB->nodeTypeC ?
+// does a chain like: nodeTypeA->nodeTypeB->nodeTypeC
+// end with a structural context path like nodeTypeB->nodeTypeC ?
 function containsContiguousPath(
   chainNodeTypes: string[],
   structuralContextPath: StructuralContextPath,
 ) {
   if (structuralContextPath.length > chainNodeTypes.length) return false;
 
-  for (
-    let start = 0;
-    start <= chainNodeTypes.length - structuralContextPath.length;
-    start++
-  ) {
-    const matches = structuralContextPath.every(
-      (nodeType, index) => chainNodeTypes[start + index] === nodeType,
-    );
-    if (matches) return true;
+  let structuralPathPointer = structuralContextPath.length - 1;
+  let chainPointer = chainNodeTypes.length - 1;
+
+  while (structuralPathPointer >= 0) {
+    if (
+      structuralContextPath[structuralPathPointer] !==
+      chainNodeTypes[chainPointer]
+    ) {
+      return false;
+    }
+
+    structuralPathPointer--;
+    chainPointer--;
   }
 
-  return false;
+  return true;
 }
 
 // detect block split - try to look at the node above, concatenate two text contents,

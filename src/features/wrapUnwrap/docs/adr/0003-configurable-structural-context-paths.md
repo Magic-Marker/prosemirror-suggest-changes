@@ -10,18 +10,19 @@ enabled.
 Configured node names are not runtime-validated against the schema for now;
 consumers are responsible for passing names that exist in their schema. Every
 node type in a Structural context path is structural context only, never a
-Structure mark target. Structure marks are placed on stable content descendants
-beneath the configured context, descending through nested configured context
-nodes when needed.
+Structure mark target. Structure marks are placed on stable content nodes whose
+immediate parent chain ends with the configured context path, descending through
+nested configured context nodes when needed.
 
 Structural context paths match as contiguous parent-child ancestor shapes, not
 as loose node-type membership. For example, `["orderedList", "listItem"]`
-matches content whose Parent chain contains `orderedList -> listItem` in that
-order with no unrelated ancestor between those two path nodes. It does not mean
-"any chain containing `orderedList` or `listItem`." Single-node paths such as
-`["blockquote"]` match any content inside that node type. The flattened set of
-configured node types is still used only to decide which nodes are structural
-context nodes and therefore cannot receive Structure marks themselves.
+matches content whose immediate parent chain ends with
+`orderedList -> listItem`. It does not mean "any chain containing `orderedList`
+or `listItem`." Single-node paths such as `["blockquote"]` match direct
+children of that node type, not arbitrary nested descendants. The flattened set
+of configured node types is still used only to decide which nodes are
+structural context nodes and therefore cannot receive Structure marks
+themselves.
 
 This preserves the existing Structure suggestion model while making the tracked
 structural contexts configurable. We are intentionally deferring semantic

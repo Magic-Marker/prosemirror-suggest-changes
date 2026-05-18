@@ -29,6 +29,131 @@ function structureAddMarkJSON(id = 1) {
   };
 }
 
+describe("structural context direct child matching", () => {
+  it("keeps a new paragraph directly under a list item as a Structure add", () => {
+    const before = schema.nodeFromJSON({
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          attrs: { id: "list-1" },
+          content: [
+            {
+              type: "listItem",
+              attrs: { id: "item-1" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { id: "paragraph-1" },
+                  content: [{ type: "text", text: "one" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const after = schema.nodeFromJSON({
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          attrs: { id: "list-1" },
+          content: [
+            {
+              type: "listItem",
+              attrs: { id: "item-1" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { id: "paragraph-1" },
+                  content: [{ type: "text", text: "one" }],
+                },
+                {
+                  type: "paragraph",
+                  attrs: { id: "paragraph-2" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = suggestStructureChanges(before, after, listStructures);
+
+    expect(result.handled).toBe(true);
+    expect(result.reason).toBeUndefined();
+    expect(structureMarkCount(result.transform.doc)).toBe(1);
+
+    const addedParagraph = result.transform.doc.child(0).child(0).child(1);
+    const structureMark = addedParagraph.marks.find(
+      (mark) => mark.type.name === "structure",
+    );
+
+    expect(addedParagraph.attrs["id"]).toBe("paragraph-2");
+    expect(structureMark?.attrs["data"]).toEqual({ op: { op: "add" } });
+  });
+
+  it("ignores a new hard break nested inside a paragraph under a list item", () => {
+    const before = schema.nodeFromJSON({
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          attrs: { id: "list-1" },
+          content: [
+            {
+              type: "listItem",
+              attrs: { id: "item-1" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { id: "paragraph-1" },
+                  content: [{ type: "text", text: "one" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const after = schema.nodeFromJSON({
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          attrs: { id: "list-1" },
+          content: [
+            {
+              type: "listItem",
+              attrs: { id: "item-1" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { id: "paragraph-1" },
+                  content: [
+                    { type: "text", text: "one" },
+                    { type: "hardBreak", attrs: { id: "hard-break-1" } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = suggestStructureChanges(before, after, listStructures);
+
+    expect(result.handled).toBe(false);
+    expect(result.reason).toBeUndefined();
+    expect(structureMarkCount(result.transform.doc)).toBe(0);
+  });
+});
+
 describe("detect splits to hand off to the main plugin", () => {
   it("falls through when a new paragraph is split-derived inside an existing list item", () => {
     const before = schema.nodeFromJSON({

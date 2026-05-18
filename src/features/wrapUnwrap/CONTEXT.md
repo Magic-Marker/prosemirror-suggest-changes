@@ -33,8 +33,8 @@ came from splitting an accepted sibling, not a sibling that is still a
 **Structure add suggestion**. _Avoid_: structure add, new list item
 
 **Structure move suggestion**: A **Structure suggestion** for relocating
-accepted content between **Parent chains** when either chain is inside a
-configured **Structural context path**; **Inverse moves** cancel, while
+accepted content between **Parent chains** when either chain is a direct child
+of a configured **Structural context path**; **Inverse moves** cancel, while
 non-cancelling moves can stack. _Avoid_: indent mark, outdent mark
 
 **Parent chain**: The ordered ancestor chain that locates content within the
@@ -50,12 +50,13 @@ _Avoid_: undo mark, reverse mark
 - A **Structure suggestion** contains one or more **Structure marks** with the
   same suggestion ID.
 - A **Structural context path** contains only structural context node types; the
-  **Structure marks** belong on stable content descendants beneath that context.
+  **Structure marks** belong on stable content nodes whose immediate parent
+  chain ends with that path.
 - A **Structural context path** such as `orderedList -> listItem` represents a
   contiguous parent-child relationship, not aliases, schema groups, or loose
   node-type membership.
-- Nested structural context nodes are skipped as mark targets; tracking descends
-  until stable content descendants are found.
+- Nested structural context nodes are skipped as mark targets; tracking can mark
+  stable content nodes that are direct children of the nested configured path.
 - A **Split-derived content node** is not a **Structure add suggestion**; normal
   text suggestion tracking owns the split transaction.
 - A single **Structure suggestion** can mark multiple nodes when one semantic
