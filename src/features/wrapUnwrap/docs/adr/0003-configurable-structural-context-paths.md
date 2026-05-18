@@ -18,11 +18,10 @@ Structural context paths match as contiguous parent-child ancestor shapes, not
 as loose node-type membership. For example, `["orderedList", "listItem"]`
 matches content whose immediate parent chain ends with
 `orderedList -> listItem`. It does not mean "any chain containing `orderedList`
-or `listItem`." Single-node paths such as `["blockquote"]` match direct
-children of that node type, not arbitrary nested descendants. The flattened set
-of configured node types is still used only to decide which nodes are
-structural context nodes and therefore cannot receive Structure marks
-themselves.
+or `listItem`." Single-node paths such as `["blockquote"]` match direct children
+of that node type, not arbitrary nested descendants. The flattened set of
+configured node types is still used only to decide which nodes are structural
+context nodes and therefore cannot receive Structure marks themselves.
 
 This preserves the existing Structure suggestion model while making the tracked
 structural contexts configurable. We are intentionally deferring semantic

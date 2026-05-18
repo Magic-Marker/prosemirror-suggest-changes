@@ -368,8 +368,8 @@ When structure tracking does not behave as expected:
 - Inspect `buildMaterializedPaths` output for the moved node in both docs.
 - Check whether `sameParentChain` returns true; if so, detection will not create
   a move.
-- Confirm at least one Parent chain is a direct child of a configured
-  contiguous Structural context path.
+- Confirm at least one Parent chain is a direct child of a configured contiguous
+  Structural context path.
 - Inspect the added `structure` mark and validate it with
   `guardStructureMarkAttrs`.
 - For unexpected Structure add suggestions, inspect the candidate previous

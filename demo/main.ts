@@ -7,6 +7,7 @@ import {
 import {
   baseKeymap,
   chainCommands,
+  exitCode,
   lift,
   toggleMark,
   wrapIn,
@@ -148,6 +149,19 @@ const enterCommand = baseKeymap["Enter"];
 if (!enterCommand) {
   throw new Error("Missing enter command");
 }
+
+// add a hard break on Mod+Enter
+// https://code.haverbeke.berlin/prosemirror/prosemirror-example-setup/src/tag/1.2.3/src/keymap.ts#L76
+const hardBreakCommand = chainCommands(exitCode, (state, dispatch) => {
+  if (dispatch)
+    dispatch(
+      state.tr
+        .replaceSelectionWith(schema.nodes.hardBreak.create())
+        .scrollIntoView(),
+    );
+  return true;
+});
+
 const editorState = EditorState.create({
   schema,
   doc,
@@ -160,6 +174,7 @@ const editorState = EditorState.create({
       ...baseKeymap,
       Enter: chainCommands(splitListItem(schema.nodes.listItem), enterCommand),
       "Shift-Enter": enterCommand,
+      "Mod-Enter": hardBreakCommand,
       Tab: sinkListItem(schema.nodes.listItem),
       "Shift-Tab": liftListItem(schema.nodes.listItem),
       "Mod-i": toggleMark(schema.marks.em),
