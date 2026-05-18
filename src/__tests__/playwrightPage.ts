@@ -1,3 +1,4 @@
+import { type Node } from "prosemirror-model";
 import { type Locator, type Page } from "@playwright/test";
 import { createSchema } from "../testing/e2eTestSchema.js";
 
@@ -80,14 +81,20 @@ export class EditorPage {
     });
   }
 
-  async getCurrentAndExpectedDoc(expectedDocJSON: object) {
+  async getCurrentDoc(): Promise<Node> {
     const schema = createSchema(this.deletionMarksVisibility);
-
-    const expectedDoc = schema.nodeFromJSON(expectedDocJSON);
-
     const currentDocJSON = await this.getDocJSON();
     const currentDoc = schema.nodeFromJSON(currentDocJSON);
+    return currentDoc;
+  }
 
+  async getCurrentAndExpectedDoc(expectedDocJSON: object) {
+    const schema = createSchema(this.deletionMarksVisibility);
+    // both docs should be created from the same schema instance,
+    // otherwise the eq assertion from prosemirror-test-builders will be falsy
+    const expectedDoc = schema.nodeFromJSON(expectedDocJSON);
+    const currentDocJSON = await this.getDocJSON();
+    const currentDoc = schema.nodeFromJSON(currentDocJSON);
     return { currentDoc, expectedDoc };
   }
 

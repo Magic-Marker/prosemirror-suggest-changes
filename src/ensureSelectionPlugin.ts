@@ -266,9 +266,11 @@ function isPosValid($pos: ResolvedPos) {
   const ZWSP_REGEXP = new RegExp(ZWSP, "g");
   const isZWSPBefore =
     $pos.nodeBefore &&
+    $pos.nodeBefore.isText &&
     $pos.nodeBefore.textContent.replace(ZWSP_REGEXP, "") === "";
   const isZWSPAfter =
     $pos.nodeAfter &&
+    $pos.nodeAfter.isText &&
     $pos.nodeAfter.textContent.replace(ZWSP_REGEXP, "") === "";
 
   if (insertionBefore && insertionAfter && isZWSPBefore && isZWSPAfter) {

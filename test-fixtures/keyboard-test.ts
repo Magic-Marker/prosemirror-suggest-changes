@@ -6,7 +6,13 @@ import {
 import { EditorView } from "prosemirror-view";
 import { type Mark, type Node } from "prosemirror-model";
 import { history, redo, undo } from "prosemirror-history";
-import { baseKeymap, chainCommands, lift, wrapIn } from "prosemirror-commands";
+import {
+  baseKeymap,
+  chainCommands,
+  exitCode,
+  lift,
+  wrapIn,
+} from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import {
   liftListItem,
@@ -78,6 +84,18 @@ const enterCommand = baseKeymap["Enter"];
 if (!enterCommand) {
   throw new Error("Missing enter command");
 }
+
+const hardBreakCommand = chainCommands(exitCode, (state, dispatch) => {
+  if (dispatch) {
+    dispatch(
+      state.tr
+        .replaceSelectionWith(schema.nodes.hardBreak.create())
+        .scrollIntoView(),
+    );
+  }
+  return true;
+});
+
 // Create editor state with list item support
 let state = EditorState.create({
   doc,
@@ -95,6 +113,7 @@ let state = EditorState.create({
         baseKeymap["Enter"] ?? (() => false),
       ),
       "Shift-Enter": enterCommand,
+      "Mod-Enter": hardBreakCommand,
       "Mod-z": undo,
       "Mod-Shift-z": redo,
       "Mod-y": redo,
