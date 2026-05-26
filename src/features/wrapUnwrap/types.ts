@@ -64,3 +64,15 @@ export function guardStructureMarkAttrs(
 
   return true;
 }
+
+export interface StructureMark {
+  type: "structure";
+  attrs: StructureMarkAttrs;
+}
+
+export function isStructureMark(mark: unknown): mark is StructureMark {
+  if (mark === null || typeof mark !== "object") return false;
+  if (!("type" in mark) || mark.type !== "structure") return false;
+  if (!("attrs" in mark)) return false;
+  return guardStructureMarkAttrs(mark.attrs as Attrs);
+}

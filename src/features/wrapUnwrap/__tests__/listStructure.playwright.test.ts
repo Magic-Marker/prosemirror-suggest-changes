@@ -1197,6 +1197,131 @@ test.describe("Structure changes in lists", () => {
     expect(structureMarks[0]?.attrs.data.op.op).toBe("add");
   });
 
+  test("Provisional list add can be split, moved, joined away, and reverted without creating extra move/join suggestions", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "orderedList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item One" }],
+                },
+              ],
+            },
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Item Two" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page, deletionMarksVisibility);
+    const docJSON = await editorPage.getDocJSON();
+
+    // Split Item Two to create a new provisional list item after it.
+    await page.keyboard.press("Enter");
+
+    let structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
+      isStructureMark,
+    );
+    expect(structureMarks).toHaveLength(1);
+    expect(
+      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+    ).toBe(true);
+
+    await page.keyboard.type("Draft A");
+    // Split Draft A to create a second provisional list item.
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Draft B");
+
+    structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
+      isStructureMark,
+    );
+    expect(structureMarks).toHaveLength(2);
+    expect(
+      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+    ).toBe(true);
+
+    // Indent Draft B so it becomes nested under Draft A.
+    await page.keyboard.press("Tab");
+
+    structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
+      isStructureMark,
+    );
+    expect(structureMarks).toHaveLength(2);
+    expect(
+      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+    ).toBe(true);
+
+    await page.evaluate(() => {
+      let draftBPos: number | undefined;
+      window.pmEditor.view.state.doc.descendants((node, pos) => {
+        if (draftBPos === undefined && node.isTextblock) {
+          const text = node.textContent;
+          if (text === "Draft B") {
+            draftBPos = pos + 1;
+            return false;
+          }
+        }
+        return true;
+      });
+
+      if (draftBPos === undefined) {
+        throw new Error("Could not find Draft B textblock");
+      }
+
+      window.pmEditor.setCursorToPosition(draftBPos);
+      window.pmEditor.view.focus();
+    });
+
+    // Lift Draft B back out of the nested list, without creating a block join suggestion.
+    await page.keyboard.press("Backspace");
+
+    expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
+    structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
+      isStructureMark,
+    );
+    expect(structureMarks).toHaveLength(2);
+    expect(
+      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+    ).toBe(true);
+
+    // Join Draft B into Draft A, still without creating a block join suggestion.
+    await page.keyboard.press("Backspace");
+
+    expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
+    structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
+      isStructureMark,
+    );
+    expect(
+      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+    ).toBe(true);
+
+    await editorPage.revertAll();
+
+    const docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
+  });
+
   test("Moving an accepted add-marked list item creates a move mark", async ({
     page,
     deletionMarksVisibility,

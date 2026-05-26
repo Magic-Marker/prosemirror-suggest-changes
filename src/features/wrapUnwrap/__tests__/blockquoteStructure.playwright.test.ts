@@ -2,20 +2,7 @@ import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { eq } from "prosemirror-test-builder";
-import { type Attrs } from "prosemirror-model";
-import { guardStructureMarkAttrs, type StructureMarkAttrs } from "../types.js";
-
-interface StructureMark {
-  type: "structure";
-  attrs: StructureMarkAttrs;
-}
-
-function isStructureMark(mark: unknown): mark is StructureMark {
-  if (mark === null || typeof mark !== "object") return false;
-  if (!("type" in mark) || mark.type !== "structure") return false;
-  if (!("attrs" in mark)) return false;
-  return guardStructureMarkAttrs(mark.attrs as Attrs);
-}
+import { isStructureMark } from "../types.js";
 
 const paragraphDoc = {
   type: "doc",
@@ -177,6 +164,75 @@ test.describe("Structure changes in blockquotes", () => {
       return nodeTypes;
     });
     expect(structureMarkNodeTypes).toEqual(["paragraph"]);
+
+    await editorPage.revertAll();
+
+    const docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
+    expect(eq(docs.currentDoc, docs.expectedDoc)).toBeTruthy();
+  });
+
+  test("Revert an indented list item inside a blockquote", async ({
+    page,
+    deletionMarksVisibility,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "blockquote",
+          content: [
+            {
+              type: "orderedList",
+              content: [
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Quote item 1" }],
+                    },
+                  ],
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Quote item 2" }],
+                    },
+                  ],
+                },
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Quote item 3" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page, deletionMarksVisibility);
+    const docJSON = await editorPage.getDocJSON();
+
+    // Move from Quote item 3 to Quote item 2, then indent Quote item 2 under Quote item 1.
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Tab");
+
+    const structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
+      isStructureMark,
+    );
+    expect(structureMarks).toHaveLength(1);
+    expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
 
     await editorPage.revertAll();
 
