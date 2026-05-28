@@ -11,6 +11,7 @@ import { ZWSP } from "../../constants.js";
 import { type Transaction } from "prosemirror-state";
 import { type SuggestionId } from "../../generateId.js";
 import { getSuggestionMarks } from "../../utils.js";
+import { areEquivalentStructureMarks } from "../wrapUnwrap/areEquivalentStructureMarks.js";
 import { guardStructureMarkAttrs } from "../wrapUnwrap/types.js";
 
 // Block join suggestion metadata/revert currently supports the depth TipTap uses
@@ -98,6 +99,36 @@ function marksFromJSON(schema: Schema, markData: object[]) {
   return markData.map((markData) => Mark.fromJSON(schema, markData));
 }
 
+// when we revert a block join deletion mark, we restore nodes on both sides of the mark using leftNodes rightNodes metadata
+// but existing left and right nodes may have structure marks that we need to preserve
+function mergeSerializedMarksWithCurrentStructureMarks(
+  tr: Transform,
+  pos: number,
+  serializedMarks: Mark[],
+) {
+  const currentNode = tr.doc.nodeAt(pos);
+  if (!currentNode) return serializedMarks;
+
+  const { structure } = getSuggestionMarks(tr.doc.type.schema);
+  const mergedMarks = [...serializedMarks];
+
+  for (const currentMark of currentNode.marks) {
+    if (currentMark.type !== structure) continue;
+
+    const alreadyIncluded = mergedMarks.some(
+      (mark) =>
+        mark.type === structure &&
+        areEquivalentStructureMarks(mark, currentMark),
+    );
+
+    if (!alreadyIncluded) {
+      mergedMarks.push(currentMark);
+    }
+  }
+
+  return mergedMarks;
+}
+
 function restoreNodeMarkup(
   tr: Transform,
   pos: number,
@@ -106,12 +137,13 @@ function restoreNodeMarkup(
   const nodeType = tr.doc.type.schema.nodes[node.type];
   if (!nodeType) return false;
 
-  tr.setNodeMarkup(
+  const marks = mergeSerializedMarksWithCurrentStructureMarks(
+    tr,
     pos,
-    nodeType,
-    node.attrs,
     marksFromJSON(tr.doc.type.schema, node.marks),
   );
+
+  tr.setNodeMarkup(pos, nodeType, node.attrs, marks);
   return true;
 }
 

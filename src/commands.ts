@@ -260,6 +260,13 @@ export function applySuggestionsToNode(node: Node) {
     structureTransform.step(step);
   });
 
+  const secondStructureTransform = applyAllStructureSuggestions(
+    structureTransform.doc,
+  );
+  secondStructureTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
   return structureTransform.doc;
 }
 
@@ -302,6 +309,15 @@ export function applySuggestionsToRange(doc: Node, from: number, to: number) {
     structureTransform.step(step);
   });
 
+  const secondStructureTransform = applyAllStructureSuggestions(
+    structureTransform.doc,
+    structureTransform.mapping.map(from),
+    structureTransform.mapping.map(to),
+  );
+  secondStructureTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
   return structureTransform.doc.slice(
     structureTransform.mapping.map(from),
     structureTransform.mapping.map(to),
@@ -340,6 +356,13 @@ export function applySuggestions(
 
   // replay suggestion transform on top of the structure transform
   suggestionsTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
+  const secondStructureTransform = applyAllStructureSuggestions(
+    structureTransform.doc,
+  );
+  secondStructureTransform.steps.forEach((step) => {
     structureTransform.step(step);
   });
 
@@ -397,6 +420,15 @@ export function applySuggestionsInRange(from?: number, to?: number): Command {
 
     // replay suggestion transform on top of the structure transform
     suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    const secondStructureTransform = applyAllStructureSuggestions(
+      structureTransform.doc,
+      from === undefined ? undefined : structureTransform.mapping.map(from),
+      to === undefined ? undefined : structureTransform.mapping.map(to),
+    );
+    secondStructureTransform.steps.forEach((step) => {
       structureTransform.step(step);
     });
 
@@ -510,6 +542,13 @@ export function revertSuggestions(
     structureTransform.step(step);
   });
 
+  const secondStructureTransform = revertAllStructureSuggestions(
+    structureTransform.doc,
+  );
+  secondStructureTransform.steps.forEach((step) => {
+    structureTransform.step(step);
+  });
+
   // apply the structure transform to the transaction
   const transaction = state.tr;
   structureTransform.steps.forEach((step) => {
@@ -564,6 +603,15 @@ export function revertSuggestionsInRange(from?: number, to?: number): Command {
 
     // replay suggestion transform on top of the structure transform
     suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    const secondStructureTransform = revertAllStructureSuggestions(
+      structureTransform.doc,
+      from === undefined ? undefined : structureTransform.mapping.map(from),
+      to === undefined ? undefined : structureTransform.mapping.map(to),
+    );
+    secondStructureTransform.steps.forEach((step) => {
       structureTransform.step(step);
     });
 
