@@ -5,6 +5,9 @@ import type { SuggestionId } from "../../../generateId.js";
 declare global {
   interface Window {
     pmEditor: {
+      __prevState: EditorState;
+      __prevAnchor: number;
+      __prevHead: number;
       view: EditorView;
       getState: () => {
         paragraphCount: number;

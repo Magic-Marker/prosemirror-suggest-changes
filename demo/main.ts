@@ -28,6 +28,7 @@ import {
   experimental_ensureSelection,
   addSuggestionMarks,
   suggestChangesKey,
+  revertSuggestion,
 } from "../src/index.js";
 import { EditorView } from "prosemirror-view";
 import "prosemirror-view/style/prosemirror.css";
@@ -53,6 +54,7 @@ import { getSuggestionMarks } from "../src/utils.js";
 import { Step, Transform } from "prosemirror-transform";
 import { revertStructureMark } from "../src/features/wrapUnwrap/revert/revertStructureSuggestions.js";
 import { listInputRules } from "../src/listInputRules.js";
+import { type SuggestionId } from "../src/generateId.js";
 
 // stable node ids for demo
 let nodeId = 0;
@@ -259,7 +261,7 @@ const view = new EditorView(editorEl, {
     function (this: EditorView, tr: Transaction) {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       const view = this;
-      const { structure } = getSuggestionMarks(this.state.schema);
+      const { structure, deletion } = getSuggestionMarks(this.state.schema);
 
       const newState = this.state.apply(tr);
 
@@ -271,6 +273,21 @@ const view = new EditorView(editorEl, {
         return true;
       });
       console.log("structureMarks", structureMarks);
+
+      const deletionMarks: {
+        node: Node;
+        parent: Node | null;
+        mark: Mark;
+        pos: number;
+      }[] = [];
+      newState.doc.descendants((node, pos, parent) => {
+        node.marks.forEach((mark) => {
+          if (mark.type === deletion)
+            deletionMarks.push({ node, parent, mark, pos });
+        });
+        return true;
+      });
+      console.log("deletionMarks", deletionMarks);
 
       setTimeout(() => {
         const elements: HTMLElement[] = [];
@@ -298,6 +315,31 @@ const view = new EditorView(editorEl, {
         if (existing) parent?.removeChild(existing);
         parent?.append(container);
       }, 0);
+
+      setTimeout(() => {
+        const elements: HTMLElement[] = [];
+        deletionMarks.forEach((mark) => {
+          const element = document.createElement("button");
+          element.addEventListener("click", () => {
+            revertSuggestion(mark.mark.attrs["id"] as SuggestionId)(
+              view.state,
+              view.dispatch,
+            );
+          });
+          element.textContent = `Revert deletion mark id="${mark.mark.attrs["id"] as string}" on node ${mark.node.toString()} in parent ${mark.parent?.toString() ?? "null"}`;
+          elements.push(element);
+        });
+        console.log("elements", elements);
+
+        const container = document.createElement("div");
+        container.id = "deletion-marks";
+        container.append(...elements);
+
+        const parent = view.dom.parentElement;
+        const existing = parent?.querySelector("#deletion-marks");
+        if (existing) parent?.removeChild(existing);
+        parent?.append(container);
+      });
 
       this.updateState(newState);
     },
