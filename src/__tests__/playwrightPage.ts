@@ -107,4 +107,67 @@ export class EditorPage {
     await this.page.getByText("Apply all").click();
     await this.page.waitForTimeout(100);
   }
+
+  /**
+   * Press a key and wait for ProseMirror state to update.
+   * Stores the current state reference before pressing, then polls until
+   * editor.view.state is a different object (ProseMirror creates a new
+   * immutable state on every transaction).
+   */
+  async pressKey(
+    key: string,
+    opts?: { waitForSelectionChange?: boolean },
+  ): Promise<void> {
+    await this.page.evaluate(() => {
+      const state = window.pmEditor.view.state;
+      window.pmEditor.__prevState = state;
+      window.pmEditor.__prevAnchor = state.selection.anchor;
+      window.pmEditor.__prevHead = state.selection.head;
+    });
+
+    await this.page.keyboard.press(key);
+
+    if (opts?.waitForSelectionChange) {
+      // Wait for selection to actually change. If a transaction fires but
+      // selection stays the same (e.g., cursor in hidden marks), retry the
+      // keypress until the selection moves.
+      const changed = await this.page
+        .waitForFunction(
+          () => {
+            const state = window.pmEditor.view.state;
+            if (state === window.pmEditor.__prevState) return false;
+            return (
+              state.selection.anchor !== window.pmEditor.__prevAnchor ||
+              state.selection.head !== window.pmEditor.__prevHead
+            );
+          },
+          this.selectors.editor,
+          { timeout: 5000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+
+      if (!changed) {
+        // Selection didn't change — retry the keypress
+        return this.pressKey(key, opts);
+      }
+    } else {
+      await this.page.waitForFunction(() => {
+        return window.pmEditor.view.state !== window.pmEditor.__prevState;
+      });
+    }
+  }
+
+  /**
+   * Press a key multiple times, waiting for editor state update after each press.
+   */
+  async pressKeyMultiple(
+    key: string,
+    count: number,
+    opts?: { waitForSelectionChange?: boolean },
+  ): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      await this.pressKey(key, opts);
+    }
+  }
 }
