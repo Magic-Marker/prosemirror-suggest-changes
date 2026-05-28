@@ -1,16 +1,18 @@
-# Block Join Suggestion Metadata
+# Multi-Depth Block Join Suggestion Metadata
 
-Block join suggestions store the nodes that existed on both sides of the
-physical join so rejection can split the joined content and restore node type,
-attrs, and marks.
+Block join suggestions already stored the nodes that existed on both sides of a
+physical join so rejection could split joined content and restore node markup.
+This ADR is about the metadata shape needed to represent joins at more than one
+depth.
 
-Use child-first `leftNodes` and `rightNodes` arrays for current metadata. The
-first pair is the visible textblock pair; later pairs are structural parent
-pairs. This matches the order needed by revert: split by metadata length, then
-restore markup from outer pair back down to the inner pair.
+Current metadata uses child-first `leftNodes` and `rightNodes` arrays. The first
+pair is the visible textblock pair; later pairs are structural parent pairs.
+This replaced the legacy single-pair `leftNode` and `rightNode` fields, which
+could only describe a depth-1 join.
 
 Legacy documents may still contain one `leftNode` and one `rightNode`. Normalize
-that shape to one-item arrays before revert so old documents remain rejectable.
+that shape to one-item arrays before revert so old documents remain rejectable,
+but write current documents with the array shape.
 
 The current maximum supported join depth is 2, which covers the TipTap list
 behavior where Backspace joins both adjacent list-item paragraphs and their
