@@ -1,251 +1,9 @@
-import type { Page } from "@playwright/test";
 import { expect, test } from "../../../__tests__/playwrightBaseTest.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
-import { ZWSP } from "../../../constants.js";
 import { eq } from "prosemirror-test-builder";
 
-// join two list items like TipTap does:
-// from the beginning of a list item, backspace joins both the list item and the paragraph inside with the list item above
-// so the result of the join is a single list item with a single paragraph that has joined content inside
-// (by default, prosemirror joins the list items but not the paragraphs
-// so the result is a single list item with two paragraphs)
-const TIPTAP_DEPTH_TWO_JOIN_STEP = {
-  stepType: "replace",
-  from: 19,
-  to: 23,
-  structure: true,
-};
-
-const TIPTAP_DEPTH_TWO_JOIN_DOC = {
-  type: "doc",
-  content: [
-    {
-      type: "orderedList",
-      content: [
-        {
-          type: "listItem",
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: "Item 0" }],
-            },
-          ],
-        },
-        {
-          type: "listItem",
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: "Item 1" }],
-            },
-          ],
-        },
-        {
-          type: "listItem",
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: "Item 2" }],
-            },
-          ],
-        },
-        {
-          type: "listItem",
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: "Item 3" }],
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-async function dispatchTipTapDepthTwoJoinStep(page: Page) {
-  await page.evaluate((step) => {
-    window.pmEditor.dispatchTransactionWithSteps([step]);
-  }, TIPTAP_DEPTH_TWO_JOIN_STEP);
-}
-
 test.describe("Join on Delete E2E - Real Keyboard Events", () => {
-  test.describe("TipTap-style multi-depth list item join step", () => {
-    test("joins list items when suggestions are disabled", async ({ page }) => {
-      await setupDocFromJSON(page, TIPTAP_DEPTH_TWO_JOIN_DOC);
-      await page.evaluate(() => {
-        window.pmEditor.setSuggestChangesEnabled(false);
-      });
-
-      await dispatchTipTapDepthTwoJoinStep(page);
-
-      const editorPage = new EditorPage(page);
-      const { currentDoc, expectedDoc } =
-        await editorPage.getCurrentAndExpectedDoc({
-          type: "doc",
-          content: [
-            {
-              type: "orderedList",
-              attrs: {
-                id: "node-1",
-              },
-              content: [
-                {
-                  type: "listItem",
-                  attrs: {
-                    id: "node-2",
-                  },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: {
-                        id: "node-3",
-                      },
-                      content: [{ type: "text", text: "Item 0" }],
-                    },
-                  ],
-                },
-                {
-                  type: "listItem",
-                  attrs: {
-                    id: "node-4",
-                  },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: {
-                        id: "node-5",
-                      },
-                      content: [{ type: "text", text: "Item 1Item 2" }],
-                    },
-                  ],
-                },
-                {
-                  type: "listItem",
-                  attrs: {
-                    id: "node-8",
-                  },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: {
-                        id: "node-9",
-                      },
-                      content: [{ type: "text", text: "Item 3" }],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        });
-      expect(eq(currentDoc, expectedDoc)).toBe(true);
-    });
-
-    test("creates one block join suggestion and reverts it", async ({
-      page,
-    }) => {
-      const { initialDoc } = await setupDocFromJSON(
-        page,
-        TIPTAP_DEPTH_TWO_JOIN_DOC,
-      );
-
-      await dispatchTipTapDepthTwoJoinStep(page);
-
-      const editorPage = new EditorPage(page);
-      expect(await editorPage.getListItemCount()).toBe(3);
-      expect(await editorPage.getParagraphText(0, [1])).toBe(
-        `Item 1${ZWSP}Item 2`,
-      );
-      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
-
-      await editorPage.revertAll();
-
-      const { currentDoc, expectedDoc } =
-        await editorPage.getCurrentAndExpectedDoc(initialDoc);
-      expect(eq(currentDoc, expectedDoc)).toBe(true);
-    });
-
-    test("creates one block join suggestion and applies it", async ({
-      page,
-    }) => {
-      await setupDocFromJSON(page, TIPTAP_DEPTH_TWO_JOIN_DOC);
-
-      await dispatchTipTapDepthTwoJoinStep(page);
-
-      const editorPage = new EditorPage(page);
-      expect(await editorPage.getListItemCount()).toBe(3);
-      expect(await editorPage.getParagraphText(0, [1])).toBe(
-        `Item 1${ZWSP}Item 2`,
-      );
-      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
-
-      await editorPage.applyAll();
-
-      const { currentDoc, expectedDoc } =
-        await editorPage.getCurrentAndExpectedDoc({
-          type: "doc",
-          content: [
-            {
-              type: "orderedList",
-              attrs: {
-                id: "node-1",
-              },
-              content: [
-                {
-                  type: "listItem",
-                  attrs: {
-                    id: "node-2",
-                  },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: {
-                        id: "node-3",
-                      },
-                      content: [{ type: "text", text: "Item 0" }],
-                    },
-                  ],
-                },
-                {
-                  type: "listItem",
-                  attrs: {
-                    id: "node-4",
-                  },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: {
-                        id: "node-5",
-                      },
-                      content: [{ type: "text", text: "Item 1Item 2" }],
-                    },
-                  ],
-                },
-                {
-                  type: "listItem",
-                  attrs: {
-                    id: "node-8",
-                  },
-                  content: [
-                    {
-                      type: "paragraph",
-                      attrs: {
-                        id: "node-9",
-                      },
-                      content: [{ type: "text", text: "Item 3" }],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        });
-      expect(eq(currentDoc, expectedDoc)).toBe(true);
-    });
-  });
-
   test.describe("Lists: join nodes inside lists and list items", () => {
     test("should revert document to original state after joining two paragraphs inside a list item and then splitting them again", async ({
       page,
@@ -312,7 +70,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       ).toBe(10);
     });
 
-    test("should revert after joining multiple list items one after another", async ({
+    test("should revert after pressing backspace multiple times at the start of list items, joining them into one", async ({
       page,
       deletionMarksVisibility,
     }) => {
@@ -417,6 +175,111 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       // however at the moment of revert, the node on the right holds a structure marks
       // and the join metadata of the left node doesn't have any marks (because when this join marker was created, left node didn't have any marks)
       // so when we revert the second to last join marker, node on the left loses its structure mark, so revert to initial state becomes impossible
+
+      await editorPage.revertAll();
+
+      const { currentDoc, expectedDoc } =
+        await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(currentDoc, expectedDoc)).toBe(true);
+    });
+
+    test("should revert after pressing backspace multiple times across multiple list items, deleting content and joining them into one", async ({
+      page,
+      deletionMarksVisibility,
+    }) => {
+      const { initialDoc } = await setupDocFromJSON(page, {
+        type: "doc",
+        content: [
+          {
+            type: "orderedList",
+            content: [
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 1" }],
+                  },
+                ],
+              },
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 2" }],
+                  },
+                ],
+              },
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 3" }],
+                  },
+                ],
+              },
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 4" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      await page.evaluate(() => {
+        window.pmEditor.setCursorToEnd();
+      });
+
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+
+      // use backspace to delete "Item 4" and press it one more time to join with the above list item Item 3
+      await editorPage.pressKeyMultiple("Backspace", "Item 4".length);
+      await editorPage.pressKey("Backspace");
+
+      // we should have 2 deletion marks (one "anchor", one deleted "Item 4") and one structure mark
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(2);
+
+      // join paragraph Item 4 with paragraph Item 3 in one list item
+      await editorPage.pressKey("Backspace");
+
+      // we should have 2 deletion marks (one join marker, one deleted "Item 4") and no structure mark (swallowed by the join marker)
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(2);
+
+      // use backspace to delete "Item 3" and press it one more time to join with the above list item Item 2
+      await editorPage.pressKeyMultiple("Backspace", "Item 3".length);
+      await editorPage.pressKey("Backspace");
+
+      // we should have 4 deletion marks (one "anchor", one join marker, two deletions "Item 4" and "Item 3")
+      // and one structure mark (the move of paragraph Item 3 into a list item Item 2)
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(4);
+
+      // join paragraph Item 3 with paragraph Item 2 in one list item
+      await editorPage.pressKey("Backspace");
+
+      // we should have 4 deletion marks (two join markers, two deletions "Item 4" and "Item 3")
+      // and no structure mark (swallowed by the join marker)
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(4);
+
+      // use backspace to delete "Item 2"
+      await editorPage.pressKeyMultiple("Backspace", "Item 2".length);
+
+      // we should have 6 deletion marks (one "anchor", two join markers, three deletions "Item 4", "Item 3" and "Item 2")
+      // and no structure marks
+      // (all structure marks were swallowed by the join markers and exist in their metadata)
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(6);
 
       await editorPage.revertAll();
 

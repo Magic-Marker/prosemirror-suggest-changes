@@ -50,11 +50,10 @@ test.describe("General editing behavior around suggestion marks", () => {
     await page.evaluate(() => {
       window.pmEditor.setCursorToEnd();
     });
-    await page.keyboard.press("ArrowUp");
-    await page.keyboard.press("End");
+    await editorPage.pressKey("ArrowUp");
 
-    await page.keyboard.press("ControlOrMeta+Enter");
-    await page.keyboard.type(" after");
+    await editorPage.pressKey("ControlOrMeta+Enter");
+    await editorPage.insertText(" after");
 
     expect(await editorPage.getParagraphText(0, [1])).toBe("two after");
     expect(await editorPage.getParagraphText(0, [2])).toBe("three");
