@@ -109,13 +109,13 @@ export class EditorPage {
   }
 
   /**
-   * Press a key and wait for ProseMirror state to update.
+   * Perform an action and wait for ProseMirror state to update.
    * Stores the current state reference before pressing, then polls until
    * editor.view.state is a different object (ProseMirror creates a new
    * immutable state on every transaction).
    */
-  async pressKey(
-    key: string,
+  private async doActionAndWaitForState(
+    action: () => Promise<void>,
     opts?: { waitForSelectionChange?: boolean },
   ): Promise<void> {
     await this.page.evaluate(() => {
@@ -125,7 +125,7 @@ export class EditorPage {
       window.pmEditor.__prevHead = state.selection.head;
     });
 
-    await this.page.keyboard.press(key);
+    await action();
 
     if (opts?.waitForSelectionChange) {
       // Wait for selection to actually change. If a transaction fires but
@@ -148,14 +148,46 @@ export class EditorPage {
         .catch(() => false);
 
       if (!changed) {
-        // Selection didn't change — retry the keypress
-        return this.pressKey(key, opts);
+        // Selection didn't change — retry
+        return this.doActionAndWaitForState(action, opts);
       }
     } else {
       await this.page.waitForFunction(() => {
         return window.pmEditor.view.state !== window.pmEditor.__prevState;
       });
     }
+  }
+
+  /**
+   * Press a key and wait for ProseMirror state to update.
+   * Stores the current state reference before pressing, then polls until
+   * editor.view.state is a different object (ProseMirror creates a new
+   * immutable state on every transaction).
+   */
+  async pressKey(
+    key: string,
+    opts?: { waitForSelectionChange?: boolean },
+  ): Promise<void> {
+    await this.doActionAndWaitForState(
+      () => this.page.keyboard.press(key),
+      opts,
+    );
+  }
+
+  /**
+   * Insert text and wait for ProseMirror state to update.
+   * Stores the current state reference before pressing, then polls until
+   * editor.view.state is a different object (ProseMirror creates a new
+   * immutable state on every transaction).
+   */
+  async insertText(
+    text: string,
+    opts?: { waitForSelectionChange?: boolean },
+  ): Promise<void> {
+    await this.doActionAndWaitForState(
+      () => this.page.keyboard.insertText(text),
+      opts,
+    );
   }
 
   /**

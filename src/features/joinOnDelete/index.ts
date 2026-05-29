@@ -1,7 +1,6 @@
 import {
   Mark,
   type Node,
-  type Attrs,
   type MarkType,
   type ResolvedPos,
   type Schema,
@@ -13,85 +12,24 @@ import { type SuggestionId } from "../../generateId.js";
 import { getSuggestionMarks } from "../../utils.js";
 import { areEquivalentStructureMarks } from "../wrapUnwrap/areEquivalentStructureMarks.js";
 import { guardStructureMarkAttrs } from "../wrapUnwrap/types.js";
-
-// Block join suggestion metadata/revert currently supports the depth TipTap uses
-// when Backspace joins both list-item paragraphs and their parent list items.
-const MAX_BLOCK_JOIN_DEPTH = 2;
-
-interface SerializedJoinNode {
-  type: string;
-  attrs: object;
-  marks: object[];
-}
-
-interface JoinMarkAttrs {
-  type: "join";
-  data: {
-    // Legacy shape from single-depth Block join suggestions.
-    leftNode?: SerializedJoinNode;
-    rightNode?: SerializedJoinNode;
-    // Current child-first shape for multi-depth Block join suggestions.
-    leftNodes?: SerializedJoinNode[];
-    rightNodes?: SerializedJoinNode[];
-  };
-}
-
-interface JoinPair {
-  leftNode: Node;
-  rightNode: Node;
-}
-
-interface JoinCandidate {
-  joinPos: number;
-  leftNodes: Node[];
-  rightNodes: Node[];
-}
-
-function isSerializedJoinNode(node: unknown): node is SerializedJoinNode {
-  if (node === null || typeof node !== "object") return false;
-
-  const data = node as Record<keyof SerializedJoinNode, unknown>;
-  return (
-    typeof data.type === "string" &&
-    typeof data.attrs === "object" &&
-    data.attrs !== null &&
-    Array.isArray(data.marks)
-  );
-}
-
-function normalizeJoinNodes(attrs: Attrs) {
-  if (attrs["type"] !== "join") return false;
-  if (attrs["data"] == null) return false;
-
-  const data = attrs["data"] as Partial<JoinMarkAttrs["data"]>;
-
-  // Normalize legacy metadata so revert can use the same array path.
-  const leftNodes = data.leftNodes ?? (data.leftNode ? [data.leftNode] : null);
-  const rightNodes =
-    data.rightNodes ?? (data.rightNode ? [data.rightNode] : null);
-
-  if (!Array.isArray(leftNodes) || !Array.isArray(rightNodes)) return false;
-  if (leftNodes.length === 0 || leftNodes.length !== rightNodes.length)
-    return false;
-
-  // Reject unsupported depths instead of partially reverting unknown structure.
-  if (leftNodes.length > MAX_BLOCK_JOIN_DEPTH) return false;
-
-  if (!leftNodes.every(isSerializedJoinNode)) return false;
-  if (!rightNodes.every(isSerializedJoinNode)) return false;
-
-  return { leftNodes, rightNodes };
-}
-
-export function isJoinMarkAttrs(attrs: Attrs): attrs is JoinMarkAttrs {
-  return normalizeJoinNodes(attrs) !== false;
-}
+import {
+  type SerializedJoinNode,
+  type JoinCandidate,
+  type JoinPair,
+} from "./types.js";
+import {
+  MAX_BLOCK_JOIN_DEPTH,
+  normalizeJoinNodesMetadata,
+} from "./normalizeJoinNodesMetadata.js";
+import { isJoinMark } from "./types.js";
 
 function serializeJoinNode(node: Node): SerializedJoinNode {
   return {
     type: node.type.name,
     attrs: node.attrs,
-    marks: node.marks.map((mark) => mark.toJSON() as object),
+    marks: node.marks.map(
+      (mark) => mark.toJSON() as { attrs: Record<string, unknown> },
+    ),
   };
 }
 
@@ -155,10 +93,9 @@ export function maybeRevertJoinMark(
   markType: MarkType,
 ) {
   const mark = node.marks.find((mark) => mark.type === markType);
-  if (!mark || mark.attrs["type"] !== "join" || node.text !== ZWSP)
-    return false;
+  if (!mark || !isJoinMark(mark) || node.text !== ZWSP) return false;
 
-  const joinNodes = normalizeJoinNodes(mark.attrs);
+  const joinNodes = normalizeJoinNodesMetadata(mark.attrs);
   if (!joinNodes) return false;
 
   for (const node of [...joinNodes.leftNodes, ...joinNodes.rightNodes]) {

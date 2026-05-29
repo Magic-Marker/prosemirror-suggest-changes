@@ -11,9 +11,10 @@ Structure operation: Structure add suggestions use the same suggestion id, and
 Structure move suggestions use the same source and destination Parent chains.
 
 All apply-all and revert-all commands run a second direction-matching Structure
-suggestion pass after normal suggestion cleanup. Applying all suggestions removes
-Structure marks revealed by Block join suggestion processing; reverting all
-suggestions rejects Structure marks revealed by Block join suggestion processing.
+suggestion pass after normal suggestion cleanup. Applying all suggestions
+removes Structure marks revealed by Block join suggestion processing; reverting
+all suggestions rejects Structure marks revealed by Block join suggestion
+processing.
 
 This keeps single-suggestion commands scoped to the requested suggestion. A
 single Block join suggestion rejection may reveal Structure suggestions, but it

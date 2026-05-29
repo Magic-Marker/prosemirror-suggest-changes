@@ -278,6 +278,10 @@ declare global {
 window.pmEditor = {
   view,
 
+  __prevState: view.state,
+  __prevAnchor: view.state.selection.anchor,
+  __prevHead: view.state.selection.head,
+
   getState() {
     const marks: Mark[] = [];
     view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
