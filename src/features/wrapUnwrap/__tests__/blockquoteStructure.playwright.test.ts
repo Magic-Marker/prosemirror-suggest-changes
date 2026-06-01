@@ -2,7 +2,7 @@ import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { eq } from "prosemirror-test-builder";
-import { isStructureMark } from "../types.js";
+import { isStructureMarkObject } from "../types.js";
 
 const paragraphDoc = {
   type: "doc",
@@ -129,7 +129,7 @@ test.describe("Structure changes in blockquotes", () => {
     await page.keyboard.press("Enter");
 
     const structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMark,
+      isStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(1);
     expect(structureMarks[0]?.attrs.data.op.op).toBe("add");
@@ -229,7 +229,7 @@ test.describe("Structure changes in blockquotes", () => {
     await page.keyboard.press("Tab");
 
     const structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMark,
+      isStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(1);
     expect(structureMarks[0]?.attrs.data.op.op).toBe("move");

@@ -2,20 +2,7 @@ import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { eq } from "prosemirror-test-builder";
-import { type Attrs } from "prosemirror-model";
-import { guardStructureMarkAttrs, type StructureMarkAttrs } from "../types.js";
-
-interface StructureMark {
-  type: "structure";
-  attrs: StructureMarkAttrs;
-}
-
-function isStructureMark(mark: unknown): mark is StructureMark {
-  if (mark === null || typeof mark !== "object") return false;
-  if (!("type" in mark) || mark.type !== "structure") return false;
-  if (!("attrs" in mark)) return false;
-  return guardStructureMarkAttrs(mark.attrs as Attrs);
-}
+import { isStructureMarkObject } from "../types.js";
 
 test.describe("Structure changes in lists", () => {
   test("Revert a single outdent (last item)", async ({
@@ -1191,7 +1178,7 @@ test.describe("Structure changes in lists", () => {
 
     const structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMark);
+    ).filter(isStructureMarkObject);
 
     expect(structureMarks).toHaveLength(1);
     expect(structureMarks[0]?.attrs.data.op.op).toBe("add");
@@ -1241,7 +1228,7 @@ test.describe("Structure changes in lists", () => {
     await page.keyboard.press("Enter");
 
     let structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMark,
+      isStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(1);
     expect(
@@ -1254,7 +1241,7 @@ test.describe("Structure changes in lists", () => {
     await page.keyboard.type("Draft B");
 
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMark,
+      isStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(2);
     expect(
@@ -1265,7 +1252,7 @@ test.describe("Structure changes in lists", () => {
     await page.keyboard.press("Tab");
 
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMark,
+      isStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(2);
     expect(
@@ -1298,7 +1285,7 @@ test.describe("Structure changes in lists", () => {
 
     expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMark,
+      isStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(2);
     expect(
@@ -1310,7 +1297,7 @@ test.describe("Structure changes in lists", () => {
 
     expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMark,
+      isStructureMarkObject,
     );
     expect(
       structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
@@ -1370,7 +1357,7 @@ test.describe("Structure changes in lists", () => {
 
     const structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMark);
+    ).filter(isStructureMarkObject);
 
     expect(structureMarks).toHaveLength(1);
     expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
@@ -1550,7 +1537,7 @@ test.describe("Structure changes in lists", () => {
 
     let structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMark);
+    ).filter(isStructureMarkObject);
 
     expect(structureMarks).toHaveLength(1);
     expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
@@ -1560,7 +1547,7 @@ test.describe("Structure changes in lists", () => {
 
     structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMark);
+    ).filter(isStructureMarkObject);
 
     expect(structureMarks).toHaveLength(0);
 
