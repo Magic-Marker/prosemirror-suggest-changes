@@ -64,10 +64,150 @@ const TIPTAP_DEPTH_TWO_JOIN_DOC = {
   ],
 };
 
+// in a situation where we have a list, and a paragraph below the list
+// and we are at the beginning of the paragraph, and we press backspace
+// raw ProseMirror joins the paragraph with the list, but not with the last list item,
+// so the paragraph becomes the new last list item
+// in raw ProseMirror you get <li><p>LastListItem</p></li><li><p>ParagraphText</p></li>
+// TipTap additionally joins the paragraph with the last list item
+// so in TipTap you get <li><p>LastListItemParagraphText</p></li>
+// this is the steps that are produced by TipTap for the given document in this situation
+const TIPTAP_PARAGRAPH_INTO_LIST_STEPS = [
+  { stepType: "replace", from: 42, to: 60 },
+  {
+    stepType: "replace",
+    from: 40,
+    to: 40,
+    slice: {
+      content: [
+        {
+          type: "paragraph",
+          attrs: { id: "bl_01ksq44fg5ede88re15haz1ffj", textAlign: null },
+          content: [{ type: "text", text: "sample paragraph" }],
+        },
+      ],
+    },
+  },
+  { stepType: "replace", from: 39, to: 41, structure: true },
+];
+
+const TIPTAP_PARAGRAPH_INTO_LIST_DOC = {
+  type: "doc",
+  content: [
+    {
+      type: "orderedList",
+      attrs: {
+        order: 1,
+        id: "node-0",
+      },
+      content: [
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-1",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-2",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 1",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-3",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-4",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 2",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-5",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-6",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 3",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-7",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-8",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 4",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: "paragraph",
+      attrs: {
+        id: "node-9",
+      },
+      content: [
+        {
+          type: "text",
+          text: "sample paragraph",
+        },
+      ],
+    },
+  ],
+};
+
 async function dispatchTipTapDepthTwoJoinStep(page: Page) {
   await page.evaluate((step) => {
     window.pmEditor.dispatchTransactionWithSteps([step]);
   }, TIPTAP_DEPTH_TWO_JOIN_STEP);
+}
+
+async function dispatchTipTapParagraphIntoListStep(page: Page) {
+  await page.evaluate((steps) => {
+    window.pmEditor.dispatchTransactionWithSteps(steps);
+  }, TIPTAP_PARAGRAPH_INTO_LIST_STEPS);
 }
 
 test.describe("Join on Delete E2E - Real Keyboard Events", () => {
@@ -242,6 +382,90 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
             },
           ],
         });
+      expect(eq(currentDoc, expectedDoc)).toBe(true);
+    });
+  });
+
+  test.describe("TipTap-style paragraph into list join", () => {
+    test("joins the paragraph into the last list item when suggestions are disabled", async ({
+      page,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+      await page.evaluate(() => {
+        window.pmEditor.setSuggestChangesEnabled(false);
+      });
+
+      const editorPage = new EditorPage(page);
+
+      // 4 list items, one single paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      // one less paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+      const lastListItemParagraphLocator = editorPage.editor
+        .locator("ol")
+        .first()
+        .locator("li")
+        .nth(3)
+        .locator("p")
+        .first();
+
+      // the paragraph is now merged into the list item's first paragraph
+      await expect(lastListItemParagraphLocator).toContainText(
+        "sample paragraph",
+      );
+      await expect(lastListItemParagraphLocator).toContainText("Item 4");
+    });
+
+    test("joins the paragraph into the last list item when suggestions are enabled", async ({
+      page,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      const editorPage = new EditorPage(page);
+
+      // 4 list items, one single paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      // one less paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+      const lastListItemParagraphLocator = editorPage.editor
+        .locator("ol")
+        .first()
+        .locator("li")
+        .nth(3)
+        .locator("p")
+        .first();
+
+      // the paragraph is now merged into the list item's first paragraph
+      await expect(lastListItemParagraphLocator).toContainText(
+        "sample paragraph",
+      );
+      await expect(lastListItemParagraphLocator).toContainText("Item 4");
+    });
+
+    test("joins the paragraph into the last list item when suggestions are enabled and reverts cleanly", async ({
+      page,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      const editorPage = new EditorPage(page);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      await editorPage.revertAll();
+
+      const { currentDoc, expectedDoc } =
+        await editorPage.getCurrentAndExpectedDoc(
+          TIPTAP_PARAGRAPH_INTO_LIST_DOC,
+        );
       expect(eq(currentDoc, expectedDoc)).toBe(true);
     });
   });
