@@ -50,6 +50,14 @@ export function isJoinMarkAttrs(attrs: Attrs): attrs is JoinMarkAttrs {
   return true;
 }
 
+export function isJoinMarkObject(
+  mark: unknown,
+): mark is Omit<Mark, "attrs"> & { attrs: JoinMarkAttrs } {
+  if (mark === null || typeof mark !== "object") return false;
+  if (!("attrs" in mark)) return false;
+  return isJoinMarkAttrs(mark.attrs as Attrs);
+}
+
 export function isJoinMark(
   mark: Mark,
 ): mark is Omit<Mark, "attrs"> & { attrs: JoinMarkAttrs } {

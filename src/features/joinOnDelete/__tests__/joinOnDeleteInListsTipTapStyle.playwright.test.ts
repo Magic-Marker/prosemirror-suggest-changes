@@ -4,6 +4,11 @@ import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { ZWSP } from "../../../constants.js";
 import { eq } from "prosemirror-test-builder";
+import { isJoinMarkObject } from "../types.js";
+import {
+  isStructureMarkObject,
+  type StructureMarkObject,
+} from "../../wrapUnwrap/types.js";
 
 // join two list items like TipTap does:
 // from the beginning of a list item, backspace joins both the list item and the paragraph inside with the list item above
@@ -82,7 +87,7 @@ const TIPTAP_PARAGRAPH_INTO_LIST_STEPS = [
       content: [
         {
           type: "paragraph",
-          attrs: { id: "bl_01ksq44fg5ede88re15haz1ffj", textAlign: null },
+          attrs: { id: "node-9", textAlign: null },
           content: [{ type: "text", text: "sample paragraph" }],
         },
       ],
@@ -422,10 +427,11 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
 
     test("joins the paragraph into the last list item when suggestions are enabled", async ({
       page,
+      deletionMarksVisibility,
     }) => {
       await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
 
-      const editorPage = new EditorPage(page);
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
 
       // 4 list items, one single paragraph
       await expect(editorPage.editor.locator("p")).toHaveCount(5);
@@ -448,6 +454,28 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
         "sample paragraph",
       );
       await expect(lastListItemParagraphLocator).toContainText("Item 4");
+
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
+
+      // extract join mark and verify it exists
+      const marks = await editorPage.getProseMirrorMarksJSON();
+
+      const joinMarks = marks.filter(isJoinMarkObject);
+      expect(joinMarks).toHaveLength(1);
+
+      // verify that the join mark contains a serialized structure mark on it's right side
+      const joinMark = joinMarks[0];
+      let structureMarkObject = null as StructureMarkObject | null;
+      joinMark?.attrs.data.rightNodes?.forEach((node) => {
+        node.marks.forEach((mark) => {
+          if (isStructureMarkObject(mark) && structureMarkObject === null) {
+            structureMarkObject = mark;
+          }
+        });
+      });
+      expect(structureMarkObject).toBeDefined();
+      expect(structureMarkObject?.attrs.data.op.op).toBe("move");
     });
 
     test("joins the paragraph into the last list item when suggestions are enabled and reverts cleanly", async ({
@@ -466,6 +494,98 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
         await editorPage.getCurrentAndExpectedDoc(
           TIPTAP_PARAGRAPH_INTO_LIST_DOC,
         );
+      expect(eq(currentDoc, expectedDoc)).toBe(true);
+    });
+
+    test("joins the paragraph into the last list item when suggestions are enabled and applies cleanly", async ({
+      page,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      const editorPage = new EditorPage(page);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      await editorPage.applyAll();
+
+      const { currentDoc, expectedDoc } =
+        await editorPage.getCurrentAndExpectedDoc({
+          type: "doc",
+          content: [
+            {
+              type: "orderedList",
+              attrs: {
+                order: 1,
+                id: "node-0",
+              },
+              content: [
+                {
+                  type: "listItem",
+                  attrs: {
+                    id: "node-1",
+                  },
+                  content: [
+                    {
+                      type: "paragraph",
+                      attrs: {
+                        id: "node-2",
+                      },
+                      content: [{ type: "text", text: "Item 1" }],
+                    },
+                  ],
+                },
+                {
+                  type: "listItem",
+                  attrs: {
+                    id: "node-3",
+                  },
+                  content: [
+                    {
+                      type: "paragraph",
+                      attrs: {
+                        id: "node-4",
+                      },
+                      content: [{ type: "text", text: "Item 2" }],
+                    },
+                  ],
+                },
+                {
+                  type: "listItem",
+                  attrs: {
+                    id: "node-5",
+                  },
+                  content: [
+                    {
+                      type: "paragraph",
+                      attrs: {
+                        id: "node-6",
+                      },
+                      content: [{ type: "text", text: "Item 3" }],
+                    },
+                  ],
+                },
+                {
+                  type: "listItem",
+                  attrs: {
+                    id: "node-7",
+                  },
+                  content: [
+                    {
+                      type: "paragraph",
+                      attrs: {
+                        id: "node-8",
+                      },
+                      content: [
+                        { type: "text", text: "Item 4sample paragraph" },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
       expect(eq(currentDoc, expectedDoc)).toBe(true);
     });
   });
