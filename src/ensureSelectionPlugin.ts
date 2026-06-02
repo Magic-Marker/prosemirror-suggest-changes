@@ -3,7 +3,7 @@ import { getSuggestionMarks } from "./utils.js";
 import { type ResolvedPos } from "prosemirror-model";
 import { ZWSP } from "./constants.js";
 
-const TRACE_ENABLED = false;
+const TRACE_ENABLED = true;
 function trace(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!TRACE_ENABLED) return;
