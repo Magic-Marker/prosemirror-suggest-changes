@@ -476,9 +476,15 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       });
       expect(structureMarkObject).toBeDefined();
       expect(structureMarkObject?.attrs.data.op.op).toBe("move");
+
+      // verify that the cursor is at the correct spot after the join (should be right at the join point)
+      await editorPage.insertText("FOO");
+      await expect(editorPage.editor.locator("p").nth(3)).toHaveText(
+        `Item 4${ZWSP}FOOsample paragraph`,
+      );
     });
 
-    test("joins the paragraph into the last list item when suggestions are enabled and reverts cleanly", async ({
+    test("joins the paragraph into the last list item and reverts cleanly", async ({
       page,
     }) => {
       await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
@@ -497,7 +503,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       expect(eq(currentDoc, expectedDoc)).toBe(true);
     });
 
-    test("joins the paragraph into the last list item when suggestions are enabled and applies cleanly", async ({
+    test("joins the paragraph into the last list item and applies cleanly", async ({
       page,
     }) => {
       await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
