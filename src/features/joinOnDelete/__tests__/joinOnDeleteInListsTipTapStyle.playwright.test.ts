@@ -484,7 +484,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       );
     });
 
-    test("joins the paragraph into the last list item and reverts cleanly", async ({
+    test("joins the paragraph into the last list item and reverts cleanly - revert all", async ({
       page,
     }) => {
       await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
@@ -495,6 +495,25 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       await dispatchTipTapParagraphIntoListStep(page);
 
       await editorPage.revertAll();
+
+      const { currentDoc, expectedDoc } =
+        await editorPage.getCurrentAndExpectedDoc(
+          TIPTAP_PARAGRAPH_INTO_LIST_DOC,
+        );
+      expect(eq(currentDoc, expectedDoc)).toBe(true);
+    });
+
+    test("joins the paragraph into the last list item and reverts cleanly - revert one", async ({
+      page,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      const editorPage = new EditorPage(page);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      await editorPage.revertSuggestion(2);
 
       const { currentDoc, expectedDoc } =
         await editorPage.getCurrentAndExpectedDoc(

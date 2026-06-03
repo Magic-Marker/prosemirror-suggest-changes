@@ -19,3 +19,6 @@ local.envrc
 
 # LLM
 .playwright-mcp
+
+# Testing
+playwright-report/

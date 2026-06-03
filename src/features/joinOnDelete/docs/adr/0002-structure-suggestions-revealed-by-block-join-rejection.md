@@ -16,9 +16,11 @@ removes Structure marks revealed by Block join suggestion processing; reverting
 all suggestions rejects Structure marks revealed by Block join suggestion
 processing.
 
-This keeps single-suggestion commands scoped to the requested suggestion. A
-single Block join suggestion rejection may reveal Structure suggestions, but it
-does not automatically apply or reject unrelated Structure suggestion ids.
+Single Block join suggestion rejection also rejects the Structure suggestions
+restored from that join's serialized metadata. The restored Structure suggestion
+ids come from the selected Block join suggestion metadata, not from a document
+diff after the split. This keeps single-suggestion commands scoped: unrelated
+Structure suggestions that were already live in the document remain untouched.
 
 We rejected treating serialized Block join metadata as authoritative over the
 current node marks, because sequential Block join rejections can materialize
