@@ -61,23 +61,34 @@ blockquote -> block content
 Nested configured structural contexts are supported. Same-parent reordering is
 not tracked yet.
 
+## Terminology Notes
+
+- "Suggestion" and "mark" are distinct: a Structure suggestion is the semantic
+  change group, while a Structure mark is the node-level marker in that group.
+- "Add mark" means Structure add suggestion in this document, not an inline
+  insertion mark.
+- Use Structural context path for consumer configuration and Parent chain for
+  runtime document location.
+
 ## Core Algorithm
 
-1. Ensure every non-text node has a stable unique ID.
-2. Build materialized Parent chains for the before-doc and after-doc.
-3. Ignore configured structural context nodes as Structure mark targets.
-4. For stable content nodes present in both docs:
+1. Recognize any special compound transaction shape that must be split into
+   existing suggestion concepts before the normal structure/text branch.
+2. Ensure every non-text node has a stable unique ID.
+3. Build materialized Parent chains for the before-doc and after-doc.
+4. Ignore configured structural context nodes as Structure mark targets.
+5. For stable content nodes present in both docs:
    - if the Parent chain changed, and either chain is a direct child of a
      configured contiguous Structural context path, create a `move` op.
-5. For stable content nodes only present in the after-doc:
+6. For stable content nodes only present in the after-doc:
    - if the node is non-empty and its raw text came from splitting an immediate
      accepted sibling, return `reason: "split-derived-add"` so normal suggestion
      tracking owns the transaction.
    - if the after Parent chain is a direct child of a configured contiguous
      Structural context path, create an `add` op.
-6. Add Structure marks to the affected content nodes.
-7. Applying removes Structure marks.
-8. Reverting uses stored Parent chains to delete added nodes or move existing
+7. Add Structure marks to the affected content nodes.
+8. Applying removes Structure marks.
+9. Reverting uses stored Parent chains to delete added nodes or move existing
    nodes back.
 
 ## File Map
@@ -96,6 +107,8 @@ not tracked yet.
 - `revert/revertMoveOp.ts`: reconstructs previous Parent chains for moved nodes.
 - `revert/revertAddOp.ts`: deletes added nodes.
 - `revert/deleteNodeUpwards.ts`: prunes now-empty ancestors after deletion.
+- `../../transactionShaping`: recognizes special compound transactions before
+  the normal Structure-vs-text suggestion branch.
 - `__tests__/listStructure.playwright.test.ts`: user-level list behavior
   coverage.
 - `__tests__/blockquoteStructure.playwright.test.ts`: user-level blockquote
@@ -126,22 +139,26 @@ not tracked yet.
 ## End-To-End Flow
 
 1. A user transaction changes the document while suggest changes is enabled.
-2. In the primary `withSuggestChanges` integration, the dispatch wrapper uses
+2. `withSuggestChanges` first gives the transaction-shaping layer a chance to
+   recognize special compound transactions. The current shaped case is TipTap's
+   paragraph-into-list Backspace transaction, which is expressed as a Structure
+   move suggestion followed by a normal Block join suggestion.
+3. In the primary `withSuggestChanges` integration, the dispatch wrapper uses
    `experimental_ensureUniqueNodeIds` to set IDs on newly created or duplicated
    nodes before structure diffing. The append-transaction plugin path only
    checks for missing IDs and bails when IDs are not settled.
-3. `suggestStructureChanges(docBefore, docAfter, structuralContextPaths, generateId?)`
+4. `suggestStructureChanges(docBefore, docAfter, structuralContextPaths, generateId?)`
    builds materialized paths for both docs.
-4. `getOps` compares paths by node ID and derives `move` or `add` operations.
-5. All structure ops from that detection pass share one suggestion ID.
-6. A transform over the after-doc updates `structure` node marks on affected
+5. `getOps` compares paths by node ID and derives `move` or `add` operations.
+6. All structure ops from that detection pass share one suggestion ID.
+7. A transform over the after-doc updates `structure` node marks on affected
    content nodes. It usually adds marks, but it can also remove an Inverse move.
    The mark data stores the operation.
-7. If structure detection handled the transaction, the normal text-suggestion
+8. If structure detection handled the transaction, the normal text-suggestion
    transform is skipped for that transaction.
-8. Applying a Structure suggestion removes the Structure marks.
-9. Reverting a Structure suggestion uses the stored operation data to delete
-   added nodes or move existing nodes back to their previous Parent chain.
+9. Applying a Structure suggestion removes the Structure marks.
+10. Reverting a Structure suggestion uses the stored operation data to delete
+    added nodes or move existing nodes back to their previous Parent chain.
 
 ## Materialized Paths
 
@@ -302,6 +319,12 @@ There are two integration paths:
 - `structureChangesPlugin`: an append-transaction plugin path that also compares
   old and new docs with the same `experimental_trackStructures` config, but is
   not the primary path for current hardening.
+
+Before either the normal structure-first path or the normal text-suggestion path
+runs, `withSuggestChanges` asks transaction shaping to handle recognized
+compound transactions. The shaped TipTap paragraph-into-list join path runs
+Structure detection on the move prefix, then runs normal text suggestion
+tracking on the join suffix.
 
 `suggestStructureChanges` returns `{ handled, transform, reason? }`. `handled`
 is based on whether structure ops were detected, not whether the transform

@@ -18,12 +18,16 @@
 
 This repository has multiple bounded documentation contexts:
 
-- `src/features/joinOnDelete/CONTEXT.md`: Block join suggestions created when
-  deleting a block boundary physically joins accepted content.
-- `src/features/wrapUnwrap/CONTEXT.md`: Structure suggestions for configured
-  structural context edits such as indent, outdent, wrap, and unwrap.
+- [Wrap/Unwrap Structure Suggestions](./src/features/wrapUnwrap/CONTEXT.md) -
+  tracked suggestions for configured structural context edits such as indent,
+  outdent, wrap, and unwrap.
+- [Join On Delete Suggestions](./src/features/joinOnDelete/CONTEXT.md) - tracked
+  suggestions for physical block joins created by deleting a block boundary.
+- [Transaction Shaping](./src/features/transactionShaping/CONTEXT.md) -
+  recognition of special compound editor transactions that should be expressed
+  as existing suggestion concepts.
 
-Cross-context relationship:
+## Relationships
 
 - Wrap/unwrap owns **Structure suggestions** and **Structure add suggestions**.
 - Join-on-delete owns **Block join suggestions**.

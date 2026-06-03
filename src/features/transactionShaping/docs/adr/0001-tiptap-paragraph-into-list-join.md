@@ -58,5 +58,6 @@ paragraph back after the list.
 
 This transaction shape is handled in a transaction shaping layer before the
 normal Structure-vs-main tracking branch. If the shape is detected but Structure
-tracking is unavailable, transaction shaping declines to handle it and the
-existing branch runs unchanged.
+tracking is unavailable, unique IDs cannot be settled, or the prefix does not
+produce a move Structure mark on the moved paragraph, transaction shaping
+declines to handle it and the existing branch runs unchanged.
