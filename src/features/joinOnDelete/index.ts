@@ -85,13 +85,36 @@ function restoreNodeMarkup(
   return true;
 }
 
+// collect structure suggestion IDs that will be re-introduced into the document after the join is reverted
+function getRestoredStructureSuggestionIds(
+  joinNodes: {
+    leftNodes: SerializedJoinNode[];
+    rightNodes: SerializedJoinNode[];
+  },
+  schema: Schema,
+): Set<SuggestionId> {
+  const { structure } = getSuggestionMarks(schema);
+  const restoredStructureSuggestionIds = new Set<SuggestionId>();
+
+  for (const node of [...joinNodes.leftNodes, ...joinNodes.rightNodes]) {
+    const marks = marksFromJSON(schema, node.marks);
+    for (const mark of marks) {
+      if (mark.type !== structure) continue;
+      if (!guardStructureMarkAttrs(mark.attrs)) continue;
+      restoredStructureSuggestionIds.add(mark.attrs.id);
+    }
+  }
+
+  return restoredStructureSuggestionIds;
+}
+
 export function maybeRevertJoinMark(
   tr: Transform,
   from: number,
   to: number,
   node: Node,
   markType: MarkType,
-) {
+): false | { restoredStructureSuggestionIds: Set<SuggestionId> } {
   const mark = node.marks.find((mark) => mark.type === markType);
   if (!mark || !isJoinMark(mark) || node.text !== ZWSP) return false;
 
@@ -108,6 +131,10 @@ export function maybeRevertJoinMark(
       return false;
     }
   }
+  const restoredStructureSuggestionIds = getRestoredStructureSuggestionIds(
+    joinNodes,
+    tr.doc.type.schema,
+  );
 
   // Reverting a join marker removes its ZWSP anchor, splits at that position,
   // and restores markup because ProseMirror split creates nodes with defaults.
@@ -139,7 +166,7 @@ export function maybeRevertJoinMark(
     rightPos += 1;
   }
 
-  return true;
+  return { restoredStructureSuggestionIds };
 }
 
 /**

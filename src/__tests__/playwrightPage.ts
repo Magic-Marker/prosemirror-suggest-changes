@@ -98,6 +98,17 @@ export class EditorPage {
     return { currentDoc, expectedDoc };
   }
 
+  async revertSuggestion(suggestionId: number) {
+    await this.doActionAndWaitForState(() =>
+      this.page.evaluate(
+        ({ suggestionId }) => {
+          window.pmEditor.revertSuggestion(suggestionId);
+        },
+        { suggestionId },
+      ),
+    );
+  }
+
   async revertAll() {
     await this.page.getByText("Revert all").click();
     await this.page.waitForTimeout(100);
