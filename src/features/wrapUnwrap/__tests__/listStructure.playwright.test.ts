@@ -2,7 +2,11 @@ import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { eq } from "prosemirror-test-builder";
-import { isStructureMarkObject } from "../types.js";
+import {
+  guardStructureAddMarkAttrs,
+  guardStructureMarkObject,
+  guardStructureMoveMarkAttrs,
+} from "../types.js";
 
 test.describe("Structure changes in lists", () => {
   test("Revert a single outdent (last item)", async ({
@@ -1178,10 +1182,12 @@ test.describe("Structure changes in lists", () => {
 
     const structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMarkObject);
+    ).filter(guardStructureMarkObject);
 
     expect(structureMarks).toHaveLength(1);
-    expect(structureMarks[0]?.attrs.data.op.op).toBe("add");
+    expect(
+      structureMarks[0] && guardStructureAddMarkAttrs(structureMarks[0].attrs),
+    ).toBe(true);
   });
 
   test("Provisional list add can be split, moved, joined away, and reverted without creating extra move/join suggestions", async ({
@@ -1228,11 +1234,11 @@ test.describe("Structure changes in lists", () => {
     await page.keyboard.press("Enter");
 
     let structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMarkObject,
+      guardStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(1);
     expect(
-      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+      structureMarks.every((mark) => guardStructureAddMarkAttrs(mark.attrs)),
     ).toBe(true);
 
     await page.keyboard.type("Draft A");
@@ -1241,22 +1247,22 @@ test.describe("Structure changes in lists", () => {
     await page.keyboard.type("Draft B");
 
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMarkObject,
+      guardStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(2);
     expect(
-      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+      structureMarks.every((mark) => guardStructureAddMarkAttrs(mark.attrs)),
     ).toBe(true);
 
     // Indent Draft B so it becomes nested under Draft A.
     await page.keyboard.press("Tab");
 
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMarkObject,
+      guardStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(2);
     expect(
-      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+      structureMarks.every((mark) => guardStructureAddMarkAttrs(mark.attrs)),
     ).toBe(true);
 
     await page.evaluate(() => {
@@ -1285,11 +1291,11 @@ test.describe("Structure changes in lists", () => {
 
     expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMarkObject,
+      guardStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(2);
     expect(
-      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+      structureMarks.every((mark) => guardStructureAddMarkAttrs(mark.attrs)),
     ).toBe(true);
 
     // Join Draft B into Draft A, still without creating a block join suggestion.
@@ -1297,10 +1303,10 @@ test.describe("Structure changes in lists", () => {
 
     expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
     structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMarkObject,
+      guardStructureMarkObject,
     );
     expect(
-      structureMarks.every((mark) => mark.attrs.data.op.op === "add"),
+      structureMarks.every((mark) => guardStructureAddMarkAttrs(mark.attrs)),
     ).toBe(true);
 
     await editorPage.revertAll();
@@ -1357,10 +1363,12 @@ test.describe("Structure changes in lists", () => {
 
     const structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMarkObject);
+    ).filter(guardStructureMarkObject);
 
     expect(structureMarks).toHaveLength(1);
-    expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
+    expect(
+      structureMarks[0] && guardStructureMoveMarkAttrs(structureMarks[0].attrs),
+    ).toBe(true);
   });
 
   test("Revert a moved add-marked list item", async ({
@@ -1537,17 +1545,19 @@ test.describe("Structure changes in lists", () => {
 
     let structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMarkObject);
+    ).filter(guardStructureMarkObject);
 
     expect(structureMarks).toHaveLength(1);
-    expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
+    expect(
+      structureMarks[0] && guardStructureMoveMarkAttrs(structureMarks[0].attrs),
+    ).toBe(true);
 
     // press shift+tab to outdent Item 2 back to its original location
     await page.keyboard.press("Shift+Tab");
 
     structureMarks = (
       await page.evaluate(() => window.pmEditor.getProseMirrorMarksJSON())
-    ).filter(isStructureMarkObject);
+    ).filter(guardStructureMarkObject);
 
     expect(structureMarks).toHaveLength(0);
 

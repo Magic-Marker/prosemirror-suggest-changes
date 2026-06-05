@@ -11,10 +11,17 @@ interface NodeParent {
   childIndex: number;
 }
 
-export interface StructureMarkAttrs {
+interface StructureMoveMarkAttrs {
   id: SuggestionId;
-  data: { op: Op };
+  data: { op: MoveOp };
 }
+
+interface StructureAddMarkAttrs {
+  id: SuggestionId;
+  data: { op: AddOp };
+}
+
+export type StructureMarkAttrs = StructureMoveMarkAttrs | StructureAddMarkAttrs;
 
 export type StructuralContextPath = readonly [string, ...string[]];
 
@@ -65,12 +72,24 @@ export function guardStructureMarkAttrs(
   return true;
 }
 
+export function guardStructureMoveMarkAttrs(
+  attrs: Attrs,
+): attrs is StructureMoveMarkAttrs {
+  return guardStructureMarkAttrs(attrs) && attrs.data.op.op === "move";
+}
+
+export function guardStructureAddMarkAttrs(
+  attrs: Attrs,
+): attrs is StructureAddMarkAttrs {
+  return guardStructureMarkAttrs(attrs) && attrs.data.op.op === "add";
+}
+
 export interface StructureMarkObject {
   type: "structure";
   attrs: StructureMarkAttrs;
 }
 
-export function isStructureMarkObject(
+export function guardStructureMarkObject(
   mark: unknown,
 ): mark is StructureMarkObject {
   if (mark === null || typeof mark !== "object") return false;
