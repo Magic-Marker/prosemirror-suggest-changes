@@ -13,6 +13,13 @@ export const uniqueNodeIdsPluginKey = new PluginKey<{
 
 export const UNIQUE_NODE_IDS_PLUGIN_META = "unique-node-ids-plugin";
 
+const TRACE_ENABLED = false;
+function trace(...args: unknown[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (!TRACE_ENABLED) return;
+  console.log("[uniqueNodeIdsPlugin]", ...args);
+}
+
 export function uniqueNodeIdsPlugin({
   attributeName,
   generateID,
@@ -23,7 +30,7 @@ export function uniqueNodeIdsPlugin({
   return new Plugin<{ completedInitialRun: boolean }>({
     key: uniqueNodeIdsPluginKey,
     appendTransaction(transactions, oldState, newState) {
-      console.log("uniqueNodeIdsPlugin.appendTransaction");
+      trace("appendTransaction");
       const pluginState = uniqueNodeIdsPluginKey.getState(newState);
 
       // do nothing if doc hasn't changed (but make sure it runs initially)
@@ -31,16 +38,11 @@ export function uniqueNodeIdsPlugin({
         (transaction) => transaction.docChanged,
       );
       if (!docChanged && pluginState?.completedInitialRun) {
-        console.warn("uniqueNodeIdsPlugin", "doc not changed, skipping", [
-          ...transactions,
-        ]);
+        trace("doc not changed, skipping", [...transactions]);
         return;
       }
 
-      console.groupCollapsed("uniqueNodeIdsPlugin", "appendTransaction");
-      console.log("uniqueNodeIdsPlugin", "appendTransaction", [
-        ...transactions,
-      ]);
+      trace("appendTransaction", [...transactions]);
 
       const tr = newState.tr;
 
@@ -58,8 +60,7 @@ export function uniqueNodeIdsPlugin({
         tr.step(step);
       });
 
-      console.log("ensureUniqueNodeIdsPlugin", "tr steps", tr.steps);
-      console.groupEnd();
+      trace("tr steps", tr.steps);
 
       if (!tr.steps.length) return;
 
@@ -97,6 +98,9 @@ export function ensureUniqueNodeIds(
 
   const nodeIds = new Set<string>();
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED) console.groupCollapsed("ensureUniqueNodeIds");
+
   tr.doc.descendants((node, pos) => {
     if (node.isText) return false;
 
@@ -121,8 +125,7 @@ export function ensureUniqueNodeIds(
         },
         node.marks,
       );
-      console.log(
-        "ensureUniqueNodeIds",
+      trace(
         "fixed duplicate id",
         id,
         "for node",
@@ -147,20 +150,15 @@ export function ensureUniqueNodeIds(
         },
         node.marks,
       );
-      console.log(
-        "ensureUniqueNodeIds",
-        "set unique id",
-        id,
-        "for node",
-        node.type.name,
-        "at pos",
-        pos,
-      );
+      trace("set unique id", id, "for node", node.type.name, "at pos", pos);
       return true;
     }
 
     return true;
   });
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED) console.groupEnd();
 
   return tr;
 }

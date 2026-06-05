@@ -7,7 +7,7 @@ import {
 import { DOC_NODE_ID } from "./constants.js";
 import { type Node } from "prosemirror-model";
 
-const TRACE_ENABLED = true;
+const TRACE_ENABLED = false;
 function trace(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!TRACE_ENABLED) return;

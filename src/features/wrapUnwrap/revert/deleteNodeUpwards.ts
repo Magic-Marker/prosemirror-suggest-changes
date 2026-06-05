@@ -2,7 +2,7 @@ import { type Transform } from "prosemirror-transform";
 import { type Node } from "prosemirror-model";
 import { getNodeId } from "../getNodeId.js";
 
-const TRACE_ENABLED = true;
+const TRACE_ENABLED = false;
 function trace(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!TRACE_ENABLED) return;

@@ -22,7 +22,7 @@ import { isSuggestChangesEnabled, suggestChangesKey } from "../../plugin.js";
 import { buildMaterializedPaths } from "./buildMaterializedPaths.js";
 import { sameParentChain } from "./sameParentChain.js";
 
-const TRACE_ENABLED = true;
+const TRACE_ENABLED = false;
 function trace(...args: unknown[]) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!TRACE_ENABLED) return;
