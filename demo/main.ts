@@ -274,7 +274,6 @@ const view = new EditorView(editorEl, {
         });
         return true;
       });
-      console.log("structureMarks", structureMarks);
 
       const deletionMarks: {
         node: Node;
@@ -289,7 +288,6 @@ const view = new EditorView(editorEl, {
         });
         return true;
       });
-      console.log("deletionMarks", deletionMarks);
 
       setTimeout(() => {
         const elements: HTMLElement[] = [];
@@ -306,7 +304,6 @@ const view = new EditorView(editorEl, {
           element.textContent = `Revert structure mark id="${mark.mark.attrs["id"] as string}" on node ${mark.node.toString()}`;
           elements.push(element);
         });
-        console.log("elements", elements);
 
         const container = document.createElement("div");
         container.id = "structure-marks";
@@ -331,7 +328,6 @@ const view = new EditorView(editorEl, {
           element.textContent = `Revert deletion mark id="${mark.mark.attrs["id"] as string}" on node ${mark.node.toString()} in parent ${mark.parent?.toString() ?? "null"}`;
           elements.push(element);
         });
-        console.log("elements", elements);
 
         const container = document.createElement("div");
         container.id = "deletion-marks";
