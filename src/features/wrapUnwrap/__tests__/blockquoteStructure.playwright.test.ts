@@ -2,7 +2,11 @@ import { test, expect } from "../../../__tests__/playwrightBaseTest.js";
 import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { EditorPage } from "../../../__tests__/playwrightPage.js";
 import { eq } from "prosemirror-test-builder";
-import { isStructureMarkObject } from "../types.js";
+import {
+  guardStructureAddMarkAttrs,
+  guardStructureMarkObject,
+  guardStructureMoveMarkAttrs,
+} from "../types.js";
 
 const paragraphDoc = {
   type: "doc",
@@ -129,10 +133,12 @@ test.describe("Structure changes in blockquotes", () => {
     await page.keyboard.press("Enter");
 
     const structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMarkObject,
+      guardStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(1);
-    expect(structureMarks[0]?.attrs.data.op.op).toBe("add");
+    expect(
+      structureMarks[0] && guardStructureAddMarkAttrs(structureMarks[0].attrs),
+    ).toBe(true);
   });
 
   test("Nesting blockquotes marks the paragraph, not the blockquotes, and can be reverted", async ({
@@ -229,10 +235,12 @@ test.describe("Structure changes in blockquotes", () => {
     await page.keyboard.press("Tab");
 
     const structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
-      isStructureMarkObject,
+      guardStructureMarkObject,
     );
     expect(structureMarks).toHaveLength(1);
-    expect(structureMarks[0]?.attrs.data.op.op).toBe("move");
+    expect(
+      structureMarks[0] && guardStructureMoveMarkAttrs(structureMarks[0].attrs),
+    ).toBe(true);
 
     await editorPage.revertAll();
 

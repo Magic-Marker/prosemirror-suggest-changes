@@ -6,7 +6,8 @@ import { ZWSP } from "../../../constants.js";
 import { eq } from "prosemirror-test-builder";
 import { isJoinMarkObject } from "../types.js";
 import {
-  isStructureMarkObject,
+  guardStructureMarkObject,
+  guardStructureMoveMarkAttrs,
   type StructureMarkObject,
 } from "../../wrapUnwrap/types.js";
 
@@ -469,13 +470,16 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       let structureMarkObject = null as StructureMarkObject | null;
       joinMark?.attrs.data.rightNodes?.forEach((node) => {
         node.marks.forEach((mark) => {
-          if (isStructureMarkObject(mark) && structureMarkObject === null) {
+          if (guardStructureMarkObject(mark) && structureMarkObject === null) {
             structureMarkObject = mark;
           }
         });
       });
       expect(structureMarkObject).toBeDefined();
-      expect(structureMarkObject?.attrs.data.op.op).toBe("move");
+      expect(
+        structureMarkObject &&
+          guardStructureMoveMarkAttrs(structureMarkObject.attrs),
+      ).toBe(true);
 
       // verify that the cursor is at the correct spot after the join (should be right at the join point)
       await editorPage.insertText("FOO");
