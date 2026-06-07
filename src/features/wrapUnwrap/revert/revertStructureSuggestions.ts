@@ -93,26 +93,41 @@ function revertStructureSuggestionWithPrerequisites(
     suggestionId,
     buildMaterializedPaths(tr.doc),
   );
-  trace("reverting structure suggestions: ", suggestionIds);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED)
+    console.group("reverting structure suggestions", suggestionIds);
   for (const suggestionId of suggestionIds) {
     revertOneStructureSuggestion(tr, suggestionId);
   }
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (TRACE_ENABLED) console.groupEnd();
 }
 
 function revertOneStructureSuggestion(
   tr: Transform,
   suggestionId: SuggestionId,
 ) {
+  let count = 0;
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (TRACE_ENABLED)
-    console.group("reverting structure suggestion: ", suggestionId);
-
+    console.groupCollapsed("reverting structure suggestion", suggestionId);
   let structureMark = findNextStructureMark(tr.doc, suggestionId);
   while (structureMark !== null) {
+    trace(
+      "reverting structure suggestion",
+      suggestionId,
+      "structure mark",
+      structureMark.mark,
+      "at pos",
+      structureMark.pos,
+      "at node",
+      structureMark.node.toString(),
+    );
     revertStructureMark(tr, structureMark.mark, structureMark.pos);
     structureMark = findNextStructureMark(tr.doc, suggestionId);
+    count++;
   }
-
+  trace("reverted", count, "structure marks for suggestion", suggestionId);
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (TRACE_ENABLED) console.groupEnd();
 }
@@ -246,6 +261,12 @@ function buildOrderedSuggestionIds(
   });
 
   if (match) {
+    trace(
+      "suggestion",
+      match.attrs["id"],
+      "is a prerequisite for suggestion",
+      suggestionId,
+    );
     suggestionIds.add(match.attrs["id"] as SuggestionId);
   }
 

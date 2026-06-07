@@ -183,6 +183,108 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       expect(eq(currentDoc, expectedDoc)).toBe(true);
     });
 
+    test("should automatically revert a later structure suggestion when rejecting a join restores an older dependent structure suggestion", async ({
+      page,
+      deletionMarksVisibility,
+    }) => {
+      const { initialDoc } = await setupDocFromJSON(page, {
+        type: "doc",
+        content: [
+          {
+            type: "orderedList",
+            content: [
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 1" }],
+                  },
+                ],
+              },
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 2" }],
+                  },
+                ],
+              },
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 3" }],
+                  },
+                ],
+              },
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 4" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      await page.evaluate(() => {
+        window.pmEditor.setCursorToEnd();
+      });
+
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+
+      // move to start of list item Item 4
+      await editorPage.pressKey("Home");
+      // join list item Item 4 with list item Item 3,
+      // paragraph Item 4 will be placed next to paragraph Item 3 (2 paragraphs in one list item)
+      await editorPage.pressKey("Backspace");
+
+      // we should have 1 structure mark that represents a move of paragraph Item 4 into a list item Item 3
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
+
+      // join paragraph Item 4 with the paragraph Item 3
+      // paragraph Item 4 will be joined with paragraph Item 3 so the list item will have one paragraph Item 3Item 4
+      await editorPage.pressKey("Backspace");
+
+      // we should have a single deletion mark (join marker) that holds the information about the structure mark in it's rightNode data
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
+
+      // move to start of list item Item 3Item 4
+      await editorPage.pressKey("Home");
+      // join list item Item 3Item 4 with list item Item 2,
+      // paragraph Item 3Item 4 will be placed next to paragraph Item 2 (2 paragraphs in one list item)
+      await editorPage.pressKey("Backspace");
+
+      // we should have 1 structure mark that represents a move of paragraph Item 3Item 4 into a list item Item 2
+      // and one deletion mark (join marker) from the previous step
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
+
+      // revert only the join mark
+      await editorPage.revertSuggestion(2);
+
+      // what should happen is that join mark reversal will deserialize an old structure mark (id=1)
+      // that will also be automatically reverted
+      // but structure mark reversal will detect that later structure mark (id=3) needs to be reverted as well
+      // so both structure moves and the selected join are reverted, returning to the original document.”
+
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
+
+      const { currentDoc, expectedDoc } =
+        await editorPage.getCurrentAndExpectedDoc(initialDoc);
+      expect(eq(currentDoc, expectedDoc)).toBe(true);
+    });
+
     test("should revert after pressing backspace multiple times across multiple list items, deleting content and joining them into one", async ({
       page,
       deletionMarksVisibility,
