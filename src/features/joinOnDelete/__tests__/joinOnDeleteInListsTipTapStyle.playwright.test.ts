@@ -5,11 +5,6 @@ import { setupDocFromJSON } from "../../../__tests__/playwrightHelpers.js";
 import { ZWSP } from "../../../constants.js";
 import { eq } from "prosemirror-test-builder";
 import { isJoinMarkObject } from "../types.js";
-import {
-  guardStructureMarkObject,
-  guardStructureMoveMarkAttrs,
-  type StructureMarkObject,
-} from "../../wrapUnwrap/types.js";
 
 // join two list items like TipTap does:
 // from the beginning of a list item, backspace joins both the list item and the paragraph inside with the list item above
@@ -397,6 +392,8 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       page,
     }) => {
       await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      // disable suggestions
       await page.evaluate(() => {
         window.pmEditor.setSuggestChangesEnabled(false);
       });
@@ -409,7 +406,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       // join the paragraph into the last list item
       await dispatchTipTapParagraphIntoListStep(page);
 
-      // one less paragraph
+      // expect one less paragraph
       await expect(editorPage.editor.locator("p")).toHaveCount(4);
       const lastListItemParagraphLocator = editorPage.editor
         .locator("ol")
@@ -426,7 +423,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       await expect(lastListItemParagraphLocator).toContainText("Item 4");
     });
 
-    test("joins the paragraph into the last list item when suggestions are enabled", async ({
+    test("joins the paragraph into the last list item, inserts text adjacent to the join, and reverts all cleanly", async ({
       page,
       deletionMarksVisibility,
     }) => {
@@ -465,27 +462,172 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       const joinMarks = marks.filter(isJoinMarkObject);
       expect(joinMarks).toHaveLength(1);
 
-      // verify that the join mark contains a serialized structure mark on it's right side
-      const joinMark = joinMarks[0];
-      let structureMarkObject = null as StructureMarkObject | null;
-      joinMark?.attrs.data.rightNodes?.forEach((node) => {
-        node.marks.forEach((mark) => {
-          if (guardStructureMarkObject(mark) && structureMarkObject === null) {
-            structureMarkObject = mark;
-          }
-        });
-      });
-      expect(structureMarkObject).toBeDefined();
-      expect(
-        structureMarkObject &&
-          guardStructureMoveMarkAttrs(structureMarkObject.attrs),
-      ).toBe(true);
+      // verify that the cursor is at the correct spot after the join (should be right at the join point)
+      await editorPage.insertText("FOO");
+      await expect(editorPage.editor.locator("p").nth(3)).toHaveText(
+        `Item 4${ZWSP}FOOsample paragraph`,
+      );
+
+      // revert all
+      await editorPage.revertAll();
+
+      // verify reverted
+      const { currentDoc, expectedDoc } =
+        await editorPage.getCurrentAndExpectedDoc(
+          TIPTAP_PARAGRAPH_INTO_LIST_DOC,
+        );
+      expect(eq(currentDoc, expectedDoc)).toBe(true);
+
+      // verify cursor placement after the revert
+      await editorPage.insertText("BAR");
+      await expect(editorPage.editor.locator("p").nth(4)).toHaveText(
+        "BARsample paragraph",
+      );
+    });
+
+    test("joins the paragraph into the last list item, inserts text adjacent to the join, and reverts only the join cleanly", async ({
+      page,
+      deletionMarksVisibility,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+
+      // 4 list items, one single paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      // one less paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+      const lastListItemParagraphLocator = editorPage.editor
+        .locator("ol")
+        .first()
+        .locator("li")
+        .nth(3)
+        .locator("p")
+        .first();
+
+      // the paragraph is now merged into the list item's first paragraph
+      await expect(lastListItemParagraphLocator).toContainText(
+        "sample paragraph",
+      );
+      await expect(lastListItemParagraphLocator).toContainText("Item 4");
+
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
+
+      // extract join mark and verify it exists
+      const marks = await editorPage.getProseMirrorMarksJSON();
+
+      const joinMarks = marks.filter(isJoinMarkObject);
+      expect(joinMarks).toHaveLength(1);
 
       // verify that the cursor is at the correct spot after the join (should be right at the join point)
       await editorPage.insertText("FOO");
       await expect(editorPage.editor.locator("p").nth(3)).toHaveText(
         `Item 4${ZWSP}FOOsample paragraph`,
       );
+
+      // revert join (will revert the emerged structure suggestion too and the insertion)
+      // insertion is reverted because it is adjacent to the join deletion mark and shares it's suggestion ID
+      await editorPage.revertSuggestion(2);
+
+      // verify reverted
+      const { currentDoc, expectedDoc } =
+        await editorPage.getCurrentAndExpectedDoc(
+          TIPTAP_PARAGRAPH_INTO_LIST_DOC,
+        );
+      expect(eq(currentDoc, expectedDoc)).toBe(true);
+
+      // verify cursor placement after the revert
+      await editorPage.insertText("BAR");
+      await expect(editorPage.editor.locator("p").nth(4)).toHaveText(
+        "BARsample paragraph",
+      );
+    });
+
+    test("joins the paragraph into the last list item, inserts text non adjacent to the join, and reverts only the join cleanly", async ({
+      page,
+      deletionMarksVisibility,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+
+      // 4 list items, one single paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      // one less paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+      const lastListItemParagraphLocator = editorPage.editor
+        .locator("ol")
+        .first()
+        .locator("li")
+        .nth(3)
+        .locator("p")
+        .first();
+
+      // the paragraph is now merged into the list item's first paragraph
+      await expect(lastListItemParagraphLocator).toContainText(
+        "sample paragraph",
+      );
+      await expect(lastListItemParagraphLocator).toContainText("Item 4");
+
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
+
+      // extract join mark and verify it exists
+      const marks = await editorPage.getProseMirrorMarksJSON();
+
+      const joinMarks = marks.filter(isJoinMarkObject);
+      expect(joinMarks).toHaveLength(1);
+
+      // move the cursor one character to the left so the insertion is not adjacent to the join,
+      // and doesn't share it's suggestion ID
+      await editorPage.pressKey("ArrowLeft");
+
+      // verify that the cursor is at the correct spot after the join (should be here: "Item |4<join>sample paragraph")
+      await editorPage.insertText("FOO");
+      await expect(editorPage.editor.locator("p").nth(3)).toHaveText(
+        `Item FOO4${ZWSP}sample paragraph`,
+      );
+
+      // revert join (will revert the emerged structure suggestion too but no the insertion)
+      // the insertion is not reverted because it is not adjacent to the join deletion mark and doesn't share its suggestion ID
+      await editorPage.revertSuggestion(2);
+
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(1);
+
+      // verify not reverted
+      const expectedNotReverted = await editorPage.getCurrentAndExpectedDoc(
+        TIPTAP_PARAGRAPH_INTO_LIST_DOC,
+      );
+      expect(
+        eq(expectedNotReverted.currentDoc, expectedNotReverted.expectedDoc),
+      ).not.toBe(true);
+
+      // verify fourth list item content
+      await expect(editorPage.editor.locator("li").nth(3)).toHaveText(
+        "Item FOO4",
+      );
+
+      // revert the insertion
+      await editorPage.revertSuggestion(3);
+
+      // verify reverted
+      const expectedReverted = await editorPage.getCurrentAndExpectedDoc(
+        TIPTAP_PARAGRAPH_INTO_LIST_DOC,
+      );
+      expect(
+        eq(expectedReverted.currentDoc, expectedReverted.expectedDoc),
+      ).toBe(true);
     });
 
     test("joins the paragraph into the last list item and reverts cleanly - revert all", async ({
