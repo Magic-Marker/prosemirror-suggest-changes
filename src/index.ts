@@ -27,6 +27,7 @@ export {
 export {
   withSuggestChanges,
   transformToSuggestionTransaction,
+  suggestStructureChanges as experimental_suggestStructureChanges,
 } from "./withSuggestChanges.js";
 
 export {

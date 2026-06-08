@@ -15,6 +15,7 @@ import { handleSpecialTransactionShape } from "./features/transactionShaping/ind
 import { transformToSuggestionTransaction } from "./transformToSuggestionTransaction.js";
 
 export { transformToSuggestionTransaction } from "./transformToSuggestionTransaction.js";
+export { suggestStructureChanges } from "./features/wrapUnwrap/structureChangesPlugin.js";
 
 const TRACE_ENABLED = false;
 function trace(...args: unknown[]) {
