@@ -213,4 +213,10 @@ export class EditorPage {
       await this.pressKey(key, opts);
     }
   }
+
+  async setNextNodeId(nextNodeId: number) {
+    await this.page.evaluate((nextNodeId) => {
+      window.pmEditor.setNextNodeId(nextNodeId);
+    }, nextNodeId);
+  }
 }
