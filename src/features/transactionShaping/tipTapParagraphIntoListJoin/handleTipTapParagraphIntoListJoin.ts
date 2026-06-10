@@ -3,13 +3,7 @@ import {
   preserveTransactionData,
   transformToSuggestionTransaction,
 } from "../../../transformToSuggestionTransaction.js";
-import { getSuggestionMarks } from "../../../utils.js";
-import { getNodeId } from "../../wrapUnwrap/getNodeId.js";
-import {
-  suggestStructureChanges,
-  type SuggestStructureChangesResult,
-} from "../../wrapUnwrap/structureChangesPlugin.js";
-import { guardStructureMarkAttrs } from "../../wrapUnwrap/types.js";
+import { suggestStructureChanges } from "../../wrapUnwrap/structureChangesPlugin.js";
 import { detectSpecialTransactionShape } from "../detectSpecialTransactionShape.js";
 import {
   type HandleSpecialTransactionShapeArgs,
@@ -32,9 +26,6 @@ export function handleTipTapParagraphIntoListJoin(
 
   const docBefore = args.transaction.docs[0];
   if (!docBefore) return null;
-
-  const movedNodeId = getNodeId(shape.movedNode);
-  if (!movedNodeId) return null;
 
   const trackedTransaction = args.state.tr;
 
@@ -62,10 +53,7 @@ export function handleTipTapParagraphIntoListJoin(
     args.generateId,
   );
 
-  if (
-    !structureChangesResult.handled ||
-    !hasMoveStructureMark(structureChangesResult, movedNodeId)
-  ) {
+  if (!structureChangesResult.handled) {
     return null;
   }
 
@@ -110,28 +98,4 @@ function isTipTapParagraphIntoListJoinShape(
   shape: SpecialTransactionShape | null,
 ): shape is TipTapParagraphIntoListJoinShape {
   return shape?.type === "tipTapParagraphIntoListJoin";
-}
-
-function hasMoveStructureMark(
-  structureChangesResult: SuggestStructureChangesResult,
-  movedNodeId: string,
-) {
-  const { structure } = getSuggestionMarks(
-    structureChangesResult.transform.doc.type.schema,
-  );
-
-  let found = false;
-  structureChangesResult.transform.doc.descendants((node) => {
-    if (getNodeId(node) !== movedNodeId) return true;
-
-    found = node.marks.some((mark) => {
-      if (mark.type !== structure) return false;
-      if (!guardStructureMarkAttrs(mark.attrs)) return false;
-      return mark.attrs.data.op.op === "move";
-    });
-
-    return !found;
-  });
-
-  return found;
 }

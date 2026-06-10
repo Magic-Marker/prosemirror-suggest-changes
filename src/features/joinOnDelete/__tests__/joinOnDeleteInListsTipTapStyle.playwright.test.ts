@@ -199,6 +199,134 @@ const TIPTAP_PARAGRAPH_INTO_LIST_DOC = {
   ],
 };
 
+// same situation as above, but the paragraph below and it's content were added with track changes on,
+// so the paragraph has a structure mark, and it's content is an insertion mark
+const TIPTAP_NEW_PARAGRAPH_INTO_LIST_STEPS = [
+  { stepType: "replace", from: 42, to: 60 },
+  {
+    stepType: "replace",
+    from: 40,
+    to: 40,
+    slice: {
+      content: [
+        {
+          type: "paragraph",
+          attrs: { id: "node-10", textAlign: null },
+          content: [
+            {
+              type: "text",
+              marks: [{ type: "insertion", attrs: { id: "2" } }],
+              text: "sample paragraph",
+            },
+          ],
+          marks: [
+            {
+              type: "structure",
+              attrs: { id: "1", data: { op: { op: "add" } } },
+            },
+          ],
+        },
+      ],
+    },
+  },
+  { stepType: "replace", from: 39, to: 41, structure: true },
+];
+
+const TIPTAP_NEW_PARAGRAPH_INTO_LIST_DOC = {
+  type: "doc",
+  content: [
+    {
+      type: "orderedList",
+      attrs: {
+        order: 1,
+        id: "node-0",
+      },
+      content: [
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-1",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-2",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 1",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-3",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-4",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 2",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-5",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-6",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 3",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "listItem",
+          attrs: {
+            id: "node-7",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: {
+                id: "node-8",
+              },
+              content: [
+                {
+                  type: "text",
+                  text: "Item 4",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 async function dispatchTipTapDepthTwoJoinStep(page: Page) {
   await page.evaluate((step) => {
     window.pmEditor.dispatchTransactionWithSteps([step]);
@@ -209,6 +337,12 @@ async function dispatchTipTapParagraphIntoListStep(page: Page) {
   await page.evaluate((steps) => {
     window.pmEditor.dispatchTransactionWithSteps(steps);
   }, TIPTAP_PARAGRAPH_INTO_LIST_STEPS);
+}
+
+async function dispatchTipTapNewParagraphIntoListStep(page: Page) {
+  await page.evaluate((steps) => {
+    window.pmEditor.dispatchTransactionWithSteps(steps);
+  }, TIPTAP_NEW_PARAGRAPH_INTO_LIST_STEPS);
 }
 
 test.describe("Join on Delete E2E - Real Keyboard Events", () => {
@@ -421,6 +555,46 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
         "sample paragraph",
       );
       await expect(lastListItemParagraphLocator).toContainText("Item 4");
+    });
+
+    test("joins the paragraph into the last list item when suggestions are enabled", async ({
+      page,
+      deletionMarksVisibility,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_PARAGRAPH_INTO_LIST_DOC);
+
+      const editorPage = new EditorPage(page, deletionMarksVisibility);
+
+      // 4 list items, one single paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+
+      // join the paragraph into the last list item
+      await dispatchTipTapParagraphIntoListStep(page);
+
+      // one less paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+      const lastListItemParagraphLocator = editorPage.editor
+        .locator("ol")
+        .first()
+        .locator("li")
+        .nth(3)
+        .locator("p")
+        .first();
+
+      // the paragraph is now merged into the list item's first paragraph
+      await expect(lastListItemParagraphLocator).toContainText(
+        "sample paragraph",
+      );
+      await expect(lastListItemParagraphLocator).toContainText("Item 4");
+
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(1);
+
+      // extract join mark and verify it exists
+      const marks = await editorPage.getProseMirrorMarksJSON();
+
+      const joinMarks = marks.filter(isJoinMarkObject);
+      expect(joinMarks).toHaveLength(1);
     });
 
     test("joins the paragraph into the last list item, inserts text adjacent to the join, and reverts all cleanly", async ({
@@ -758,6 +932,151 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
           ],
         });
       expect(eq(currentDoc, expectedDoc)).toBe(true);
+    });
+  });
+
+  test.describe("TipTap-style new paragraph into list join", () => {
+    test("joins the new paragraph into the last list item when suggestions are disabled", async ({
+      page,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_NEW_PARAGRAPH_INTO_LIST_DOC);
+
+      await page.evaluate(() => {
+        window.pmEditor.setCursorToEnd();
+      });
+
+      const editorPage = new EditorPage(page);
+      // the document already uses ids 0-8
+      await editorPage.setNextNodeId(9);
+
+      await expect(editorPage.editor.locator("li")).toHaveCount(4);
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(0);
+
+      // from the last list item, press Enter to create a new list item
+      await editorPage.pressKey("Enter");
+      await expect(editorPage.editor.locator("li")).toHaveCount(5);
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(0);
+
+      // press Enter again, to turn the newly added list item into a root-level paragraph
+      await editorPage.pressKey("Enter");
+      await expect(editorPage.editor.locator("li")).toHaveCount(4);
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(0);
+
+      // enter text into the paragraph
+      await editorPage.insertText("sample paragraph");
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(1);
+
+      // disable suggestions
+      await page.evaluate(() => {
+        window.pmEditor.setSuggestChangesEnabled(false);
+      });
+
+      // put the cursor to the start of the paragraph
+      await editorPage.pressKey("Home", { waitForSelectionChange: true });
+
+      // join the paragraph into the last list item
+      await dispatchTipTapNewParagraphIntoListStep(page);
+
+      // the number of list items unchanged
+      await expect(editorPage.editor.locator("li")).toHaveCount(4);
+      // expect one less paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+
+      const lastListItemParagraphLocator = editorPage.editor
+        .locator("ol")
+        .first()
+        .locator("li")
+        .nth(3)
+        .locator("p")
+        .first();
+      // the paragraph is now merged into the list item's first paragraph
+      await expect(lastListItemParagraphLocator).toContainText(
+        "sample paragraph",
+      );
+      await expect(lastListItemParagraphLocator).toContainText("Item 4");
+
+      // the structure mark is gone, insertion remains
+      // no join mark because track changes off
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(1);
+    });
+
+    test("joins the new paragraph into the last list item when suggestions are enabled", async ({
+      page,
+    }) => {
+      await setupDocFromJSON(page, TIPTAP_NEW_PARAGRAPH_INTO_LIST_DOC);
+
+      await page.evaluate(() => {
+        window.pmEditor.setCursorToEnd();
+      });
+
+      const editorPage = new EditorPage(page);
+      // the document already uses ids 0-8
+      await editorPage.setNextNodeId(9);
+
+      await expect(editorPage.editor.locator("li")).toHaveCount(4);
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(0);
+
+      // from the last list item, press Enter to create a new list item
+      await editorPage.pressKey("Enter");
+      await expect(editorPage.editor.locator("li")).toHaveCount(5);
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(0);
+
+      // press Enter again, to turn the newly added list item into a root-level paragraph
+      await editorPage.pressKey("Enter");
+      await expect(editorPage.editor.locator("li")).toHaveCount(4);
+      await expect(editorPage.editor.locator("p")).toHaveCount(5);
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(0);
+
+      // enter text into the paragraph
+      await editorPage.insertText("sample paragraph");
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(1);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(1);
+
+      // put the cursor to the start of the paragraph
+      await editorPage.pressKey("Home", { waitForSelectionChange: true });
+
+      // join the paragraph into the last list item
+      await dispatchTipTapNewParagraphIntoListStep(page);
+
+      // the number of list items unchanged
+      await expect(editorPage.editor.locator("li")).toHaveCount(4);
+      // expect one less paragraph
+      await expect(editorPage.editor.locator("p")).toHaveCount(4);
+
+      const lastListItemParagraphLocator = editorPage.editor
+        .locator("ol")
+        .first()
+        .locator("li")
+        .nth(3)
+        .locator("p")
+        .first();
+      // the paragraph is now merged into the list item's first paragraph
+      await expect(lastListItemParagraphLocator).toContainText(
+        "sample paragraph",
+      );
+      await expect(lastListItemParagraphLocator).toContainText("Item 4");
+
+      // the structure mark is gone, insertion remains
+      // no join mark because the joined paragraph was a provisional structure add
+      expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
+      expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(1);
+      // extract join marks and verify none exist
+      const marks = await editorPage.getProseMirrorMarksJSON();
+      const joinMarks = marks.filter(isJoinMarkObject);
+      expect(joinMarks).toHaveLength(0);
     });
   });
 });

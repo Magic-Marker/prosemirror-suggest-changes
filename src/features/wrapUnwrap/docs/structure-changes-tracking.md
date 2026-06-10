@@ -141,8 +141,10 @@ not tracked yet.
 1. A user transaction changes the document while suggest changes is enabled.
 2. `withSuggestChanges` first gives the transaction-shaping layer a chance to
    recognize special compound transactions. The current shaped case is TipTap's
-   paragraph-into-list Backspace transaction, which is expressed as a Structure
-   move suggestion followed by a normal Block join suggestion.
+   paragraph-into-list Backspace transaction, which is expressed through
+   Structure tracking on the move prefix followed by normal join tracking on the
+   join suffix. Provisional Structure adds can absorb the move, and provisional
+   add join cancellation can suppress the Block join suggestion.
 3. In the primary `withSuggestChanges` integration, the dispatch wrapper uses
    `experimental_ensureUniqueNodeIds` to set IDs on newly created or duplicated
    nodes before structure diffing. The append-transaction plugin path only
@@ -324,7 +326,9 @@ Before either the normal structure-first path or the normal text-suggestion path
 runs, `withSuggestChanges` asks transaction shaping to handle recognized
 compound transactions. The shaped TipTap paragraph-into-list join path runs
 Structure detection on the move prefix, then runs normal text suggestion
-tracking on the join suffix.
+tracking on the join suffix. If the moved node already has a Structure add
+suggestion, that add can satisfy the shaped prefix without producing a separate
+Structure move mark.
 
 `suggestStructureChanges` returns `{ handled, transform, reason? }`. `handled`
 is based on whether structure ops were detected, not whether the transform

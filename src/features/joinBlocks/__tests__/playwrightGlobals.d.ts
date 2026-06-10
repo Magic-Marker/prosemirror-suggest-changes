@@ -52,6 +52,7 @@ declare global {
         opts?: { structure: boolean },
       ) => void;
       revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      setNextNodeId: (nextNodeId: number) => void;
     };
   }
 }

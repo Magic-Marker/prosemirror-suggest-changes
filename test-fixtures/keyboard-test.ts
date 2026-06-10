@@ -271,6 +271,7 @@ declare global {
         opts?: { structure: boolean },
       ) => void;
       revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      setNextNodeId: (nextNodeId: number) => void;
     };
   }
 }
@@ -456,6 +457,10 @@ window.pmEditor = {
       undefined,
     );
     command(view.state, view.dispatch);
+  },
+
+  setNextNodeId(nextNodeId: number) {
+    nodeId = nextNodeId;
   },
 };
 

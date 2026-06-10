@@ -49,15 +49,21 @@ After this step, the last list item has one paragraph containing both texts.
 
 Track this transaction as two existing suggestion concepts rather than inventing
 new Block join metadata. Run Structure suggestion tracking on the prefix
-represented by steps 1 and 2, so the stable paragraph id produces a Structure
-move suggestion. Then run normal suggestion tracking on step 3, so Join on
-Delete creates an ordinary Block join suggestion. The Block join metadata
+represented by steps 1 and 2. For accepted content, the stable paragraph id
+produces a Structure move suggestion. For provisional Structure add content, the
+move is absorbed by the existing Structure add suggestion and remains a valid
+shaped prefix.
+
+Then run normal suggestion tracking on step 3. For accepted joined nodes, Join
+on Delete creates an ordinary Block join suggestion. The Block join metadata
 already serializes node marks, so rejecting the Block join reveals the Structure
 move suggestion, and the normal second Structure rejection pass can move the
-paragraph back after the list.
+paragraph back after the list. If any joined node still has a Structure add
+suggestion, provisional add join cancellation applies: the physical join
+happens, but no Block join suggestion is created.
 
 This transaction shape is handled in a transaction shaping layer before the
 normal Structure-vs-main tracking branch. If the shape is detected but Structure
-tracking is unavailable, unique IDs cannot be settled, or the prefix does not
-produce a move Structure mark on the moved paragraph, transaction shaping
-declines to handle it and the existing branch runs unchanged.
+tracking is unavailable, unique IDs cannot be settled, or prefix Structure
+tracking does not handle the move, transaction shaping declines to handle it and
+the existing branch runs unchanged.
