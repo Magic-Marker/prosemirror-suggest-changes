@@ -1,15 +1,36 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-import { Fragment, Slice } from "prosemirror-model";
+import { Fragment, Slice, type Mark, type Node } from "prosemirror-model";
 import { EditorState, TextSelection } from "prosemirror-state";
 import { eq } from "prosemirror-test-builder";
-import { type ReplaceStep, replaceStep } from "prosemirror-transform";
+import { ReplaceStep, replaceStep } from "prosemirror-transform";
 import { assert, describe, it } from "vitest";
 
 import { suggestReplaceStep } from "../replaceStep.js";
 
 import { type TaggedNode, testBuilders } from "../testing/testBuilders.js";
 import { ZWSP } from "../constants.js";
+
+const getDeletionMarks = (doc: Node): Mark[] => {
+  const deletionMarks: Mark[] = [];
+  doc.descendants((node) => {
+    deletionMarks.push(
+      ...node.marks.filter((mark) => mark.type.name === "deletion"),
+    );
+  });
+  return deletionMarks;
+};
+
+const getNodeDeletionMarks = (doc: Node): Mark[] => {
+  const deletionMarks: Mark[] = [];
+  doc.descendants((node) => {
+    if (node.isInline) return;
+    deletionMarks.push(
+      ...node.marks.filter((mark) => mark.type.name === "deletion"),
+    );
+  });
+  return deletionMarks;
+};
 
 describe("ReplaceStep", () => {
   it("should wrap an insertion in a mark", () => {
@@ -649,6 +670,81 @@ describe("ReplaceStep", () => {
     assert(
       eq(trackedState.doc, expected),
       `Expected ${trackedState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should track a whole textblock deletion shape as inline deletion and a block join", () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph("Paragraph 3"),
+      testBuilders.paragraph("<from>Paragraph 4"),
+      testBuilders.paragraph("<to>Paragraph 5"),
+    ) as TaggedNode;
+
+    const selection = new TextSelection(
+      doc.resolve(doc.tag["to"]!),
+      doc.resolve(doc.tag["from"]!),
+    );
+    const step = new ReplaceStep(
+      doc.tag["from"]! - 1,
+      doc.tag["to"]! - 1,
+      Slice.empty,
+    );
+
+    const editorState = EditorState.create({ doc, selection });
+    const trackedTransaction = editorState.tr;
+    suggestReplaceStep(trackedTransaction, editorState, doc, step, [], 1);
+
+    const trackedState = editorState.apply(trackedTransaction);
+    const joinedParagraph = trackedState.doc.child(1);
+    const deletionMarks = getDeletionMarks(trackedState.doc);
+
+    assert.equal(trackedState.doc.childCount, 2);
+    assert.equal(joinedParagraph.textContent, `Paragraph 4${ZWSP}Paragraph 5`);
+    assert.equal(getNodeDeletionMarks(trackedState.doc).length, 0);
+    assert.equal(deletionMarks.length, 2);
+    assert.equal(
+      deletionMarks.filter((mark) => mark.attrs["type"] === "join").length,
+      1,
+    );
+  });
+
+  it("should track a multi-paragraph whole textblock deletion shape as inline deletions and block joins", () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph("Paragraph 2"),
+      testBuilders.paragraph("<from>Paragraph 3"),
+      testBuilders.paragraph("Paragraph 4"),
+      testBuilders.paragraph("<to>Paragraph 5"),
+      testBuilders.paragraph("Paragraph 6"),
+    ) as TaggedNode;
+
+    const selection = new TextSelection(
+      doc.resolve(doc.tag["to"]!),
+      doc.resolve(doc.tag["from"]!),
+    );
+    const step = new ReplaceStep(
+      doc.tag["from"]! - 1,
+      doc.tag["to"]! - 1,
+      Slice.empty,
+    );
+
+    const editorState = EditorState.create({ doc, selection });
+    const trackedTransaction = editorState.tr;
+    suggestReplaceStep(trackedTransaction, editorState, doc, step, [], 1);
+
+    const trackedState = editorState.apply(trackedTransaction);
+    const joinedParagraph = trackedState.doc.child(1);
+    const deletionMarks = getDeletionMarks(trackedState.doc);
+
+    assert.equal(trackedState.doc.childCount, 3);
+    assert.equal(
+      joinedParagraph.textContent,
+      `Paragraph 3${ZWSP}Paragraph 4${ZWSP}Paragraph 5`,
+    );
+    assert.equal(getNodeDeletionMarks(trackedState.doc).length, 0);
+    assert.equal(deletionMarks.length, 4);
+    assert.equal(
+      deletionMarks.filter((mark) => mark.attrs["type"] === "join").length,
+      2,
     );
   });
 

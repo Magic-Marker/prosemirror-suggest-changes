@@ -10,6 +10,9 @@
 - [Transaction Shaping](./src/features/transactionShaping/CONTEXT.md) -
   recognition of special compound editor transactions that should be expressed
   as existing suggestion concepts.
+- [Start-To-Start Textblock Deletion](./src/features/startToStartTextblockDeletion/CONTEXT.md) -
+  single replace-step text-selection deletion shapes whose step boundaries
+  differ from the user-visible deleted range.
 
 ## Relationships
 
@@ -21,3 +24,5 @@
 - Transaction shaping may split a recognized compound transaction into existing
   Structure suggestion and Block join suggestion tracking paths; it does not
   introduce a separate suggestion type.
+- Start-to-start textblock deletion is handled inside normal replace-step
+  suggestion tracking; it does not inspect or rewrite whole transactions.

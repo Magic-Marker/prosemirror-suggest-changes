@@ -17,6 +17,7 @@ import {
   joinNodesAndMarkJoinPoints,
   removeZWSPDeletions,
 } from "./features/joinOnDelete/index.js";
+import { adjustForStartToStartTextblockDeletion } from "./features/startToStartTextblockDeletion/index.js";
 
 /**
  * Transform a replace step into its equivalent tracked steps.
@@ -57,16 +58,21 @@ export function suggestReplaceStep(
   suggestionId: SuggestionId,
 ) {
   const { deletion, insertion } = getSuggestionMarks(state.schema);
+  const semanticStep = adjustForStartToStartTextblockDeletion(
+    state.selection,
+    step,
+    prevSteps,
+  );
 
   // Check for insertion and deletion marks directly
   // adjacent to this step's boundaries. If they exist,
   // we'll use their ids, rather than producing a new one
-  const nodeBefore = doc.resolve(step.from).nodeBefore;
+  const nodeBefore = doc.resolve(semanticStep.from).nodeBefore;
   const markBefore =
     nodeBefore?.marks.find(
       (mark) => mark.type === deletion || mark.type === insertion,
     ) ?? null;
-  const nodeAfter = doc.resolve(step.to).nodeAfter;
+  const nodeAfter = doc.resolve(semanticStep.to).nodeAfter;
   const markAfter =
     nodeAfter?.marks.find(
       (mark) => mark.type === deletion || mark.type === insertion,
@@ -78,8 +84,12 @@ export function suggestReplaceStep(
     suggestionId;
 
   // Rebase this step's boundaries onto the newest doc
-  let stepFrom = rebasePos(step.from, prevSteps, trackedTransaction.steps);
-  let stepTo = rebasePos(step.to, prevSteps, trackedTransaction.steps);
+  let stepFrom = rebasePos(
+    semanticStep.from,
+    prevSteps,
+    trackedTransaction.steps,
+  );
+  let stepTo = rebasePos(semanticStep.to, prevSteps, trackedTransaction.steps);
 
   if (state.selection.empty && stepFrom !== stepTo) {
     trackedTransaction.setSelection(
@@ -97,8 +107,8 @@ export function suggestReplaceStep(
 
   // Update the step boundaries, since we may have just changed
   // the document
-  stepFrom = rebasePos(step.from, prevSteps, trackedTransaction.steps);
-  stepTo = rebasePos(step.to, prevSteps, trackedTransaction.steps);
+  stepFrom = rebasePos(semanticStep.from, prevSteps, trackedTransaction.steps);
+  stepTo = rebasePos(semanticStep.to, prevSteps, trackedTransaction.steps);
 
   // Re-resolve nodeAfter and markAfter if we did a block join
   // The original values are stale after joinBlocks modifies the document
