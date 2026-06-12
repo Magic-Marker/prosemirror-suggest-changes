@@ -278,6 +278,12 @@ Block join, then rejects the remaining restored Structure suggestion IDs. This
 preserves broad restored-Structure cleanup while giving shaped move+join
 semantic units priority.
 
+Reverting all suggestions applies the same rule to Block join suggestions before
+the generic all-suggestion cleanup. It rejects join suggestions as individual
+units so each join can clean up the Structure suggestions restored from its own
+metadata while the join-local restored positions are still meaningful. The later
+Structure cleanup pass handles any remaining Structure suggestions.
+
 ## Applying Suggestions
 
 Applying a Structure suggestion accepts the structure edit. It does not move

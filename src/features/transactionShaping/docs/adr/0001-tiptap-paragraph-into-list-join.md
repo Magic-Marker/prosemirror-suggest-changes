@@ -60,11 +60,12 @@ Then run normal suggestion tracking on step 3 using the same fixed id. For
 accepted joined nodes, Join on Delete creates an ordinary Block join suggestion
 with the shared id. The Block join metadata already serializes node marks, so
 rejecting the Block join reveals the Structure move suggestion. Single
-suggestion rejection prioritizes restored Structure suggestions with the same
-id, so the shaped move and join reject as one semantic unit before any broader
-restored-Structure cleanup runs. If any joined node still has a Structure add
-suggestion, provisional add join cancellation applies: the physical join
-happens, but no Block join suggestion is created.
+suggestion rejection, and the Block join pre-pass used by revert-all, prioritize
+restored Structure suggestions with the same id. This lets the shaped move and
+join reject as one semantic unit before any broader restored-Structure cleanup
+runs. If any joined node still has a Structure add suggestion, provisional add
+join cancellation applies: the physical join happens, but no Block join
+suggestion is created.
 
 This transaction shape is handled in a transaction shaping layer before the
 normal Structure-vs-main tracking branch. If the shape is detected but Structure

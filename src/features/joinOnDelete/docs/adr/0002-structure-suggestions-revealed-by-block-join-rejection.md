@@ -10,17 +10,20 @@ marks as a complete replacement. Equivalent Structure marks are matched by
 Structure operation: Structure add suggestions use the same suggestion id, and
 Structure move suggestions use the same source and destination Parent chains.
 
-All apply-all and revert-all commands run a second direction-matching Structure
-suggestion pass after normal suggestion cleanup. Applying all suggestions
-removes Structure marks revealed by Block join suggestion processing; reverting
-all suggestions rejects Structure marks revealed by Block join suggestion
-processing.
+All apply-all and revert-all commands must also handle Structure marks revealed
+by Block join suggestion processing. Applying all suggestions runs a second
+direction-matching Structure suggestion pass after normal suggestion cleanup.
+Reverting all suggestions first rejects Block join suggestions as individual
+units, including their restored Structure suggestions, then runs the generic
+Structure suggestion cleanup for anything still left.
 
-Single Block join suggestion rejection also rejects the Structure suggestions
-restored from that join's serialized metadata. The restored Structure suggestion
-ids come from the selected Block join suggestion metadata, not from a document
-diff after the split. This keeps single-suggestion commands scoped: unrelated
-Structure suggestions that were already live in the document remain untouched.
+Block join suggestion rejection also rejects the Structure suggestions restored
+from that join's serialized metadata. The restored Structure suggestion ids come
+from the selected Block join suggestion metadata, not from a document diff after
+the split. This keeps single-suggestion commands scoped: unrelated Structure
+suggestions that were already live in the document remain untouched. Revert-all
+uses the same per-join restored-Structure cleanup before falling back to broad
+all-suggestion cleanup.
 
 When a restored Structure suggestion has the same id as the rejected Block join
 suggestion, reject that same-id Structure suggestion first. TipTap

@@ -1,4 +1,5 @@
 import { type Mark, type Attrs, type Node } from "prosemirror-model";
+import { type SuggestionId } from "../../generateId.js";
 import { getSuggestionMarks } from "../../utils.js";
 
 export interface SerializedJoinNode {
@@ -8,6 +9,7 @@ export interface SerializedJoinNode {
 }
 
 export interface JoinMarkAttrs {
+  id: SuggestionId;
   type: "join";
   data: {
     // Legacy shape from single-depth Block join suggestions.
@@ -45,6 +47,9 @@ export function isSerializedJoinNode(
 }
 
 export function isJoinMarkAttrs(attrs: Attrs): attrs is JoinMarkAttrs {
+  if (typeof attrs["id"] !== "string" && typeof attrs["id"] !== "number") {
+    return false;
+  }
   if (attrs["type"] !== "join") return false;
   if (attrs["data"] == null) return false;
   return true;
