@@ -1,0 +1,422 @@
+{
+  "type": "doc",
+  "content": [
+    {
+      "type": "orderedList",
+      "attrs": {
+        "id": "bl_01ktxskse0e99v6xa382yfrp2p",
+        "start": 1,
+        "type": null
+      },
+      "content": [
+        {
+          "type": "listItem",
+          "attrs": {
+            "id": "bl_01ktxskse0e99v6xa384fg1q32"
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "id": "bl_01ktxskqa9fzqbsyvn1mzm2431",
+                "textAlign": null
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Item 1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "attrs": {
+            "id": "bl_01ktxskvggfx48r5vqr4h7mwcq"
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "id": "bl_01ktxskvggfx48r5vqr9rdm3kd",
+                "textAlign": null
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Item 2"
+                },
+                {
+                  "type": "text",
+                  "marks": [
+                    {
+                      "type": "deletion",
+                      "attrs": {
+                        "id": "sg_01kty2whj7fn2s9bbvr6erc1sx",
+                        "type": "join",
+                        "data": {
+                          "leftNodes": [
+                            {
+                              "type": "paragraph",
+                              "attrs": {
+                                "id": "bl_01ktxskvggfx48r5vqr9rdm3kd",
+                                "textAlign": null
+                              },
+                              "marks": []
+                            }
+                          ],
+                          "rightNodes": [
+                            {
+                              "type": "paragraph",
+                              "attrs": {
+                                "id": "bl_01ktxskxfdf46vgthpw6qcqp61",
+                                "textAlign": null
+                              },
+                              "marks": [
+                                {
+                                  "type": "structure",
+                                  "attrs": {
+                                    "id": "sg_01kty2wfs0evsrdf0xz9b0dbvj",
+                                    "data": {
+                                      "op": {
+                                        "op": "move",
+                                        "from": [
+                                          {
+                                            "nodeId": "bl_01ktxskxfdf46vgthpw02etqd7",
+                                            "nodeType": "listItem",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxskxfdf46vgthpw02etqd7"
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [null, null],
+                                            "childIndex": 0
+                                          },
+                                          {
+                                            "nodeId": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                            "nodeType": "orderedList",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "start": 1,
+                                              "type": null
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskvggfx48r5vqr4h7mwcq",
+                                              null
+                                            ],
+                                            "childIndex": 2
+                                          },
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              null,
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 0
+                                          }
+                                        ],
+                                        "to": [
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 1
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "authorId": "user_38ybF4w8QkHQUYIPFY3kocM4QDi",
+                                    "block": null,
+                                    "parentId": null,
+                                    "sourceId": null
+                                  }
+                                },
+                                {
+                                  "type": "structure",
+                                  "attrs": {
+                                    "id": "sg_01kty2whj7fn2s9bbvr6erc1sx",
+                                    "data": {
+                                      "op": {
+                                        "op": "move",
+                                        "from": [
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 1
+                                          }
+                                        ],
+                                        "to": [
+                                          {
+                                            "nodeId": "bl_01ktxskvggfx48r5vqr4h7mwcq",
+                                            "nodeType": "listItem",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxskvggfx48r5vqr4h7mwcq"
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskvggfx48r5vqr9rdm3kd",
+                                              null
+                                            ],
+                                            "childIndex": 1
+                                          },
+                                          {
+                                            "nodeId": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                            "nodeType": "orderedList",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "start": 1,
+                                              "type": null
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskse0e99v6xa384fg1q32",
+                                              null
+                                            ],
+                                            "childIndex": 1
+                                          },
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              null,
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 0
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "authorId": null,
+                                    "block": null,
+                                    "parentId": null,
+                                    "sourceId": null
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "authorId": "user_38ybF4w8QkHQUYIPFY3kocM4QDi",
+                        "block": null,
+                        "parentId": null,
+                        "sourceId": null
+                      }
+                    }
+                  ],
+                  "text": "​"
+                },
+                {
+                  "type": "text",
+                  "text": "Item 3"
+                },
+                {
+                  "type": "text",
+                  "marks": [
+                    {
+                      "type": "deletion",
+                      "attrs": {
+                        "id": "sg_01kty2w4zgfbqrebnczmtd5qvv",
+                        "type": "join",
+                        "data": {
+                          "leftNodes": [
+                            {
+                              "type": "paragraph",
+                              "attrs": {
+                                "id": "bl_01ktxskxfdf46vgthpw6qcqp61",
+                                "textAlign": null
+                              },
+                              "marks": []
+                            }
+                          ],
+                          "rightNodes": [
+                            {
+                              "type": "paragraph",
+                              "attrs": {
+                                "id": "bl_01ktxsm09tf93b23wswbwbyt6g",
+                                "textAlign": null
+                              },
+                              "marks": [
+                                {
+                                  "type": "structure",
+                                  "attrs": {
+                                    "id": "sg_01kty2w3eje5w8m6jv5c9yyb32",
+                                    "data": {
+                                      "op": {
+                                        "op": "move",
+                                        "from": [
+                                          {
+                                            "nodeId": "bl_01ktxsm09tf93b23wsw54ygxes",
+                                            "nodeType": "listItem",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxsm09tf93b23wsw54ygxes"
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [null, null],
+                                            "childIndex": 0
+                                          },
+                                          {
+                                            "nodeId": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                            "nodeType": "orderedList",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "start": 1,
+                                              "type": null
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskxfdf46vgthpw02etqd7",
+                                              null
+                                            ],
+                                            "childIndex": 3
+                                          },
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              null,
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 0
+                                          }
+                                        ],
+                                        "to": [
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 1
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "authorId": "user_38ybF4w8QkHQUYIPFY3kocM4QDi",
+                                    "block": null,
+                                    "parentId": null,
+                                    "sourceId": null
+                                  }
+                                },
+                                {
+                                  "type": "structure",
+                                  "attrs": {
+                                    "id": "sg_01kty2w4zgfbqrebnczmtd5qvv",
+                                    "data": {
+                                      "op": {
+                                        "op": "move",
+                                        "from": [
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 1
+                                          }
+                                        ],
+                                        "to": [
+                                          {
+                                            "nodeId": "bl_01ktxskxfdf46vgthpw02etqd7",
+                                            "nodeType": "listItem",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxskxfdf46vgthpw02etqd7"
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskxfdf46vgthpw6qcqp61",
+                                              null
+                                            ],
+                                            "childIndex": 1
+                                          },
+                                          {
+                                            "nodeId": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                            "nodeType": "orderedList",
+                                            "nodeAttrs": {
+                                              "id": "bl_01ktxskse0e99v6xa382yfrp2p",
+                                              "start": 1,
+                                              "type": null
+                                            },
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              "bl_01ktxskvggfx48r5vqr4h7mwcq",
+                                              null
+                                            ],
+                                            "childIndex": 2
+                                          },
+                                          {
+                                            "nodeId": "__doc__",
+                                            "nodeType": "__doc__",
+                                            "nodeAttrs": {},
+                                            "nodeMarks": [],
+                                            "childSiblingIds": [
+                                              null,
+                                              "bl_01kty1ae62er586ps1tfq2e704"
+                                            ],
+                                            "childIndex": 0
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "authorId": null,
+                                    "block": null,
+                                    "parentId": null,
+                                    "sourceId": null
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "authorId": "user_38ybF4w8QkHQUYIPFY3kocM4QDi",
+                        "block": null,
+                        "parentId": null,
+                        "sourceId": null
+                      }
+                    }
+                  ],
+                  "text": "​"
+                },
+                {
+                  "type": "text",
+                  "text": "Item 4"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "attrs": {
+        "id": "bl_01kty1ae62er586ps1tfq2e704",
+        "textAlign": null
+      }
+    }
+  ]
+}

@@ -45,6 +45,14 @@ export class EditorPage {
     return await this.editor.locator("p").count();
   }
 
+  getListItems(): Locator {
+    return this.editor.locator("li");
+  }
+
+  getParagraphs(): Locator {
+    return this.editor.locator("p");
+  }
+
   async getListItemCount(): Promise<number> {
     return await this.editor.locator("li").count();
   }

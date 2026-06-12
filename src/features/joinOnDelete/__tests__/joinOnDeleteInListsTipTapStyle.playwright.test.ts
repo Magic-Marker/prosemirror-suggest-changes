@@ -730,7 +730,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
 
       // revert join (will revert the emerged structure suggestion too and the insertion)
       // insertion is reverted because it is adjacent to the join deletion mark and shares it's suggestion ID
-      await editorPage.revertSuggestion(2);
+      await editorPage.revertSuggestion(1);
 
       // verify reverted
       const { currentDoc, expectedDoc } =
@@ -797,7 +797,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
 
       // revert join (will revert the emerged structure suggestion too but no the insertion)
       // the insertion is not reverted because it is not adjacent to the join deletion mark and doesn't share its suggestion ID
-      await editorPage.revertSuggestion(2);
+      await editorPage.revertSuggestion(1);
 
       expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
       expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
@@ -817,7 +817,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       );
 
       // revert the insertion
-      await editorPage.revertSuggestion(3);
+      await editorPage.revertSuggestion(2);
 
       // verify reverted
       const expectedReverted = await editorPage.getCurrentAndExpectedDoc(
@@ -857,7 +857,11 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       // join the paragraph into the last list item
       await dispatchTipTapParagraphIntoListStep(page);
 
-      await editorPage.revertSuggestion(2);
+      const marks = await editorPage.getProseMirrorMarksJSON();
+      const joinMarks = marks.filter(isJoinMarkObject);
+      expect(joinMarks).toHaveLength(1);
+
+      await editorPage.revertSuggestion(1);
 
       const { currentDoc, expectedDoc } =
         await editorPage.getCurrentAndExpectedDoc(
