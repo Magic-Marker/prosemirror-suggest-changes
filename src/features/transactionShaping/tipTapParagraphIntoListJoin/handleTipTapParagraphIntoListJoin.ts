@@ -3,6 +3,7 @@ import {
   preserveTransactionData,
   transformToSuggestionTransaction,
 } from "../../../transformToSuggestionTransaction.js";
+import { generateNextNumberId } from "../../../generateId.js";
 import { suggestStructureChanges } from "../../wrapUnwrap/structureChangesPlugin.js";
 import { detectSpecialTransactionShape } from "../detectSpecialTransactionShape.js";
 import {
@@ -28,6 +29,10 @@ export function handleTipTapParagraphIntoListJoin(
   if (!docBefore) return null;
 
   const trackedTransaction = args.state.tr;
+  const sharedSuggestionId = args.generateId
+    ? args.generateId(args.state.schema, docBefore)
+    : generateNextNumberId(args.state.schema, docBefore);
+  const generateSharedSuggestionId = () => sharedSuggestionId;
 
   try {
     trackedTransaction.step(shape.deleteStep);
@@ -50,7 +55,7 @@ export function handleTipTapParagraphIntoListJoin(
     docBefore,
     uniqueNodeIdsTransform.doc,
     args.structuralContextPaths,
-    args.generateId,
+    generateSharedSuggestionId,
   );
 
   if (!structureChangesResult.handled) {
@@ -76,7 +81,7 @@ export function handleTipTapParagraphIntoListJoin(
   const trackedJoinTransaction = transformToSuggestionTransaction(
     joinTransaction,
     intermediateState,
-    args.generateId,
+    generateSharedSuggestionId,
   );
 
   trackedJoinTransaction.steps.forEach((step) => {

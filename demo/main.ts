@@ -366,6 +366,7 @@ declare global {
   interface Window {
     pmView: EditorView;
     dispatchTransactionWithSteps: (stepJSONs: object[]) => void;
+    replaceDoc: (docJSON: unknown) => void;
   }
 }
 
@@ -376,4 +377,18 @@ window.dispatchTransactionWithSteps = (stepJSONs: object[]) => {
   const tr = view.state.tr;
   steps.forEach((step) => tr.step(step));
   view.dispatch(tr);
+};
+
+window.replaceDoc = (docJSON: unknown) => {
+  const schema = view.state.schema;
+  const doc = schema.nodeFromJSON(docJSON);
+
+  // Create a completely new state with the new document
+  const newState = EditorState.create({
+    doc,
+    schema,
+    plugins: view.state.plugins,
+  });
+
+  view.updateState(newState);
 };

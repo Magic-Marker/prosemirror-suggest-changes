@@ -684,10 +684,22 @@ export function revertSuggestion(
     suggestionsTransform.steps.forEach((step) => {
       structureTransform.step(step);
     });
-    restoredStructureSuggestionIds.forEach((suggestionId) => {
+    if (restoredStructureSuggestionIds.has(suggestionId)) {
       const restoredStructureTransform = revertStructureSuggestion(
         structureTransform.doc,
         suggestionId,
+      );
+      restoredStructureTransform.steps.forEach((step) => {
+        structureTransform.step(step);
+      });
+    }
+
+    restoredStructureSuggestionIds.forEach((restoredSuggestionId) => {
+      if (restoredSuggestionId === suggestionId) return;
+
+      const restoredStructureTransform = revertStructureSuggestion(
+        structureTransform.doc,
+        restoredSuggestionId,
       );
       restoredStructureTransform.steps.forEach((step) => {
         structureTransform.step(step);

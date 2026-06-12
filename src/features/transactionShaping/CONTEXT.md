@@ -15,4 +15,6 @@ weird transaction, keymap quirk
 
 **TipTap paragraph-into-list join**: A **Special transaction shape** where
 Backspace moves a paragraph into the previous list item and then joins it with
-that list item's paragraph. _Avoid_: list backspace hack, paragraph absorption
+that list item's paragraph; it is one visible edit expressed through existing
+Structure suggestion and Block join suggestion concepts sharing one suggestion
+ID. _Avoid_: list backspace hack, paragraph absorption

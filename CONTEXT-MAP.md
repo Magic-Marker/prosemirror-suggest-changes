@@ -23,6 +23,7 @@
   but no separate Block join suggestion is created.
 - Transaction shaping may split a recognized compound transaction into existing
   Structure suggestion and Block join suggestion tracking paths; it does not
-  introduce a separate suggestion type.
+  introduce a separate suggestion type. When the recognized shape is one visible
+  edit, those existing concepts may share one suggestion ID.
 - Start-to-start textblock deletion is handled inside normal replace-step
   suggestion tracking; it does not inspect or rewrite whole transactions.

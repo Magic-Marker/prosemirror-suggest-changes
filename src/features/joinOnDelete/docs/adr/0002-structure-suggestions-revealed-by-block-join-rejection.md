@@ -22,6 +22,16 @@ ids come from the selected Block join suggestion metadata, not from a document
 diff after the split. This keeps single-suggestion commands scoped: unrelated
 Structure suggestions that were already live in the document remain untouched.
 
+When a restored Structure suggestion has the same id as the rejected Block join
+suggestion, reject that same-id Structure suggestion first. TipTap
+paragraph-into-list transaction shaping deliberately gives the Structure move
+and Block join the same suggestion id, because they are one visible edit.
+Same-id restored Structure rejection lets that semantic unit reject before
+broader cleanup considers older Structure suggestions that happened to be
+serialized in the same Block join metadata. After the same-id pass, reject the
+remaining restored Structure suggestion ids to preserve existing broad cleanup
+behavior.
+
 We rejected treating serialized Block join metadata as authoritative over the
 current node marks, because sequential Block join rejections can materialize
 Structure marks before an earlier join is restored. Overwriting those current

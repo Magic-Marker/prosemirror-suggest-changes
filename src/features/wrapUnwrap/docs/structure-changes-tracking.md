@@ -143,8 +143,10 @@ not tracked yet.
    recognize special compound transactions. The current shaped case is TipTap's
    paragraph-into-list Backspace transaction, which is expressed through
    Structure tracking on the move prefix followed by normal join tracking on the
-   join suffix. Provisional Structure adds can absorb the move, and provisional
-   add join cancellation can suppress the Block join suggestion.
+   join suffix. This shaped move+join is one visible edit, so both tracking
+   paths receive the same suggestion ID. Provisional Structure adds can absorb
+   the move, and provisional add join cancellation can suppress the Block join
+   suggestion.
 3. In the primary `withSuggestChanges` integration, the dispatch wrapper uses
    `experimental_ensureUniqueNodeIds` to set IDs on newly created or duplicated
    nodes before structure diffing. The append-transaction plugin path only
@@ -269,6 +271,13 @@ it away cancels the pending add without introducing another review artifact.
 When debugging this path, inspect the joined-node pairs that would be serialized
 in the Block join suggestion, not unrelated nodes in the deletion range.
 
+Rejecting a single Block join suggestion can reveal Structure marks that were
+serialized in its joined-node metadata. Single-suggestion rejection first
+rejects any restored Structure suggestion with the same suggestion ID as the
+Block join, then rejects the remaining restored Structure suggestion IDs. This
+preserves broad restored-Structure cleanup while giving shaped move+join
+semantic units priority.
+
 ## Applying Suggestions
 
 Applying a Structure suggestion accepts the structure edit. It does not move
@@ -326,9 +335,9 @@ Before either the normal structure-first path or the normal text-suggestion path
 runs, `withSuggestChanges` asks transaction shaping to handle recognized
 compound transactions. The shaped TipTap paragraph-into-list join path runs
 Structure detection on the move prefix, then runs normal text suggestion
-tracking on the join suffix. If the moved node already has a Structure add
-suggestion, that add can satisfy the shaped prefix without producing a separate
-Structure move mark.
+tracking on the join suffix with the same generated suggestion ID. If the moved
+node already has a Structure add suggestion, that add can satisfy the shaped
+prefix without producing a separate Structure move mark.
 
 `suggestStructureChanges` returns `{ handled, transform, reason? }`. `handled`
 is based on whether structure ops were detected, not whether the transform

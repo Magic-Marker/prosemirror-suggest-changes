@@ -37,8 +37,20 @@ export class EditorPage {
     );
   }
 
+  getParagraphAt(index: number): Locator {
+    return this.editor.locator("p").nth(index);
+  }
+
   async getParagraphCount(): Promise<number> {
     return await this.editor.locator("p").count();
+  }
+
+  getListItems(): Locator {
+    return this.editor.locator("li");
+  }
+
+  getParagraphs(): Locator {
+    return this.editor.locator("p");
   }
 
   async getListItemCount(): Promise<number> {
