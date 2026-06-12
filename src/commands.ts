@@ -13,6 +13,7 @@ import { getSuggestionMarks } from "./utils.js";
 import { type SuggestionId } from "./generateId.js";
 import { ZWSP } from "./constants.js";
 import { maybeRevertJoinMark } from "./features/joinOnDelete/index.js";
+import { isJoinMark } from "./features/joinOnDelete/types.js";
 import {
   revertAllStructureSuggestions,
   revertStructureSuggestion,
@@ -118,11 +119,14 @@ function applySuggestionsToTransform(
         child,
         markTypeToApply,
       );
+
       // reverting a join mark may produce new structure marks that were serialized in the join metadata
-      if (joinRevertResult)
+      if (joinRevertResult) {
         joinRevertResult.restoredStructureSuggestionIds.forEach((id) =>
           restoredStructureSuggestionIds.add(id),
         );
+      }
+
       if (!joinRevertResult && child.text === ZWSP) {
         tr.delete(insertionFrom, insertionTo);
       }
@@ -134,6 +138,66 @@ function applySuggestionsToTransform(
   return {
     restoredStructureSuggestionIds,
   };
+}
+
+/**
+ * Collect suggestion IDs of join marks in the node
+ *
+ * @param node
+ * @param deletion
+ * @returns an array of suggestion IDs
+ */
+function findJoinSuggestionIds(node: Node, deletion: MarkType) {
+  const joinSuggestionIds: SuggestionId[] = [];
+
+  node.descendants((child) => {
+    const mark = deletion.isInSet(child.marks);
+    if (!mark || !isJoinMark(mark)) return true;
+    if (!child.isText || child.text !== ZWSP) return true;
+
+    joinSuggestionIds.push(mark.attrs.id);
+    return true;
+  });
+
+  return joinSuggestionIds.reverse();
+}
+
+/**
+ * Revert suggestions revealed by reverting a join mark
+ * Prioritize reverting revealed suggestions with the same id as the join mark
+ * (that means they are linked to the join mark and has to be reverted together as one)
+ * Revert other revealed suggestions as well so the user doesn't have to revert multiple times at the same place
+ *
+ * @param tr
+ * @param suggestionId
+ * @param restoredStructureSuggestionIds
+ */
+function revertRestoredStructureSuggestions(
+  tr: Transform,
+  suggestionId: SuggestionId,
+  restoredStructureSuggestionIds: Set<SuggestionId>,
+) {
+  if (restoredStructureSuggestionIds.has(suggestionId)) {
+    const restoredStructureTransform = revertStructureSuggestion(
+      tr.doc,
+      suggestionId,
+    );
+    restoredStructureTransform.steps.forEach((step) => {
+      tr.step(step);
+    });
+  }
+
+  restoredStructureSuggestionIds.forEach((restoredSuggestionId) => {
+    if (restoredSuggestionId === suggestionId) return;
+
+    const restoredStructureTransform = revertStructureSuggestion(
+      tr.doc,
+      restoredSuggestionId,
+    );
+    restoredStructureTransform.steps.forEach((step) => {
+      tr.step(step);
+    });
+  });
 }
 
 function revertModifications(node: Node, pos: number, tr: Transform) {
@@ -533,7 +597,34 @@ export function revertSuggestions(
   // create a structure transform that reverts all structure changes on the given document
   const structureTransform = revertAllStructureSuggestions(state.doc);
 
-  // then start a clear transform from the document where the structure changes are reverted
+  // revert all join marks first as well as any structure marks they contain serialized
+  const joinSuggestionIds = findJoinSuggestionIds(
+    structureTransform.doc,
+    deletion,
+  );
+
+  joinSuggestionIds.forEach((suggestionId) => {
+    const suggestionsTransform = new Transform(structureTransform.doc);
+    const { restoredStructureSuggestionIds } = applySuggestionsToTransform(
+      suggestionsTransform.doc,
+      suggestionsTransform,
+      deletion,
+      insertion,
+      suggestionId,
+    );
+
+    suggestionsTransform.steps.forEach((step) => {
+      structureTransform.step(step);
+    });
+
+    revertRestoredStructureSuggestions(
+      structureTransform,
+      suggestionId,
+      restoredStructureSuggestionIds,
+    );
+  });
+
+  // then start a clear transform from the document where the structure changes and join marks are reverted
   const suggestionsTransform = new Transform(structureTransform.doc);
   applySuggestionsToTransform(
     suggestionsTransform.doc,
@@ -684,27 +775,14 @@ export function revertSuggestion(
     suggestionsTransform.steps.forEach((step) => {
       structureTransform.step(step);
     });
-    if (restoredStructureSuggestionIds.has(suggestionId)) {
-      const restoredStructureTransform = revertStructureSuggestion(
-        structureTransform.doc,
-        suggestionId,
-      );
-      restoredStructureTransform.steps.forEach((step) => {
-        structureTransform.step(step);
-      });
-    }
 
-    restoredStructureSuggestionIds.forEach((restoredSuggestionId) => {
-      if (restoredSuggestionId === suggestionId) return;
-
-      const restoredStructureTransform = revertStructureSuggestion(
-        structureTransform.doc,
-        restoredSuggestionId,
-      );
-      restoredStructureTransform.steps.forEach((step) => {
-        structureTransform.step(step);
-      });
-    });
+    // in case there are structure marks revealed after join mark revert,
+    // revert them as well
+    revertRestoredStructureSuggestions(
+      structureTransform,
+      suggestionId,
+      restoredStructureSuggestionIds,
+    );
 
     // apply the structure transform to the transaction
     const transaction = state.tr;
