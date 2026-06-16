@@ -1,4 +1,4 @@
-import { EditorState, type Transaction } from "prosemirror-state";
+import { EditorState, Selection, type Transaction } from "prosemirror-state";
 import {
   preserveTransactionData,
   transformToSuggestionTransaction,
@@ -89,12 +89,23 @@ export function handleTipTapParagraphIntoListJoin(
   });
 
   preserveTransactionData(trackedTransaction, trackedJoinTransaction, {
-    selection: "currentDocument",
+    selection: false,
     preserveScroll: false,
     preserveStoredMarks: false,
     preserveMeta: false,
   });
-  preserveTransactionData(trackedTransaction, args.transaction);
+  preserveTransactionData(trackedTransaction, args.transaction, {
+    selection: false,
+  });
+
+  if (args.transaction.selectionSet) {
+    trackedTransaction.setSelection(
+      Selection.fromJSON(
+        trackedTransaction.doc,
+        args.transaction.selection.toJSON(),
+      ),
+    );
+  }
 
   return trackedTransaction;
 }

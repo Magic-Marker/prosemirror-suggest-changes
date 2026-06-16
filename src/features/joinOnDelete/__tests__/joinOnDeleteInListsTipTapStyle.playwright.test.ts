@@ -92,6 +92,12 @@ const TIPTAP_PARAGRAPH_INTO_LIST_STEPS = [
   { stepType: "replace", from: 39, to: 41, structure: true },
 ];
 
+const TIPTAP_PARAGRAPH_INTO_LIST_SELECTION = {
+  type: "text",
+  anchor: 39,
+  head: 39,
+};
+
 const TIPTAP_PARAGRAPH_INTO_LIST_DOC = {
   type: "doc",
   content: [
@@ -232,6 +238,12 @@ const TIPTAP_NEW_PARAGRAPH_INTO_LIST_STEPS = [
   { stepType: "replace", from: 39, to: 41, structure: true },
 ];
 
+const TIPTAP_NEW_PARAGRAPH_INTO_LIST_SELECTION = {
+  type: "text",
+  anchor: 39,
+  head: 39,
+};
+
 const TIPTAP_NEW_PARAGRAPH_INTO_LIST_DOC = {
   type: "doc",
   content: [
@@ -334,15 +346,27 @@ async function dispatchTipTapDepthTwoJoinStep(page: Page) {
 }
 
 async function dispatchTipTapParagraphIntoListStep(page: Page) {
-  await page.evaluate((steps) => {
-    window.pmEditor.dispatchTransactionWithSteps(steps);
-  }, TIPTAP_PARAGRAPH_INTO_LIST_STEPS);
+  await page.evaluate(
+    ({ steps, selection }) => {
+      window.pmEditor.dispatchTransactionWithSteps(steps, selection);
+    },
+    {
+      steps: TIPTAP_PARAGRAPH_INTO_LIST_STEPS,
+      selection: TIPTAP_PARAGRAPH_INTO_LIST_SELECTION,
+    },
+  );
 }
 
 async function dispatchTipTapNewParagraphIntoListStep(page: Page) {
-  await page.evaluate((steps) => {
-    window.pmEditor.dispatchTransactionWithSteps(steps);
-  }, TIPTAP_NEW_PARAGRAPH_INTO_LIST_STEPS);
+  await page.evaluate(
+    ({ steps, selection }) => {
+      window.pmEditor.dispatchTransactionWithSteps(steps, selection);
+    },
+    {
+      steps: TIPTAP_NEW_PARAGRAPH_INTO_LIST_STEPS,
+      selection: TIPTAP_NEW_PARAGRAPH_INTO_LIST_SELECTION,
+    },
+  );
 }
 
 test.describe("Join on Delete E2E - Real Keyboard Events", () => {
@@ -993,23 +1017,21 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       // expect one less paragraph
       await expect(editorPage.editor.locator("p")).toHaveCount(4);
 
-      const lastListItemParagraphLocator = editorPage.editor
-        .locator("ol")
-        .first()
-        .locator("li")
-        .nth(3)
-        .locator("p")
-        .first();
       // the paragraph is now merged into the list item's first paragraph
-      await expect(lastListItemParagraphLocator).toContainText(
-        "sample paragraph",
+      await expect(editorPage.getParagraphAt(3)).toHaveText(
+        "Item 4sample paragraph",
       );
-      await expect(lastListItemParagraphLocator).toContainText("Item 4");
 
       // the structure mark is gone, insertion remains
       // no join mark because track changes off
       expect(await editorPage.getProseMirrorMarkCount("structure")).toBe(0);
       expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(1);
+
+      // verify cursor position by entering text
+      await editorPage.insertText("FOO", { waitForSelectionChange: true });
+      await expect(editorPage.getParagraphAt(3)).toHaveText(
+        "Item 4FOOsample paragraph",
+      );
     });
 
     test("joins the new paragraph into the last list item when suggestions are enabled", async ({
@@ -1060,18 +1082,10 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       // expect one less paragraph
       await expect(editorPage.editor.locator("p")).toHaveCount(4);
 
-      const lastListItemParagraphLocator = editorPage.editor
-        .locator("ol")
-        .first()
-        .locator("li")
-        .nth(3)
-        .locator("p")
-        .first();
       // the paragraph is now merged into the list item's first paragraph
-      await expect(lastListItemParagraphLocator).toContainText(
-        "sample paragraph",
+      await expect(editorPage.getParagraphAt(3)).toHaveText(
+        "Item 4sample paragraph",
       );
-      await expect(lastListItemParagraphLocator).toContainText("Item 4");
 
       // the structure mark is gone, insertion remains
       // no join mark because the joined paragraph was a provisional structure add
@@ -1081,6 +1095,12 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       const marks = await editorPage.getProseMirrorMarksJSON();
       const joinMarks = marks.filter(isJoinMarkObject);
       expect(joinMarks).toHaveLength(0);
+
+      // verify cursor position by entering text
+      await editorPage.insertText("FOO", { waitForSelectionChange: true });
+      await expect(editorPage.getParagraphAt(3)).toHaveText(
+        "Item 4FOOsample paragraph",
+      );
     });
   });
 });

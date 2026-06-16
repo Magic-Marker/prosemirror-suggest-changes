@@ -1,5 +1,6 @@
 import {
   EditorState,
+  Selection,
   TextSelection,
   type Transaction,
 } from "prosemirror-state";
@@ -264,7 +265,10 @@ declare global {
         childIndexes?: number[],
       ) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
-      dispatchTransactionWithSteps: (stepJSONs: object[]) => void;
+      dispatchTransactionWithSteps: (
+        stepJSONs: object[],
+        selection?: { type: string; anchor: number; head: number },
+      ) => void;
       setSuggestChangesEnabled: (enabled: boolean) => void;
       revertSuggestion: (
         suggestionId: SuggestionId,
@@ -426,12 +430,18 @@ window.pmEditor = {
     return view.dom.childNodes[index].textContent ?? "";
   },
 
-  dispatchTransactionWithSteps(stepJSONs: object[]) {
+  dispatchTransactionWithSteps(
+    stepJSONs: object[],
+    selection?: { type: string; anchor: number; head: number },
+  ) {
     const steps = stepJSONs.map((stepJSON) =>
       Step.fromJSON(view.state.schema, stepJSON),
     );
     const tr = view.state.tr;
     steps.forEach((step) => tr.step(step));
+    if (selection) {
+      tr.setSelection(Selection.fromJSON(tr.doc, selection));
+    }
     view.dispatch(tr);
   },
 
