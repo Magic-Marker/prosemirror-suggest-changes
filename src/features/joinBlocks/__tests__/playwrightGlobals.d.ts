@@ -45,7 +45,10 @@ declare global {
         childIndexes?: number[],
       ) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
-      dispatchTransactionWithSteps: (stepJSONs: object[]) => void;
+      dispatchTransactionWithSteps: (
+        stepJSONs: object[],
+        selection?: { type: string; anchor: number; head: number },
+      ) => void;
       setSuggestChangesEnabled: (enabled: boolean) => void;
       revertSuggestion: (
         suggestionId: SuggestionId,
