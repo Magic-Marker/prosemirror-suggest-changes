@@ -251,6 +251,7 @@ declare global {
         parentOffset: number;
         depth: number;
       };
+      setCursorToStart: () => void;
       setCursorToEnd: () => void;
       setCursorToPosition: (pos: number) => void;
       setCursorToEndOfBlock: (blockIndex: number) => void;
@@ -335,6 +336,12 @@ window.pmEditor = {
       parentOffset: $from.parentOffset,
       depth: $from.depth,
     };
+  },
+
+  setCursorToStart() {
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(0))),
+    );
   },
 
   setCursorToEnd() {

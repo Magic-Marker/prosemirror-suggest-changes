@@ -203,13 +203,10 @@ export class EditorPage {
    * editor.view.state is a different object (ProseMirror creates a new
    * immutable state on every transaction).
    */
-  async insertText(
-    text: string,
-    opts?: { waitForSelectionChange?: boolean },
-  ): Promise<void> {
+  async insertText(text: string): Promise<void> {
     await this.doActionAndWaitForState(
       () => this.page.keyboard.insertText(text),
-      opts,
+      { waitForSelectionChange: true },
     );
   }
 
@@ -230,5 +227,33 @@ export class EditorPage {
     await this.page.evaluate((nextNodeId) => {
       window.pmEditor.setNextNodeId(nextNodeId);
     }, nextNodeId);
+  }
+
+  async enableTrackChanges() {
+    await this.page.evaluate(() => {
+      window.pmEditor.setSuggestChangesEnabled(true);
+    });
+  }
+
+  async disableTrackChanges() {
+    await this.page.evaluate(() => {
+      window.pmEditor.setSuggestChangesEnabled(false);
+    });
+  }
+
+  async focusEditor() {
+    await this.setCursorToEnd();
+  }
+
+  async setCursorToStart() {
+    await this.page.evaluate(() => {
+      window.pmEditor.setCursorToStart();
+    });
+  }
+
+  async setCursorToEnd() {
+    await this.page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
   }
 }

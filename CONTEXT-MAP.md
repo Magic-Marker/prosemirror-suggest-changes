@@ -13,24 +13,15 @@
 - [Start-To-Start Textblock Deletion](./src/features/startToStartTextblockDeletion/CONTEXT.md) -
   single replace-step text-selection deletion shapes whose step boundaries
   differ from the user-visible deleted range.
+- [Ensure Valid Selection](./src/features/ensureValidSelection/CONTEXT.md) -
+  cursor and text-selection positions that suggestion markers make unsafe for
+  normal editing.
 
 ## Relationships
 
-This repository has multiple bounded documentation contexts:
-
-- [Wrap/Unwrap Structure Suggestions](./src/features/wrapUnwrap/CONTEXT.md) -
-  tracked suggestions for configured structural context edits such as indent,
-  outdent, wrap, and unwrap.
-- [Join On Delete Suggestions](./src/features/joinOnDelete/CONTEXT.md) - tracked
-  suggestions for physical block joins created by deleting a block boundary.
-- [Transaction Shaping](./src/features/transactionShaping/CONTEXT.md) -
-  recognition of special compound editor transactions that should be expressed
-  as existing suggestion concepts.
-
-## Relationships
-
-- Wrap/unwrap owns **Structure suggestions** and **Structure add suggestions**.
-- Join-on-delete owns **Block join suggestions**.
+- Wrap/unwrap owns the **Structure suggestion** and **Structure add suggestion**
+  concepts.
+- Join-on-delete owns the **Block join suggestion** concept.
 - **Provisional add join cancellation** is the shared rule: when a physical
   block join touches any node with a Structure add suggestion, the join happens
   but no separate Block join suggestion is created.
@@ -40,3 +31,5 @@ This repository has multiple bounded documentation contexts:
   edit, those existing concepts may share one suggestion ID.
 - Start-to-start textblock deletion is handled inside normal replace-step
   suggestion tracking; it does not inspect or rewrite whole transactions.
+- Ensure-valid-selection runs after transactions and may rewrite invalid text
+  selections without changing the document.

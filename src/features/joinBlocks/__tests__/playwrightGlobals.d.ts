@@ -25,6 +25,7 @@ declare global {
         parentOffset: number;
         depth: number;
       };
+      setCursorToStart: () => void;
       setCursorToEnd: () => void;
       setCursorToPosition: (pos: number) => void;
       setCursorToEndOfBlock: (blockIndex: number) => void;

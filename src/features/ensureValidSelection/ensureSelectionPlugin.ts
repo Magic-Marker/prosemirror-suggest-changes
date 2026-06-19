@@ -1,7 +1,6 @@
 import { Plugin, PluginKey, TextSelection } from "prosemirror-state";
-import { getSuggestionMarks } from "./utils.js";
 import { type ResolvedPos } from "prosemirror-model";
-import { ZWSP } from "./constants.js";
+import { getInvalidSelectionPositionReason } from "./selectionPosition.js";
 
 const TRACE_ENABLED = false;
 function trace(...args: unknown[]) {
@@ -73,8 +72,9 @@ export function ensureSelection() {
       },
     },
 
-    appendTransaction(_transactions, oldState, newState) {
+    appendTransaction(transactions, oldState, newState) {
       const pluginState = ensureSelectionKey.getState(newState);
+      const isSelectionOnly = transactions.every((tr) => !tr.docChanged);
 
       if (!(newState.selection instanceof TextSelection)) {
         return null;
@@ -93,12 +93,10 @@ export function ensureSelection() {
 
       trace("appendTransaction", "search for new valid $anchor...");
       let $newAnchor = getNewValidPos(
+        oldState.selection.$anchor,
         newState.selection.$anchor,
-        getDirection(
-          oldState.selection.$anchor,
-          newState.selection.$anchor,
-          pluginState,
-        ),
+        isSelectionOnly,
+        pluginState,
       );
       trace("appendTransaction", "new valid $anchor", $newAnchor?.pos, {
         $newAnchor,
@@ -108,12 +106,10 @@ export function ensureSelection() {
       let $newHead = newState.selection.empty
         ? $newAnchor
         : getNewValidPos(
+            oldState.selection.$head,
             newState.selection.$head,
-            getDirection(
-              oldState.selection.$head,
-              newState.selection.$head,
-              pluginState,
-            ),
+            isSelectionOnly,
+            pluginState,
           );
       trace("appendTransaction", "new valid $head", $newHead?.pos, {
         $newHead,
@@ -169,148 +165,12 @@ export function isEnsureSelectionEnabled() {
 }
 
 function isPosValid($pos: ResolvedPos) {
-  // text selection is only valid in nodes that allow inline content
-  // https://github.com/ProseMirror/prosemirror-state/blob/1.4.4/src/selection.ts#L219
-  if (!$pos.parent.inlineContent) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: not in inlineContent node",
-      {
-        $pos,
-      },
-    );
-    return false;
-  }
+  const invalidReason = getInvalidSelectionPositionReason($pos);
 
-  const { deletion, insertion } = getSuggestionMarks($pos.doc.type.schema);
-
-  const deletionBefore = deletion.isInSet($pos.nodeBefore?.marks ?? []);
-  const deletionAfter = deletion.isInSet($pos.nodeAfter?.marks ?? []);
-
-  const isAnchorBefore =
-    deletionBefore && deletionBefore.attrs["type"] === "anchor";
-  const isAnchorAfter =
-    deletionAfter && deletionAfter.attrs["type"] === "anchor";
-
-  if (isAnchorBefore && deletionAfter && !isAnchorAfter) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between deletion anchor and non-anchor deletion",
-      { $pos },
-    );
-    return false;
-  }
-
-  if (deletionBefore && deletionAfter && !isAnchorBefore && !isAnchorAfter) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between two non-anchor deletions",
-      { $pos },
-    );
-    return false;
-  }
-
-  if ($pos.nodeBefore == null && deletionAfter && !isAnchorAfter) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between node boundary and non-anchor deletion",
-      { $pos },
-    );
-    return false;
-  }
-
-  if (deletionBefore && $pos.nodeAfter == null && !isAnchorBefore) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between non-anchor deletion and node boundary",
-      { $pos },
-    );
-    return false;
-  }
-
-  if (deletionBefore && !isAnchorBefore && $pos.nodeAfter == null) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between non-anchor deletion and node boundary",
-      { $pos },
-    );
-    return false;
-  }
-
-  if (deletionBefore && !isAnchorBefore) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between non-anchor deletion and anything",
-      { $pos },
-    );
-    return false;
-  }
-
-  const insertionBefore = insertion.isInSet($pos.nodeBefore?.marks ?? []);
-  const insertionAfter = insertion.isInSet($pos.nodeAfter?.marks ?? []);
-
-  const ZWSP_REGEXP = new RegExp(ZWSP, "g");
-  const isZWSPBefore =
-    $pos.nodeBefore &&
-    $pos.nodeBefore.isText &&
-    $pos.nodeBefore.textContent.replace(ZWSP_REGEXP, "") === "";
-  const isZWSPAfter =
-    $pos.nodeAfter &&
-    $pos.nodeAfter.isText &&
-    $pos.nodeAfter.textContent.replace(ZWSP_REGEXP, "") === "";
-
-  if (insertionBefore && insertionAfter && isZWSPBefore && isZWSPAfter) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between two ZWSP insertions",
-      { $pos },
-    );
-    return false;
-  }
-
-  if (
-    insertionBefore &&
-    isZWSPBefore &&
-    $pos.nodeAfter == null &&
-    // a position like this:
-    // <p><insertion>ZWSP</insertion>|</p>
-    // because it means this paragraph was just created and it's empty
-    $pos.parent.textContent.replace(ZWSP_REGEXP, "") !== ""
-  ) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between ZWSP insertion and right node boundary",
-      { $pos },
-    );
-    return false;
-  }
-
-  if (insertionAfter && isZWSPAfter && $pos.nodeBefore == null) {
-    trace(
-      "isPosValid",
-      $pos.pos,
-      "pos invalid",
-      "reason: between ZWSP insertion and left node boundary",
-      { $pos },
-    );
+  if (invalidReason) {
+    trace("isPosValid", $pos.pos, "pos invalid", `reason: ${invalidReason}`, {
+      $pos,
+    });
     return false;
   }
 
@@ -398,7 +258,55 @@ function findPreviousValidPos($initialPos: ResolvedPos): ResolvedPos | null {
   return isPosValid($pos) ? $pos : null;
 }
 
-function getNewValidPos($pos: ResolvedPos, dir: "left" | "right" | null) {
+function findNearestValidPosInSameParent(
+  $initialPos: ResolvedPos,
+): ResolvedPos | null {
+  if (!$initialPos.parent.inlineContent) return null;
+
+  const start = $initialPos.start();
+  const end = $initialPos.end();
+  const maxDistance = Math.max($initialPos.pos - start, end - $initialPos.pos);
+
+  for (let distance = 0; distance <= maxDistance; distance++) {
+    const nextPos = $initialPos.pos + distance;
+    if (nextPos <= end) {
+      const $nextPos = $initialPos.doc.resolve(nextPos);
+      if (isPosValid($nextPos)) return $nextPos;
+    }
+
+    const prevPos = $initialPos.pos - distance;
+    if (distance > 0 && prevPos >= start) {
+      const $prevPos = $initialPos.doc.resolve(prevPos);
+      if (isPosValid($prevPos)) return $prevPos;
+    }
+  }
+
+  return null;
+}
+
+function getNewValidPosInSelectionDestinationParent(
+  $oldPos: ResolvedPos,
+  $newPos: ResolvedPos,
+): ResolvedPos | null {
+  if (isPosValid($newPos)) return null;
+  if ($oldPos.parent === $newPos.parent) return null;
+  if (!$newPos.parent.inlineContent) return null;
+
+  const $sameParentPos = findNearestValidPosInSameParent($newPos);
+  trace(
+    "getNewValidPosInSelectionDestinationParent",
+    "$sameParentPos",
+    $sameParentPos?.pos,
+    { $oldPos, $newPos, $sameParentPos },
+  );
+
+  return $sameParentPos;
+}
+
+function getNewValidPosByDirection(
+  $pos: ResolvedPos,
+  dir: "left" | "right" | null,
+) {
   if (isPosValid($pos)) return $pos;
 
   trace("getNewValidPos for", $pos.pos, { $pos, dir });
@@ -461,6 +369,25 @@ function getNewValidPos($pos: ResolvedPos, dir: "left" | "right" | null) {
   const prevDist = Math.abs($pos.pos - $prevValidPos.pos);
 
   return nextDist <= prevDist ? $nextValidPos : $prevValidPos;
+}
+
+function getNewValidPos(
+  $oldPos: ResolvedPos,
+  $newPos: ResolvedPos,
+  isSelectionOnly: boolean,
+  pluginState?: PluginState,
+) {
+  const $sameParentPos = isSelectionOnly
+    ? getNewValidPosInSelectionDestinationParent($oldPos, $newPos)
+    : null;
+
+  return (
+    $sameParentPos ??
+    getNewValidPosByDirection(
+      $newPos,
+      getDirection($oldPos, $newPos, pluginState),
+    )
+  );
 }
 
 function getDirection(

@@ -1007,7 +1007,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       });
 
       // put the cursor to the start of the paragraph
-      await editorPage.pressKey("Home", { waitForSelectionChange: true });
+      await editorPage.pressKey("Home");
 
       // join the paragraph into the last list item
       await dispatchTipTapNewParagraphIntoListStep(page);
@@ -1028,7 +1028,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(1);
 
       // verify cursor position by entering text
-      await editorPage.insertText("FOO", { waitForSelectionChange: true });
+      await editorPage.insertText("FOO");
       await expect(editorPage.getParagraphAt(3)).toHaveText(
         "Item 4FOOsample paragraph",
       );
@@ -1097,7 +1097,7 @@ test.describe("Join on Delete E2E - Real Keyboard Events", () => {
       expect(joinMarks).toHaveLength(0);
 
       // verify cursor position by entering text
-      await editorPage.insertText("FOO", { waitForSelectionChange: true });
+      await editorPage.insertText("FOO");
       await expect(editorPage.getParagraphAt(3)).toHaveText(
         "Item 4FOOsample paragraph",
       );

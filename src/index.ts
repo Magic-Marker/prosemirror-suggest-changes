@@ -34,7 +34,7 @@ export {
   ensureSelection as experimental_ensureSelection,
   ensureSelectionKey as experimental_ensureSelectionKey,
   isEnsureSelectionEnabled as experimental_isEnsureSelectionEnabled,
-} from "./ensureSelectionPlugin.js";
+} from "./features/ensureValidSelection/ensureSelectionPlugin.js";
 
 export { guardStructureMarkAttrs } from "./features/wrapUnwrap/types.js";
 
