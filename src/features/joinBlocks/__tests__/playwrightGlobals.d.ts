@@ -37,6 +37,8 @@ declare global {
       getProseMirrorSelection: () => { anchor: number; head: number };
       getTextContentOfChildAtIndex: (index: number) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      revertAllSuggestions: () => void;
+      acceptAllSuggestions: () => void;
     };
   }
 }
