@@ -2,10 +2,9 @@
 
 Status: experimental, active hardening.
 
-This document explains the implementation of Structure suggestions in
-`src/features/wrapUnwrap`. It is meant to give a ProseMirror-proficient reader
-enough context to debug the current behavior, harden it, or extend it without
-breaking the core invariants.
+This document explains the plugin implementation of Structure suggestions. It is
+meant to give a ProseMirror-proficient reader enough context to debug the
+current behavior, harden it, or extend it without breaking the core invariants.
 
 ## Problem
 
@@ -91,30 +90,17 @@ not tracked yet.
 9. Reverting uses stored Parent chains to delete added nodes or move existing
    nodes back.
 
-## File Map
+## Code Areas
 
-- `structureChangesPlugin.ts`: transaction integration and structure diffing.
-- `buildMaterializedPaths.ts`: builds node ID to Parent chain maps.
-- `sameParentChain.ts`: compares Parent chains by ancestor IDs.
-- `types.ts`: operation, Parent chain, and Structure mark attr types.
-- `constants.ts`: structure tracking constants.
-- `addIdAttr.ts`: helper for adding an `id` attr to schema node specs.
-- `uniqueNodeIdsPlugin.ts`: demo/test ID-settling plugin and transform helper.
-- `apply/applyStructureSuggestions.ts`: accepts Structure suggestions by
-  removing Structure marks.
-- `revert/revertStructureSuggestions.ts`: grouped Structure suggestion revert
-  orchestration.
-- `revert/revertMoveOp.ts`: reconstructs previous Parent chains for moved nodes.
-- `revert/revertAddOp.ts`: deletes added nodes.
-- `revert/deleteNodeUpwards.ts`: prunes now-empty ancestors after deletion.
-- `../../transactionShaping`: recognizes special compound transactions before
-  the normal Structure-vs-text suggestion branch.
-- `__tests__/listStructure.playwright.test.ts`: user-level list behavior
-  coverage.
-- `__tests__/blockquoteStructure.playwright.test.ts`: user-level blockquote
-  behavior coverage.
-- `__tests__/splitDetection.test.ts`: focused coverage for split-derived add
-  fallthrough, including provisional Structure add cases.
+The structure-tracking implementation is split across these stable areas:
+
+- transaction integration and structure diffing
+- materialized Parent chain construction and comparison
+- Structure mark attrs and operation guards
+- unique-node-ID settling
+- Structure suggestion apply/revert commands
+- transaction shaping for compound editor transactions
+- user-level list, blockquote, split, apply, and revert coverage
 
 ## Required Invariants
 
@@ -224,8 +210,8 @@ deliberately does not compare parent attrs, marks, sibling IDs, or indexes.
 
 `addMarks` applies the local Structure add suggestion and Structure move
 suggestion rules: provisional adds absorb later moves, Inverse moves on the same
-node cancel, and non-cancelling moves can still stack. See
-[`0002-provisional-adds-and-inverse-moves.md`](adr/0002-provisional-adds-and-inverse-moves.md).
+node cancel, and non-cancelling moves can still stack. See the provisional-adds
+and inverse moves ADR.
 
 Block join suggestions are suppressed when any joined node still has a Structure
 add mark. The physical join still happens, but the provisional add is treated as
@@ -295,10 +281,9 @@ whole group.
 
 Reverting a Structure suggestion uses the stored operation data to either delete
 added nodes or move existing nodes back to their previous Parent chain.
-Structure revert ordering is decision-owned by
-[`0001-structure-suggestion-revert-order.md`](adr/0001-structure-suggestion-revert-order.md).
-For range revert, the range selects suggestion IDs, then each selected Structure
-suggestion is reverted as a whole group.
+Structure revert ordering is decision-owned by the Structure suggestion revert
+order ADR. For range revert, the range selects suggestion IDs, then each
+selected Structure suggestion is reverted as a whole group.
 
 ### Reverting `add`
 

@@ -2,20 +2,19 @@
 
 ## Contexts
 
-- [Wrap/Unwrap Structure Suggestions](./src/features/wrapUnwrap/CONTEXT.md) -
-  tracked suggestions for configured structural context edits such as indent,
-  outdent, wrap, and unwrap.
-- [Join On Delete Suggestions](./src/features/joinOnDelete/CONTEXT.md) - tracked
-  suggestions for physical block joins created by deleting a block boundary.
-- [Transaction Shaping](./src/features/transactionShaping/CONTEXT.md) -
-  recognition of special compound editor transactions that should be expressed
-  as existing suggestion concepts.
-- [Start-To-Start Textblock Deletion](./src/features/startToStartTextblockDeletion/CONTEXT.md) -
-  single replace-step text-selection deletion shapes whose step boundaries
-  differ from the user-visible deleted range.
-- [Ensure Valid Selection](./src/features/ensureValidSelection/CONTEXT.md) -
-  cursor and text-selection positions that suggestion markers make unsafe for
-  normal editing.
+Context docs live under `src`.
+
+- Wrap/Unwrap Structure Suggestions - tracked suggestions for configured
+  structural context edits such as indent, outdent, wrap, and unwrap.
+- Join On Delete Suggestions - tracked suggestions for physical block joins
+  created by deleting a block boundary.
+- Transaction Shaping - recognition of special compound editor transactions that
+  should be expressed as existing suggestion concepts.
+- Start-To-Start Textblock Deletion - single replace-step text-selection
+  deletion shapes whose step boundaries differ from the user-visible deleted
+  range.
+- Ensure Valid Selection - cursor and text-selection positions that suggestion
+  markers make unsafe for normal editing.
 
 ## Relationships
 
