@@ -49,10 +49,11 @@ export const joinBlocks = (
     const from = ZWSPAtToBoundary.pos;
     insertedRanges.push({ from, to: from + 1 });
   }
+  // Join from the deepest/rightmost boundary first so earlier joins do not
+  // invalidate the recorded positions for later joins and insertion cleanup.
   pairs.reverse();
   insertedRanges.reverse();
 
-  // step 3: join blocks at multiple depths as needed
   for (const p of pairs) {
     const fromPos = p.left?.pos;
     const toPos = p.right?.pos;
@@ -66,7 +67,9 @@ export const joinBlocks = (
     }
   }
 
-  // step 4: remove inserted ranges
+  // Insertion-marked content is accepted by deletion, so it is physically
+  // removed after joins. Map through the join steps because those positions were
+  // collected in the pre-join document.
   const joinSteps = trackedTransaction.steps.slice(startStep);
   const joinMapping = new Mapping(joinSteps.map((s) => s.getMap()));
   for (const range of insertedRanges) {

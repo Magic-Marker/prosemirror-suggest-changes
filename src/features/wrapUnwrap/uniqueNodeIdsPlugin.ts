@@ -33,7 +33,8 @@ export function uniqueNodeIdsPlugin({
       trace("appendTransaction");
       const pluginState = uniqueNodeIdsPluginKey.getState(newState);
 
-      // do nothing if doc hasn't changed (but make sure it runs initially)
+      // Structure tracking relies on stable node IDs even for the initial
+      // document. Run once without a doc change, then only rerun after edits.
       const docChanged = transactions.some(
         (transaction) => transaction.docChanged,
       );
@@ -106,13 +107,14 @@ export function ensureUniqueNodeIds(
 
     const nodeId = getNodeId(node);
 
-    // nodeId is set and is not duplicated
     if (nodeId != null && !nodeIds.has(nodeId)) {
       nodeIds.add(nodeId);
       return true;
     }
 
-    // nodeId is set and it is duplicated
+    // ProseMirror commands such as split can copy attrs onto new nodes. Duplicates
+    // must be rewritten immediately or structure diffing cannot tell which node
+    // moved and which node was newly materialized.
     if (nodeId != null && nodeIds.has(nodeId)) {
       const id = options.generateID();
       nodeIds.add(id);

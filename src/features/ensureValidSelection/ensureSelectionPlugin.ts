@@ -10,6 +10,8 @@ function trace(...args: unknown[]) {
 }
 
 interface PluginState {
+  // this is populated on handleKeyDown event
+  // so in appendTransaction we know if one of these keys was pressed
   handleKeyDown: {
     backspace: boolean;
     delete: boolean;
@@ -55,6 +57,9 @@ export function ensureSelection() {
 
         const newState = { ...state };
 
+        // remember if one of the keys we care about was pressed
+        // this is needed for appendTransaction
+
         newState.handleKeyDown.backspace = event.key === "Backspace";
         newState.handleKeyDown.delete = event.key === "Delete";
         newState.handleKeyDown.arrowLeft = event.key === "ArrowLeft";
@@ -84,8 +89,11 @@ export function ensureSelection() {
         isPosValid(newState.selection.$anchor) &&
         isPosValid(newState.selection.$head)
       ) {
+        // both selection positions are valid, no action needed
         return null;
       }
+
+      // find new valid selection anchor and head
 
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (TRACE_ENABLED)
@@ -124,6 +132,8 @@ export function ensureSelection() {
         newSelection.anchor === newState.selection.anchor &&
         newSelection.head === newState.selection.head
       ) {
+        // new selection is the same as old selection, no action needed
+
         trace(
           "appendTransaction",
           "new selection is the same as old selection, skipping",
@@ -180,11 +190,13 @@ function isPosValid($pos: ResolvedPos) {
 function findNextValidPos($initialPos: ResolvedPos): ResolvedPos | null {
   let $pos = $initialPos;
 
-  // to keep searching for the next valid pos we need non-null nodeAfter so we can go right or non-root depth so we can go up
+  // to keep searching for the next valid pos,
+  // we need a non-null nodeAfter so we can go right
+  // or a non-root depth so we can go up
   while (!isPosValid($pos) && ($pos.nodeAfter != null || $pos.depth > 0)) {
     // first check if we can go into nodeAfter
     if ($pos.nodeAfter != null) {
-      // if nodeAfter is inline, we can step into it and search for the valid pos in it
+      // if nodeAfter is inline, we can step into it and search for the valid pos inside
       if ($pos.nodeAfter.isInline) {
         // nodeAfter is inline - move in by one
         $pos = $pos.doc.resolve($pos.pos + 1);
@@ -220,7 +232,9 @@ function findNextValidPos($initialPos: ResolvedPos): ResolvedPos | null {
 function findPreviousValidPos($initialPos: ResolvedPos): ResolvedPos | null {
   let $pos = $initialPos;
 
-  // in order to be able to keep searching, we need either nodeBefore so we can go left, or non-root depth so we can go up
+  // in order to be able to keep searching,
+  // we need either a nodeBefore so we can go left,
+  // or a non-root depth so we can go up
   while (!isPosValid($pos) && ($pos.nodeBefore != null || $pos.depth > 0)) {
     // first check if we can go into nodeBefore
     if ($pos.nodeBefore != null) {
@@ -240,7 +254,7 @@ function findPreviousValidPos($initialPos: ResolvedPos): ResolvedPos | null {
 
         if (localEndPos !== null) {
           // we have a local ending position of the last inline descendant - convert it to global position
-          // move pos to start of node before, add 1 to "enter" nodeBefore, then add local pos
+          // move pos to start of nodeBefore, add 1 to "enter" nodeBefore, then add local pos
           $pos = $pos.doc.resolve(
             $pos.pos - $pos.nodeBefore.nodeSize + 1 + localEndPos,
           );
@@ -258,6 +272,12 @@ function findPreviousValidPos($initialPos: ResolvedPos): ResolvedPos | null {
   return isPosValid($pos) ? $pos : null;
 }
 
+/**
+ * Given a ResolvedPos, find closest valid pos within the same parent
+ *
+ * @param $initialPos
+ * @returns
+ */
 function findNearestValidPosInSameParent(
   $initialPos: ResolvedPos,
 ): ResolvedPos | null {
@@ -265,8 +285,12 @@ function findNearestValidPosInSameParent(
 
   const start = $initialPos.start();
   const end = $initialPos.end();
+
+  // take larger distance - either to the start or to the end of the parent node
   const maxDistance = Math.max($initialPos.pos - start, end - $initialPos.pos);
 
+  // for each distance in range [0, maxDistance],
+  // check if position within that distance from both sides is valid
   for (let distance = 0; distance <= maxDistance; distance++) {
     const nextPos = $initialPos.pos + distance;
     if (nextPos <= end) {
@@ -292,6 +316,9 @@ function getNewValidPosInSelectionDestinationParent(
   if ($oldPos.parent === $newPos.parent) return null;
   if (!$newPos.parent.inlineContent) return null;
 
+  // For selection-only transactions, keep the cursor inside the destination
+  // textblock when possible. Jumping across block boundaries makes arrow-key
+  // navigation feel like it skipped content.
   const $sameParentPos = findNearestValidPosInSameParent($newPos);
   trace(
     "getNewValidPosInSelectionDestinationParent",
@@ -395,6 +422,9 @@ function getDirection(
   $newPos: ResolvedPos,
   pluginState?: PluginState,
 ) {
+  // Position movement does not always reveal user intent. Backspace can leave
+  // the mapped selection at the same or unexpected position after suggestion
+  // markers are inserted, so preserve the keydown direction and search left.
   if (pluginState?.handleKeyDown.backspace) return "left";
 
   if ($newPos.pos > $oldPos.pos) return "right";

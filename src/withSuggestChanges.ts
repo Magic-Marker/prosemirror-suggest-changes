@@ -78,6 +78,10 @@ export function withSuggestChanges(
         ? getRequiredStructuralContextPaths(opts.experimental_trackStructures)
         : null;
       const ensureUniqueNodeIds = opts?.experimental_ensureUniqueNodeIds;
+      // Some editor commands emit compound transactions whose final doc diff looks
+      // structural, but whose user-visible edit needs normal suggestion tracking or
+      // a split structure/main route. Detect those before Structure tracking gets
+      // first claim on the transaction.
       const shapedTransaction = transaction.docChanged
         ? handleSpecialTransactionShape({
             transaction,
@@ -137,6 +141,9 @@ export function withSuggestChanges(
           structureChangesResult.transform,
         );
         if (structureChangesResult.handled) {
+          // Structure tracking is exclusive: once it handles a transaction, the
+          // main suggestion transformer will not run. Split-like false positives
+          // must bail out before this branch.
           uniqueNodeIdsTransform.steps.forEach((step) => {
             transaction.step(step);
           });

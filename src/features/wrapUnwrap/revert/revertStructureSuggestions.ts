@@ -222,6 +222,9 @@ function buildOrderedSuggestionIds(
   const suggestionIds = new Set<SuggestionId>();
   suggestionIds.add(suggestionId);
 
+  // If this move is no longer at its expected destination, another Structure
+  // move must be reverted first. Build the dependency chain so reverts happen
+  // from the current outermost state back toward the requested suggestion.
   // find first mark that doesn't have a matching op.to
   const mismatch = markGroup.find((mark) => {
     const nodeId = getNodeId(mark.node);

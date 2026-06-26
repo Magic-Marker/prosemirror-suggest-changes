@@ -212,6 +212,9 @@ export function suggestStructureChanges(
   const transform = new Transform(docAfter);
 
   if (reason) {
+    // A reason is an intentional fallthrough, not an error. The Structure
+    // detector recognized a shape that should be handled by normal suggestion
+    // tracking.
     return { handled: false, transform, reason };
   }
 
@@ -249,6 +252,9 @@ function addMarks(
     if (op == null) return true;
 
     if (op.op === "move") {
+      // A provisional Structure add already means this node is not accepted yet.
+      // Moving it should not create a second review artifact until the add is
+      // accepted.
       if (hasStructureAddMark(node)) return true;
 
       const inverseMoveMark = findInverseStructureMoveMark(node, op);
@@ -413,6 +419,8 @@ function isSplitDerivedAdd(
   contextNodeTypes: Set<string>,
 ) {
   const newNode = afterPaths.get(newNodeId)?.node;
+  // Empty after-only nodes are not considered split-derived in whole-doc diff
+  // mode. Without a step-local proof of a split, keep them as Structure adds.
   if (!newNode || newNode.textContent === "") return false;
 
   if (

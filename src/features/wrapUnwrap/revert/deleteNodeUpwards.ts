@@ -9,7 +9,6 @@ function trace(...args: unknown[]) {
   console.log("[deleteNodeUpwards]", "\n", ...args);
 }
 
-// delete a given node, and traverse upwards deleting parent nodes if they are now empty
 export function deleteNodeUpwards(
   transform: Transform,
   node: Node,
@@ -34,6 +33,9 @@ export function deleteNodeUpwards(
   let deleteFrom = $mappedPos.pos;
   let deleteTo = $mappedPos.pos + node.nodeSize;
 
+  // Structure marks live on content nodes, but added wrappers can become empty
+  // after that content is removed. Delete upward until the next parent still has
+  // another child that should survive.
   while ($mappedPos.depth > 0) {
     const $nextMappedPos = transform.doc.resolve($mappedPos.before());
     if ($nextMappedPos.nodeAfter?.childCount !== 1) {

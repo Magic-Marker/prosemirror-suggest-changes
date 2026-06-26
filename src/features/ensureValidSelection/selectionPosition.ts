@@ -77,9 +77,9 @@ export function getInvalidSelectionPositionReason(
     insertionBefore &&
     isZWSPBefore &&
     $pos.nodeAfter == null &&
-    // A position like this:
-    // <p><insertion>ZWSP</insertion>|</p>
-    // because it means this paragraph was just created and it's empty.
+    // A trailing inserted ZWSP is invalid only when it is acting as a boundary
+    // marker beside real content. In an otherwise empty paragraph it is the
+    // only editable anchor, so the cursor must be allowed there.
     $pos.parent.textContent.replace(ZWSP_REGEXP, "") !== ""
   ) {
     return "between-zwsp-insertion-and-right-node-boundary";

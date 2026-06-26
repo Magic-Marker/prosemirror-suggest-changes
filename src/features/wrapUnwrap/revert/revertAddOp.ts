@@ -9,5 +9,7 @@ export function revertAddOp(
   node: Node,
   pos: number,
 ) {
+  // A Structure add marks the content node, but reverting it may also need to
+  // remove now-empty structural parents that only existed to contain it.
   deleteNodeUpwards(tr, node, pos);
 }

@@ -67,8 +67,8 @@ export function buildMaterializedPaths(doc: Node): MaterializedPaths {
     const rightSibling = parent.children[childIndex + 1];
     const rightSiblingId = rightSibling ? getNodeId(rightSibling) : null;
 
-    // (this node parent chain) is (parent chain of the parent node) + (the parent node itself)
-
+    // Store sibling IDs with each parent because revert needs an insertion
+    // anchor that survives unrelated edits better than a raw child index.
     const parentDesc: Parent = {
       nodeId: parentId,
       nodeType: parent.type.name,

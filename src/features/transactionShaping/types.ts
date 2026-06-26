@@ -12,7 +12,15 @@ export interface TipTapParagraphIntoListJoinShape {
   movedNode: Node;
 }
 
-export type SpecialTransactionShape = TipTapParagraphIntoListJoinShape;
+export interface ProseMirrorSplitBlockAfterSelectionDeleteShape {
+  type: "proseMirrorSplitBlockAfterSelectionDelete";
+  deleteStep: ReplaceStep;
+  splitStep: ReplaceStep;
+}
+
+export type SpecialTransactionShape =
+  | TipTapParagraphIntoListJoinShape
+  | ProseMirrorSplitBlockAfterSelectionDeleteShape;
 
 export interface HandleSpecialTransactionShapeArgs {
   transaction: Transaction;

@@ -11,6 +11,8 @@ export function revertMoveOp(
   node: Node,
   pos: number,
 ) {
+  // The original parent chain may have been partially removed since the move.
+  // Reuse the deepest surviving parent and recreate only the missing wrappers.
   const parent = getDeepestSurvivingParent(op.from, tr.doc);
 
   const child = wrapNodeInParentChain(parent.remainingChain, node);
@@ -140,8 +142,9 @@ export function findInsertionPos(
   });
 
   if (rightSibling != null) {
-    // special case: we need to insert as the first child, but the existing first child is an empty node of the same type
-    // in this case, we need to replace the existing first child with the new node
+    // If the original first-child slot is now occupied by an empty placeholder
+    // of the same type, replace it instead of inserting beside it. This avoids
+    // leaving a blank node where the moved content should be restored.
     const firstChild = node.children[0];
     if (
       parent.childSiblingIds[0] == null &&
