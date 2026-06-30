@@ -138,10 +138,10 @@ test.describe("Structure changes in lists", () => {
     const docJSON = await editorPage.getDocJSON();
 
     // move to Item 2
-    await page.keyboard.press("ArrowUp");
+    await editorPage.pressKey("ArrowUp", { waitForSelectionChange: true });
 
     // press tab to indent Item 2
-    await page.keyboard.press("Tab");
+    await editorPage.pressKey("Tab");
 
     let docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
     expect(eq(docs.currentDoc, docs.expectedDoc)).not.toBeTruthy();
@@ -220,12 +220,12 @@ test.describe("Structure changes in lists", () => {
     const docJSON = await editorPage.getDocJSON();
 
     // go up to Item Three
-    for (let i = 0; i < 2; i++) {
-      await page.keyboard.press("ArrowUp");
-    }
+    await editorPage.pressKeyMultiple("ArrowUp", 2, {
+      waitForSelectionChange: true,
+    });
 
     // press shift+tab to outdent Item Three
-    await page.keyboard.press("Shift+Tab");
+    await editorPage.pressKey("Shift+Tab");
 
     const structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
       guardStructureMarkObject,
