@@ -15,6 +15,7 @@ import {
   type MaterializedPaths,
   type Parent,
   type StructuralContextPath,
+  type StructureMarkRole,
 } from "./types.js";
 import { DOC_NODE_ID, STRUCTURE_CHANGES_ADD_MARKS } from "./constants.js";
 import { Transform } from "prosemirror-transform";
@@ -218,7 +219,8 @@ export function suggestStructureChanges(
     return { handled: false, transform, reason };
   }
 
-  addMarks(ops, transform, suggestionId);
+  const roleByNodeId = classifyStructureMarkRoles(ops, structuralContextPaths);
+  addMarks(ops, transform, suggestionId, roleByNodeId);
 
   return { handled: ops.size > 0, transform };
 }
@@ -239,6 +241,7 @@ function addMarks(
   ops: Map<string, Op>,
   tr: Transform,
   suggestionId: SuggestionId,
+  roleByNodeId: Map<string, StructureMarkRole>,
 ) {
   const perfAddMarks = performance.now();
   const { structure } = getSuggestionMarks(tr.doc.type.schema);
@@ -264,7 +267,11 @@ function addMarks(
       }
     }
 
-    tr.addNodeMark(pos, structure.create({ id: suggestionId, data: { op } }));
+    const role = roleByNodeId.get(nodeId) ?? "primary";
+    tr.addNodeMark(
+      pos,
+      structure.create({ id: suggestionId, data: { op, role } }),
+    );
 
     return true;
   });
@@ -300,6 +307,172 @@ function hasStructureAddMark(node: Node) {
     if (!guardStructureMarkAttrs(mark.attrs)) return false;
     return mark.attrs.data.op.op === "add";
   });
+}
+
+function classifyStructureMarkRoles(
+  ops: Map<string, Op>,
+  structuralContextPaths: StructuralContextPath[],
+) {
+  const roleByNodeId = new Map<string, StructureMarkRole>();
+  const primaryBoundaryMoveIds = new Set<string>();
+
+  for (const [nodeId, op] of ops) {
+    if (op.op === "add") {
+      roleByNodeId.set(nodeId, "primary");
+      continue;
+    }
+
+    if (changesStructuralContextDepth(op, structuralContextPaths)) {
+      primaryBoundaryMoveIds.add(nodeId);
+      roleByNodeId.set(nodeId, "primary");
+    }
+  }
+
+  const hasPrimaryBoundaryMove = primaryBoundaryMoveIds.size > 0;
+
+  for (const [nodeId, op] of ops) {
+    if (roleByNodeId.has(nodeId)) continue;
+
+    if (
+      op.op === "move" &&
+      hasPrimaryBoundaryMove &&
+      isSupportingWrapperMove(op, structuralContextPaths)
+    ) {
+      roleByNodeId.set(nodeId, "supporting");
+      continue;
+    }
+
+    roleByNodeId.set(nodeId, "primary");
+  }
+
+  return roleByNodeId;
+}
+
+function changesStructuralContextDepth(
+  op: MoveOp,
+  structuralContextPaths: StructuralContextPath[],
+) {
+  return (
+    getStructuralContextDepth(op.from, structuralContextPaths) !==
+    getStructuralContextDepth(op.to, structuralContextPaths)
+  );
+}
+
+function isSupportingWrapperMove(
+  op: MoveOp,
+  structuralContextPaths: StructuralContextPath[],
+) {
+  const fromDepth = getStructuralContextDepth(op.from, structuralContextPaths);
+  const toDepth = getStructuralContextDepth(op.to, structuralContextPaths);
+
+  if (fromDepth === 0 || fromDepth !== toDepth) return false;
+
+  const fromInnermostParent = getInnermostStructuralParent(
+    op.from,
+    structuralContextPaths,
+  );
+  const toInnermostParent = getInnermostStructuralParent(
+    op.to,
+    structuralContextPaths,
+  );
+
+  if (!fromInnermostParent || !toInnermostParent) return false;
+  if (fromInnermostParent.nodeId !== toInnermostParent.nodeId) return false;
+
+  return changesOuterStructuralWrapper(op, structuralContextPaths);
+}
+
+function getStructuralContextDepth(
+  chain: Parent[],
+  structuralContextPaths: StructuralContextPath[],
+) {
+  const topDownNodeTypes = getTopDownRealParents(chain).map(
+    (parent) => parent.nodeType,
+  );
+
+  return structuralContextPaths.reduce(
+    (depth, path) =>
+      depth + countContiguousPathOccurrences(topDownNodeTypes, path),
+    0,
+  );
+}
+
+function getInnermostStructuralParent(
+  chain: Parent[],
+  structuralContextPaths: StructuralContextPath[],
+) {
+  const topDownParents = getTopDownRealParents(chain);
+
+  for (let endIndex = topDownParents.length - 1; endIndex >= 0; endIndex--) {
+    for (const path of structuralContextPaths) {
+      const startIndex = endIndex - path.length + 1;
+      if (startIndex < 0) continue;
+
+      const matches = path.every(
+        (nodeType, pathIndex) =>
+          topDownParents[startIndex + pathIndex]?.nodeType === nodeType,
+      );
+
+      if (matches) return topDownParents[endIndex];
+    }
+  }
+
+  return null;
+}
+
+function changesOuterStructuralWrapper(
+  op: MoveOp,
+  structuralContextPaths: StructuralContextPath[],
+) {
+  const contextNodeTypes = getStructuralContextNodeTypes(
+    structuralContextPaths,
+  );
+  const fromParents = getTopDownRealParents(op.from);
+  const toParents = getTopDownRealParents(op.to);
+  const length = Math.min(fromParents.length, toParents.length);
+
+  for (let index = 0; index < length; index++) {
+    const fromParent = fromParents[index];
+    const toParent = toParents[index];
+    if (!fromParent || !toParent) continue;
+    if (fromParent.nodeId === toParent.nodeId) continue;
+
+    if (
+      contextNodeTypes.has(fromParent.nodeType) ||
+      contextNodeTypes.has(toParent.nodeType)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getTopDownRealParents(chain: Parent[]) {
+  return [...chain]
+    .reverse()
+    .filter((parent) => parent.nodeType !== DOC_NODE_ID);
+}
+
+function countContiguousPathOccurrences(
+  chainNodeTypes: string[],
+  structuralContextPath: StructuralContextPath,
+) {
+  let count = 0;
+
+  for (
+    let startIndex = 0;
+    startIndex <= chainNodeTypes.length - structuralContextPath.length;
+    startIndex++
+  ) {
+    const matches = structuralContextPath.every(
+      (nodeType, pathIndex) =>
+        chainNodeTypes[startIndex + pathIndex] === nodeType,
+    );
+    if (matches) count++;
+  }
+
+  return count;
 }
 
 function getOps(

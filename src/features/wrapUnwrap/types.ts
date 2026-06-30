@@ -11,14 +11,26 @@ interface NodeParent {
   childIndex: number;
 }
 
+export type StructureMarkRole = "primary" | "supporting";
+
+interface StructureMoveMarkData {
+  op: MoveOp;
+  role?: StructureMarkRole;
+}
+
+interface StructureAddMarkData {
+  op: AddOp;
+  role?: StructureMarkRole;
+}
+
 interface StructureMoveMarkAttrs {
   id: SuggestionId;
-  data: { op: MoveOp };
+  data: StructureMoveMarkData;
 }
 
 interface StructureAddMarkAttrs {
   id: SuggestionId;
-  data: { op: AddOp };
+  data: StructureAddMarkData;
 }
 
 export type StructureMarkAttrs = StructureMoveMarkAttrs | StructureAddMarkAttrs;
@@ -70,6 +82,12 @@ export function guardStructureMarkAttrs(
   if (!("op" in data)) return false;
 
   return true;
+}
+
+export function getStructureMarkRole(
+  attrs: StructureMarkAttrs,
+): StructureMarkRole {
+  return attrs.data.role === "supporting" ? "supporting" : "primary";
 }
 
 export function guardStructureMoveMarkAttrs(

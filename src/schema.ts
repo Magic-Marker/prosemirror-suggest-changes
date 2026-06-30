@@ -142,6 +142,12 @@ export const modification: MarkSpec = {
   ],
 };
 
+function getStructureDomRole(data: unknown) {
+  if (data === null || typeof data !== "object") return "primary";
+  if (!("role" in data)) return "primary";
+  return data.role === "supporting" ? "supporting" : "primary";
+}
+
 export const structure: MarkSpec = {
   inclusive: false,
   excludes: "deletion insertion modification",
@@ -150,12 +156,14 @@ export const structure: MarkSpec = {
     data: { default: null },
   },
   toDOM(mark) {
+    const data = mark.attrs["data"] as unknown;
     return [
       "div",
       {
         "data-type": "structure",
+        "data-role": getStructureDomRole(data),
         "data-id": JSON.stringify(mark.attrs["id"]),
-        "data-data": JSON.stringify(mark.attrs["data"]),
+        "data-data": JSON.stringify(data),
       },
       0,
     ];

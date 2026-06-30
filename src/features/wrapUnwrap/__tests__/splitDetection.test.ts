@@ -93,7 +93,10 @@ describe("structural context direct child matching", () => {
     );
 
     expect(addedParagraph.attrs["id"]).toBe("paragraph-2");
-    expect(structureMark?.attrs["data"]).toEqual({ op: { op: "add" } });
+    expect(structureMark?.attrs["data"]).toEqual({
+      op: { op: "add" },
+      role: "primary",
+    });
   });
 
   it("ignores a new hard break nested inside a paragraph under a list item", () => {

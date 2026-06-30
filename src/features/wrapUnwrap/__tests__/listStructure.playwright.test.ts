@@ -227,6 +227,21 @@ test.describe("Structure changes in lists", () => {
     // press shift+tab to outdent Item Three
     await page.keyboard.press("Shift+Tab");
 
+    const structureMarks = (await editorPage.getProseMirrorMarksJSON()).filter(
+      guardStructureMarkObject,
+    );
+    expect(structureMarks).toHaveLength(3);
+
+    const primaryMarks = structureMarks.filter(
+      (mark) => mark.attrs.data.role !== "supporting",
+    );
+    const supportingMarks = structureMarks.filter(
+      (mark) => mark.attrs.data.role === "supporting",
+    );
+
+    expect(primaryMarks).toHaveLength(1);
+    expect(supportingMarks).toHaveLength(2);
+
     let docs = await editorPage.getCurrentAndExpectedDoc(docJSON);
     expect(eq(docs.currentDoc, docs.expectedDoc)).not.toBeTruthy();
 
