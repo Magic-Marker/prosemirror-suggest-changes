@@ -12,7 +12,17 @@ _Avoid_: wrapper change, tree diff
 
 **Structure mark**: A node-level mark representing either a `move` of the marked
 node from one subtree to another, or an `add` when the marked node did not
-previously exist in the document. _Avoid_: wrapper mark, list mark
+previously exist in the document, with an effective role in the **Structure
+suggestion**. _Avoid_: wrapper mark, list mark
+
+**Primary Structure mark**: A **Structure mark** whose effective role is the
+user-visible source for a **Structure suggestion**; role-less marks are primary.
+_Avoid_: visible structure mark, main mark
+
+**Supporting Structure mark**: A **Structure mark** whose effective role is
+bookkeeping for collateral structural movement inside the same **Structure
+suggestion**, not a user-visible review source. _Avoid_: hidden structure mark,
+secondary mark
 
 **Structural context path**: A configured contiguous parent-child ancestor path
 of ProseMirror node type names whose nodes provide structural context but are

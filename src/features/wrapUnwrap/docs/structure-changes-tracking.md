@@ -85,7 +85,8 @@ not tracked yet.
      tracking owns the transaction.
    - if the after Parent chain is a direct child of a configured contiguous
      Structural context path, create an `add` op.
-7. Add Structure marks to the affected content nodes.
+7. Classify Structure marks as primary or supporting, then add them to the
+   affected content nodes.
 8. Applying removes Structure marks.
 9. Reverting uses stored Parent chains to delete added nodes or move existing
    nodes back.
@@ -97,6 +98,7 @@ The structure-tracking implementation is split across these stable areas:
 - transaction integration and structure diffing
 - materialized Parent chain construction and comparison
 - Structure mark attrs and operation guards
+- Structure mark role classification
 - unique-node-ID settling
 - Structure suggestion apply/revert commands
 - transaction shaping for compound editor transactions
@@ -117,6 +119,9 @@ The structure-tracking implementation is split across these stable areas:
   whose type appears in a configured Structural context path.
 - A Structure add suggestion is still provisional new structure. Moving it must
   not add Structure move suggestions until the add suggestion is accepted.
+- A Structure mark's role controls product visibility, not apply/revert
+  membership. Role-less marks are primary. Supporting marks must remain part of
+  suggestion-ID apply/revert.
 - Stored parent descriptors must remain sufficient to recreate missing ancestor
   wrappers and position the restored node near stable siblings.
 - Public apply/revert commands must set `suggestChangesKey` meta with
@@ -143,7 +148,7 @@ The structure-tracking implementation is split across these stable areas:
 6. All structure ops from that detection pass share one suggestion ID.
 7. A transform over the after-doc updates `structure` node marks on affected
    content nodes. It usually adds marks, but it can also remove an Inverse move.
-   The mark data stores the operation.
+   The mark data stores the operation and mark role.
 8. If structure detection handled the transaction, the normal text-suggestion
    transform is skipped for that transaction.
 9. Applying a Structure suggestion removes the Structure marks.
@@ -208,10 +213,15 @@ for future work and debugging, but index shifts alone are not treated as moves.
 `sameParentChain` compares only Parent chain length and ancestor IDs. It
 deliberately does not compare parent attrs, marks, sibling IDs, or indexes.
 
-`addMarks` applies the local Structure add suggestion and Structure move
-suggestion rules: provisional adds absorb later moves, Inverse moves on the same
-node cancel, and non-cancelling moves can still stack. See the provisional-adds
-and inverse moves ADR.
+`addMarks` classifies each mark's role, then applies the local Structure add
+suggestion and Structure move suggestion rules: provisional adds absorb later
+moves, Inverse moves on the same node cancel, and non-cancelling moves can still
+stack. See the provisional-adds and inverse moves ADR.
+
+Primary Structure marks are the user-visible source for a Structure suggestion.
+Supporting Structure marks record collateral structural movement inside the same
+suggestion ID. Supporting marks are still required for apply/revert; their role
+only changes presentation.
 
 Block join suggestions are suppressed when any joined node still has a Structure
 add mark. The physical join still happens, but the provisional add is treated as
@@ -226,11 +236,14 @@ A Structure mark is a node mark with attrs shaped like:
   id: SuggestionId;
   data: {
     op: Op;
+    role?: "primary" | "supporting";
   }
 }
 ```
 
 Use `guardStructureMarkAttrs` before trusting mark attrs loaded from a document.
+Role-less marks are treated as primary for compatibility with existing
+documents.
 
 `AddOp` means the marked node did not exist before and should be deleted on
 revert.
