@@ -1,21 +1,49 @@
-import { EditorState, TextSelection } from "prosemirror-state";
+import {
+  EditorState,
+  Selection,
+  TextSelection,
+  type Transaction,
+} from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { type Mark, Schema } from "prosemirror-model";
-import { nodes, marks } from "prosemirror-schema-basic";
-import { baseKeymap, chainCommands } from "prosemirror-commands";
+import { type Mark, type Node } from "prosemirror-model";
 import { history, redo, undo } from "prosemirror-history";
+import {
+  baseKeymap,
+  chainCommands,
+  exitCode,
+  lift,
+  wrapIn,
+} from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import {
-  bulletList,
-  orderedList,
-  listItem,
+  liftListItem,
+  sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
-import { addSuggestionMarks } from "../src/schema.js";
 import { withSuggestChanges } from "../src/withSuggestChanges.js";
 import { suggestChanges, suggestChangesKey } from "../src/plugin.js";
 import "prosemirror-view/style/prosemirror.css";
-import { experimental_ensureSelection } from "../src/index.js";
+import {
+  experimental_ensureSelection,
+  revertSuggestions,
+} from "../src/index.js";
+import { type SuggestionId } from "../src/generateId.js";
+import * as commands from "../src/commands.js";
+import { createSchema } from "../src/testing/e2eTestSchema.js";
+import {
+  ensureUniqueNodeIds,
+  uniqueNodeIdsPlugin,
+} from "../src/features/wrapUnwrap/uniqueNodeIdsPlugin.js";
+import { inputRules } from "prosemirror-inputrules";
+import { listInputRules } from "../src/listInputRules.js";
+import { Step } from "prosemirror-transform";
+
+// stable node ids for tests
+let nodeId = 0;
+const generateUniqueNodeId = () => {
+  // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+  return `node-${nodeId++}`;
+};
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -31,22 +59,7 @@ console.log(
   deletionMarksVisibility,
 );
 
-// Create schema with suggestion marks and list support
-const schema = new Schema({
-  nodes: {
-    ...nodes,
-    ordered_list: { ...orderedList, group: "block", content: "list_item+" },
-    bullet_list: { ...bulletList, group: "block", content: "list_item+" },
-    list_item: {
-      ...listItem,
-      content: "block+",
-      marks: "insertion deletion modification",
-    },
-  },
-  marks: addSuggestionMarks(marks, {
-    experimental_deletions: deletionMarksVisibility,
-  }),
-});
+const schema = createSchema(deletionMarksVisibility);
 
 // Transaction logging
 const transactions: {
@@ -72,26 +85,53 @@ const enterCommand = baseKeymap["Enter"];
 if (!enterCommand) {
   throw new Error("Missing enter command");
 }
+
+const hardBreakCommand = chainCommands(exitCode, (state, dispatch) => {
+  if (dispatch) {
+    dispatch(
+      state.tr
+        .replaceSelectionWith(schema.nodes.hardBreak.create())
+        .scrollIntoView(),
+    );
+  }
+  return true;
+});
+
 // Create editor state with list item support
 let state = EditorState.create({
   doc,
   schema,
   plugins: [
-    experimental_ensureSelection(),
+    uniqueNodeIdsPlugin({
+      attributeName: "id",
+      generateID: generateUniqueNodeId,
+    }),
     keymap({
       ...baseKeymap,
       // Handle Enter key for list items
       Enter: chainCommands(
-        splitListItem(schema.nodes.list_item),
+        splitListItem(schema.nodes.listItem),
         baseKeymap["Enter"] ?? (() => false),
       ),
       "Shift-Enter": enterCommand,
+      "Mod-Enter": hardBreakCommand,
       "Mod-z": undo,
       "Mod-Shift-z": redo,
       "Mod-y": redo,
+      // handle lift and sink for list items
+      Tab: sinkListItem(schema.nodes.listItem),
+      "Shift-Tab": liftListItem(schema.nodes.listItem),
+      "Mod-u": wrapIn(schema.nodes.blockquote),
+      "Mod-l": lift,
+    }),
+    inputRules({
+      rules: [
+        ...listInputRules(schema.nodes.bulletList, schema.nodes.orderedList),
+      ],
     }),
     history(),
     suggestChanges(),
+    experimental_ensureSelection(),
   ],
 });
 
@@ -99,23 +139,43 @@ let state = EditorState.create({
 state = state.apply(state.tr.setMeta(suggestChangesKey, { enabled: true }));
 
 // Custom dispatch with logging
-const dispatch = withSuggestChanges(function (this: EditorView, tr) {
-  const docBefore = this.state.doc.textContent;
-  const newState = this.state.apply(tr);
+const dispatch = withSuggestChanges(
+  function (this: EditorView, tr) {
+    const docBefore = this.state.doc.textContent;
+    const newState = this.state.apply(tr);
 
-  transactions.push({
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    steps: tr.steps.map((s) => s.toJSON()),
-    selection: { from: tr.selection.from, to: tr.selection.to },
-    docBefore,
-    docAfter: newState.doc.textContent,
-  });
+    transactions.push({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      steps: tr.steps.map((s) => s.toJSON()),
+      selection: { from: tr.selection.from, to: tr.selection.to },
+      docBefore,
+      docAfter: newState.doc.textContent,
+    });
 
-  this.updateState(newState);
+    this.updateState(newState);
 
-  // Update status display
-  updateStatus();
-});
+    // Update status display
+    updateStatus();
+  },
+  undefined,
+  {
+    experimental_trackStructureChanges: true,
+    experimental_trackStructures: [
+      ["orderedList", "listItem"],
+      ["bulletList", "listItem"],
+      ["blockquote"],
+    ],
+    experimental_ensureUniqueNodeIds: (
+      transactions: Transaction[],
+      oldDoc: Node,
+      newDoc: Node,
+    ) =>
+      ensureUniqueNodeIds(transactions, oldDoc, newDoc, {
+        attributeName: "id",
+        generateID: generateUniqueNodeId,
+      }),
+  },
+);
 
 // Create editor view
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -140,13 +200,39 @@ function updateStatus() {
   ].join(" | ");
 }
 
+function renderButtons() {
+  const applyAllButton = document.createElement("button");
+  applyAllButton.appendChild(document.createTextNode("Apply all"));
+  applyAllButton.addEventListener("click", () => {
+    commands.applySuggestions(view.state, view.dispatch);
+    view.focus();
+  });
+
+  const revertAllButton = document.createElement("button");
+  revertAllButton.appendChild(document.createTextNode("Revert all"));
+  revertAllButton.addEventListener("click", () => {
+    revertSuggestions(view.state, view.dispatch);
+    view.focus();
+  });
+  const container = document.getElementById("buttons");
+  if (!container) {
+    throw new Error("Buttons container not found");
+  }
+  container.append(applyAllButton, revertAllButton);
+}
+
 // Initial status
 updateStatus();
+
+renderButtons();
 
 // Expose API to window for Playwright access
 declare global {
   interface Window {
     pmEditor: {
+      __prevState: EditorState;
+      __prevAnchor: number;
+      __prevHead: number;
       view: EditorView;
       getState: () => {
         blockCount: number;
@@ -156,7 +242,7 @@ declare global {
         cursorTo: number;
         marks: Mark[];
       };
-      getDocJSON: () => unknown;
+      getDocJSON: () => object;
       replaceDoc: (docJSON: unknown) => void;
       getCursorInfo: () => {
         from: number;
@@ -165,6 +251,7 @@ declare global {
         parentOffset: number;
         depth: number;
       };
+      setCursorToStart: () => void;
       setCursorToEnd: () => void;
       setCursorToPosition: (pos: number) => void;
       setCursorToEndOfBlock: (blockIndex: number) => void;
@@ -172,15 +259,34 @@ declare global {
       clearTransactions: () => void;
       logState: () => void;
       getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorMarksJSON: () => unknown[];
       getProseMirrorSelection: () => { anchor: number; head: number };
-      getTextContentOfChildAtIndex: (index: number) => string;
+      getTextContentOfChildAtIndex: (
+        index: number,
+        childIndexes?: number[],
+      ) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      dispatchTransactionWithSteps: (
+        stepJSONs: object[],
+        selection?: { type: string; anchor: number; head: number },
+      ) => void;
+      setSuggestChangesEnabled: (enabled: boolean) => void;
+      revertSuggestion: (
+        suggestionId: SuggestionId,
+        opts?: { structure: boolean },
+      ) => void;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      setNextNodeId: (nextNodeId: number) => void;
     };
   }
 }
 
 window.pmEditor = {
   view,
+
+  __prevState: view.state,
+  __prevAnchor: view.state.selection.anchor,
+  __prevHead: view.state.selection.head,
 
   getState() {
     const marks: Mark[] = [];
@@ -217,8 +323,7 @@ window.pmEditor = {
   },
 
   getDocJSON() {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return view.state.doc.toJSON();
+    return view.state.doc.toJSON() as object;
   },
 
   getCursorInfo() {
@@ -231,6 +336,12 @@ window.pmEditor = {
       parentOffset: $from.parentOffset,
       depth: $from.depth,
     };
+  },
+
+  setCursorToStart() {
+    view.dispatch(
+      view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(0))),
+    );
   },
 
   setCursorToEnd() {
@@ -300,16 +411,73 @@ window.pmEditor = {
     return marks.filter((mark) => mark.type.name === name).length;
   },
 
+  getProseMirrorMarksJSON() {
+    const marks: Mark[] = [];
+    view.state.doc.nodesBetween(0, view.state.doc.content.size, (node) => {
+      marks.push(...node.marks);
+    });
+    return marks.map((mark): unknown => mark.toJSON());
+  },
+
   getProseMirrorSelection() {
     return view.state.selection.toJSON() as { anchor: number; head: number };
   },
 
-  getTextContentOfChildAtIndex(index: number) {
-    return view.state.doc.child(index).textContent;
+  getTextContentOfChildAtIndex(index: number, childIndexes?: number[]): string {
+    let node = view.state.doc.child(index);
+    if (childIndexes) {
+      for (const childIndex of childIndexes) {
+        node = node.child(childIndex);
+      }
+    }
+    return node.textContent;
   },
 
   getDOMTextContentOfChildAtIndex(index: number) {
     return view.dom.childNodes[index].textContent ?? "";
+  },
+
+  dispatchTransactionWithSteps(
+    stepJSONs: object[],
+    selection?: { type: string; anchor: number; head: number },
+  ) {
+    const steps = stepJSONs.map((stepJSON) =>
+      Step.fromJSON(view.state.schema, stepJSON),
+    );
+    const tr = view.state.tr;
+    steps.forEach((step) => tr.step(step));
+    if (selection) {
+      tr.setSelection(Selection.fromJSON(tr.doc, selection));
+    }
+    view.dispatch(tr);
+  },
+
+  setSuggestChangesEnabled(enabled: boolean) {
+    view.dispatch(
+      view.state.tr.setMeta(suggestChangesKey, { skip: true, enabled }),
+    );
+  },
+
+  revertSuggestion(suggestionId: SuggestionId) {
+    const command = commands.revertSuggestion(
+      suggestionId,
+      undefined,
+      undefined,
+    );
+    command(view.state, view.dispatch);
+  },
+
+  revertStructureSuggestion(suggestionId: SuggestionId) {
+    const command = commands.revertSuggestion(
+      suggestionId,
+      undefined,
+      undefined,
+    );
+    command(view.state, view.dispatch);
+  },
+
+  setNextNodeId(nextNodeId: number) {
+    nodeId = nextNodeId;
   },
 };
 

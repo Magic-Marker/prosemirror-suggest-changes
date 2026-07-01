@@ -4,7 +4,7 @@ import {
   TextSelection,
   type Transaction,
 } from "prosemirror-state";
-import { type Step, type ReplaceStep } from "prosemirror-transform";
+import { type ReplaceStep, type Step } from "prosemirror-transform";
 
 import { findSuggestionMarkEnd } from "./findSuggestionMarkEnd.js";
 import { rebasePos } from "./rebasePos.js";
@@ -18,6 +18,7 @@ import {
   removeZWSPDeletions,
 } from "./features/joinOnDelete/index.js";
 import { adjustForStartToStartTextblockDeletion } from "./features/startToStartTextblockDeletion/index.js";
+// import { rebaseStep } from "./rebaseStep.js";
 
 /**
  * Transform a replace step into its equivalent tracked steps.

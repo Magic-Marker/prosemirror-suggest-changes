@@ -1,47 +1,111 @@
 import {
   Mark,
   type Node,
-  type Attrs,
   type MarkType,
   type ResolvedPos,
+  type Schema,
 } from "prosemirror-model";
 import { canJoin, Transform } from "prosemirror-transform";
 import { ZWSP } from "../../constants.js";
 import { type Transaction } from "prosemirror-state";
 import { type SuggestionId } from "../../generateId.js";
 import { getSuggestionMarks } from "../../utils.js";
+import { areEquivalentStructureMarks } from "../wrapUnwrap/areEquivalentStructureMarks.js";
+import { guardStructureMarkAttrs } from "../wrapUnwrap/types.js";
+import {
+  type SerializedJoinNode,
+  type JoinCandidate,
+  type JoinPair,
+} from "./types.js";
+import {
+  MAX_BLOCK_JOIN_DEPTH,
+  normalizeJoinNodesMetadata,
+} from "./normalizeJoinNodesMetadata.js";
+import { isJoinMark } from "./types.js";
 
-interface JoinMarkAttrs {
-  type: "join";
-  data: {
-    leftNode: { type: string; attrs: object; marks: object[] };
-    rightNode: { type: string; attrs: object; marks: object[] };
+function serializeJoinNode(node: Node): SerializedJoinNode {
+  return {
+    type: node.type.name,
+    attrs: node.attrs,
+    marks: node.marks.map(
+      (mark) => mark.toJSON() as { attrs: Record<string, unknown> },
+    ),
   };
 }
 
-export function isJoinMarkAttrs(attrs: Attrs): attrs is JoinMarkAttrs {
-  if (attrs["type"] !== "join") return false;
-  if (attrs["data"] == null) return false;
+function marksFromJSON(schema: Schema, markData: object[]) {
+  return markData.map((markData) => Mark.fromJSON(schema, markData));
+}
 
-  const data = attrs["data"] as Partial<JoinMarkAttrs["data"]>;
-  if (data.leftNode == null || data.rightNode == null) return false;
+// when we revert a block join deletion mark, we restore nodes on both sides of the mark using leftNodes rightNodes metadata
+// but existing left and right nodes may have structure marks that we need to preserve
+function mergeSerializedMarksWithCurrentStructureMarks(
+  tr: Transform,
+  pos: number,
+  serializedMarks: Mark[],
+) {
+  const currentNode = tr.doc.nodeAt(pos);
+  if (!currentNode) return serializedMarks;
 
-  if (
-    typeof data.leftNode.type !== "string" ||
-    typeof data.rightNode.type !== "string"
-  )
-    return false;
-  if (
-    typeof data.leftNode.attrs !== "object" ||
-    typeof data.rightNode.attrs !== "object"
-  )
-    return false;
-  if (
-    !Array.isArray(data.leftNode.marks) ||
-    !Array.isArray(data.rightNode.marks)
-  )
-    return false;
+  const { structure } = getSuggestionMarks(tr.doc.type.schema);
+  const mergedMarks = [...serializedMarks];
+
+  for (const currentMark of currentNode.marks) {
+    if (currentMark.type !== structure) continue;
+
+    const alreadyIncluded = mergedMarks.some(
+      (mark) =>
+        mark.type === structure &&
+        areEquivalentStructureMarks(mark, currentMark),
+    );
+
+    if (!alreadyIncluded) {
+      mergedMarks.push(currentMark);
+    }
+  }
+
+  return mergedMarks;
+}
+
+function restoreNodeMarkup(
+  tr: Transform,
+  pos: number,
+  node: SerializedJoinNode,
+) {
+  const nodeType = tr.doc.type.schema.nodes[node.type];
+  if (!nodeType) return false;
+
+  const marks = mergeSerializedMarksWithCurrentStructureMarks(
+    tr,
+    pos,
+    marksFromJSON(tr.doc.type.schema, node.marks),
+  );
+
+  tr.setNodeMarkup(pos, nodeType, node.attrs, marks);
   return true;
+}
+
+// collect structure suggestion IDs that will be re-introduced into the document after the join is reverted
+function getRestoredStructureSuggestionIds(
+  joinNodes: {
+    leftNodes: SerializedJoinNode[];
+    rightNodes: SerializedJoinNode[];
+  },
+  schema: Schema,
+): Set<SuggestionId> {
+  const { structure } = getSuggestionMarks(schema);
+  const restoredStructureSuggestionIds = new Set<SuggestionId>();
+
+  for (const node of [...joinNodes.leftNodes, ...joinNodes.rightNodes]) {
+    const marks = marksFromJSON(schema, node.marks);
+    for (const mark of marks) {
+      if (mark.type !== structure) continue;
+      if (!guardStructureMarkAttrs(mark.attrs)) continue;
+      restoredStructureSuggestionIds.add(mark.attrs.id);
+    }
+  }
+
+  return restoredStructureSuggestionIds;
 }
 
 export function maybeRevertJoinMark(
@@ -50,58 +114,59 @@ export function maybeRevertJoinMark(
   to: number,
   node: Node,
   markType: MarkType,
-) {
+): false | { restoredStructureSuggestionIds: Set<SuggestionId> } {
   const mark = node.marks.find((mark) => mark.type === markType);
-  if (!mark || mark.attrs["type"] !== "join" || node.text !== ZWSP)
-    return false;
+  if (!mark || !isJoinMark(mark) || node.text !== ZWSP) return false;
 
-  // this is a mark of type join
-  // split the current node at this mark position
-  // delete this mark together with its zwsp content
-  // assign left and right node (after the split) properties from the mark's data
+  const joinNodes = normalizeJoinNodesMetadata(mark.attrs);
+  if (!joinNodes) return false;
+
+  for (const node of [...joinNodes.leftNodes, ...joinNodes.rightNodes]) {
+    const nodeType = tr.doc.type.schema.nodes[node.type];
+    if (!nodeType) return false;
+
+    try {
+      marksFromJSON(tr.doc.type.schema, node.marks);
+    } catch {
+      return false;
+    }
+  }
+  const restoredStructureSuggestionIds = getRestoredStructureSuggestionIds(
+    joinNodes,
+    tr.doc.type.schema,
+  );
+
+  // Reverting a join marker removes its ZWSP anchor, splits at that position,
+  // and restores markup because ProseMirror split creates nodes with defaults.
+  const joinDepth = joinNodes.leftNodes.length;
   tr.delete(from, to);
-  tr.split(from);
+  tr.split(from, joinDepth);
 
-  // insertionFrom is now at the end of the left node (but before the closing token)
-  // after() will give us the position after the closing token (but before the next opening token) - exactly the split pos
-  const $insertionFrom = tr.doc.resolve(from);
-  const $splitPos = tr.doc.resolve($insertionFrom.after());
+  const $splitFrom = tr.doc.resolve(from);
+  const baseDepth = $splitFrom.depth;
+  let rightPos = $splitFrom.after(baseDepth - joinDepth + 1);
 
-  const { attrs } = mark;
+  // Metadata is stored child-first, but markup must be restored outer-first so
+  // positions inside the newly split structure remain addressable.
+  for (let index = joinDepth - 1; index >= 0; index -= 1) {
+    const leftNode = joinNodes.leftNodes[index];
+    const rightNode = joinNodes.rightNodes[index];
+    if (!leftNode || !rightNode) return false;
 
-  if (!isJoinMarkAttrs(attrs) || !$splitPos.nodeBefore || !$splitPos.nodeAfter)
-    return false;
+    const leftPos = $splitFrom.before(baseDepth - index);
 
-  // restore left and right node type, attrs and marks, as they were before the join
-  const { leftNode, rightNode } = attrs.data;
+    if (
+      !restoreNodeMarkup(tr, leftPos, leftNode) ||
+      !restoreNodeMarkup(tr, rightPos, rightNode)
+    ) {
+      return false;
+    }
 
-  const leftNodeType = tr.doc.type.schema.nodes[leftNode.type];
-  const rightNodeType = tr.doc.type.schema.nodes[rightNode.type];
+    // Each deeper right node starts one position inside the right node restored before it.
+    rightPos += 1;
+  }
 
-  const leftNodeMarks = leftNode.marks.map((markData) =>
-    Mark.fromJSON(tr.doc.type.schema, markData),
-  );
-  const rightNodeMarks = rightNode.marks.map((markData) =>
-    Mark.fromJSON(tr.doc.type.schema, markData),
-  );
-
-  if (!leftNodeType || !rightNodeType) return false;
-
-  tr.setNodeMarkup(
-    $splitPos.pos - $splitPos.nodeBefore.nodeSize,
-    leftNodeType,
-    leftNode.attrs,
-    leftNodeMarks,
-  );
-
-  tr.setNodeMarkup(
-    $splitPos.pos,
-    rightNodeType,
-    rightNode.attrs,
-    rightNodeMarks,
-  );
-
-  return true;
+  return { restoredStructureSuggestionIds };
 }
 
 /**
@@ -172,45 +237,46 @@ export function joinNodesAndMarkJoinPoints(
     if (node.isInline) return false;
 
     const endOfNode = pos + node.nodeSize;
-    // make sure the node ends within the range
     if (endOfNode >= blockRange.$to.pos) return true;
 
-    const $endOfNode = doc.resolve(endOfNode);
-    // make sure we are between two nodes
-    if (!$endOfNode.nodeBefore || !$endOfNode.nodeAfter) return false;
+    // List-item joins can start between non-textblock nodes; expand inward to
+    // capture the visible textblock pair and its structural parent pair.
+    const joinCandidate = getJoinCandidateAtBoundary(
+      doc,
+      endOfNode,
+      from,
+      to,
+      MAX_BLOCK_JOIN_DEPTH,
+    );
 
-    // we cannot insert zwsp text nodes into non-textblock nodes
-    if (!$endOfNode.nodeBefore.isTextblock || !$endOfNode.nodeAfter.isTextblock)
-      return true;
+    if (!joinCandidate) return true;
 
-    const mappedEndOfNode = transform.mapping.map(endOfNode);
-    const $mappedEndOfNode = transform.doc.resolve(mappedEndOfNode);
+    const mappedJoinPos = transform.mapping.map(joinCandidate.joinPos);
 
     if (
-      !canJoin(transform.doc, mappedEndOfNode) ||
-      !$mappedEndOfNode.nodeBefore ||
-      !$mappedEndOfNode.nodeAfter
+      !canApplyJoinCandidate(
+        transform.doc,
+        mappedJoinPos,
+        joinCandidate.leftNodes.length,
+      )
     ) {
       return true;
     }
 
-    const leftNode = {
-      type: $endOfNode.nodeBefore.type.name,
-      attrs: $endOfNode.nodeBefore.attrs,
-      marks: $endOfNode.nodeBefore.marks.map((mark) => mark.toJSON() as object),
-    };
+    const shouldSuppressJoinMark = [
+      ...joinCandidate.leftNodes,
+      ...joinCandidate.rightNodes,
+    ].some((node) => hasStructureAddMark(node));
 
-    const rightNode = {
-      type: $endOfNode.nodeAfter.type.name,
-      attrs: $endOfNode.nodeAfter.attrs,
-      marks: $endOfNode.nodeAfter.marks.map((mark) => mark.toJSON() as object),
-    };
+    transform.join(mappedJoinPos, joinCandidate.leftNodes.length);
 
-    transform.join(mappedEndOfNode);
+    // Joining provisional structure cancels its pending add instead of creating
+    // a second review artifact for the same user action.
+    if (shouldSuppressJoinMark) return false;
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const joinStep = transform.steps[transform.steps.length - 1]!;
-    const joinPos = joinStep.getMap().map(mappedEndOfNode);
+    const joinPos = joinStep.getMap().map(mappedJoinPos);
 
     transform.insert(joinPos, transform.doc.type.schema.text(ZWSP));
     transform.addMark(
@@ -219,7 +285,10 @@ export function joinNodesAndMarkJoinPoints(
       deletion.create({
         id: markId,
         type: "join",
-        data: { leftNode, rightNode },
+        data: {
+          leftNodes: joinCandidate.leftNodes.map(serializeJoinNode),
+          rightNodes: joinCandidate.rightNodes.map(serializeJoinNode),
+        },
       }),
     );
 
@@ -227,6 +296,87 @@ export function joinNodesAndMarkJoinPoints(
   });
 
   return transform;
+}
+
+function getJoinCandidateAtBoundary(
+  doc: Node,
+  boundaryPos: number,
+  from: number,
+  to: number,
+  maxJoinDepth: number,
+): JoinCandidate | null {
+  const $boundary = doc.resolve(boundaryPos);
+  const leftNode = $boundary.nodeBefore;
+  const rightNode = $boundary.nodeAfter;
+
+  // Multi-depth list joins can begin between structural nodes, not just textblocks.
+  if (!leftNode || !rightNode) return null;
+  if (leftNode.isInline || rightNode.isInline) return null;
+
+  if (!canJoin(doc, boundaryPos)) return null;
+
+  const pairs: JoinPair[] = [{ leftNode, rightNode }];
+
+  for (let expandBy = 1; pairs.length < maxJoinDepth; expandBy += 1) {
+    const left = boundaryPos - expandBy;
+    const right = boundaryPos + expandBy;
+
+    if (left < from || right > to) break;
+
+    const $left = doc.resolve(left);
+    const $right = doc.resolve(right);
+
+    // Once text is adjacent, there is no deeper block pair to capture.
+    if ($left.nodeBefore?.isText || $right.nodeAfter?.isText) break;
+
+    if (
+      $left.nodeAfter === null &&
+      $left.nodeBefore &&
+      !$left.nodeBefore.isInline &&
+      $right.nodeBefore === null &&
+      $right.nodeAfter &&
+      !$right.nodeAfter.isInline
+    ) {
+      pairs.push({
+        leftNode: $left.nodeBefore,
+        rightNode: $right.nodeAfter,
+      });
+      continue;
+    }
+
+    break;
+  }
+
+  // canJoin only checks the boundary; the temporary transform verifies depth.
+  if (!canApplyJoinCandidate(doc, boundaryPos, pairs.length)) return null;
+
+  return {
+    joinPos: boundaryPos,
+    leftNodes: pairs.map((pair) => pair.leftNode).reverse(),
+    rightNodes: pairs.map((pair) => pair.rightNode).reverse(),
+  };
+}
+
+function canApplyJoinCandidate(doc: Node, joinPos: number, depth: number) {
+  if (!canJoin(doc, joinPos)) return false;
+
+  try {
+    new Transform(doc).join(joinPos, depth);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasStructureAddMark(node: Node) {
+  const { structure } = getSuggestionMarks(node.type.schema);
+
+  return node.marks.some((mark) => {
+    if (mark.type !== structure) return false;
+    if (!guardStructureMarkAttrs(mark.attrs)) return false;
+
+    return mark.attrs.data.op.op === "add";
+  });
 }
 
 /**

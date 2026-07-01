@@ -12,6 +12,7 @@ import {
   revertSuggestion,
   revertSuggestions,
 } from "../../../commands.js";
+import { joinNodesAndMarkJoinPoints } from "../index.js";
 import {
   type TaggedNode,
   testBuilders,
@@ -27,6 +28,120 @@ function createJoinStep(
 }
 
 describe("handleJoinOnDelete", () => {
+  it("should join without a ZWSP marker when the right node has a Structure add mark", () => {
+    const structureAdd = testBuilders.schema.marks.structure.create({
+      id: 1,
+      data: { op: { op: "add" } },
+    });
+    const baseDoc = testBuilders.doc(
+      testBuilders.paragraph("first<a>"),
+      testBuilders.paragraph("<b>second"),
+    ) as TaggedNode;
+
+    const tagA = baseDoc.tag["a"];
+    const tagB = baseDoc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const doc = testBuilders.doc(
+      baseDoc.child(0),
+      baseDoc.child(1).mark([structureAdd]),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, tagB),
+    });
+
+    const transform = joinNodesAndMarkJoinPoints(editorState.tr, tagA, tagB, 1);
+
+    const expected = testBuilders.doc(testBuilders.paragraph("firstsecond"));
+
+    assert(
+      eq(transform.doc, expected),
+      `Expected ${transform.doc} to match ${expected}`,
+    );
+  });
+
+  it("should join without a ZWSP marker when the left node has a Structure add mark", () => {
+    const structureAdd = testBuilders.schema.marks.structure.create({
+      id: 1,
+      data: { op: { op: "add" } },
+    });
+    const baseDoc = testBuilders.doc(
+      testBuilders.paragraph("first<a>"),
+      testBuilders.paragraph("<b>second"),
+    ) as TaggedNode;
+
+    const tagA = baseDoc.tag["a"];
+    const tagB = baseDoc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const doc = testBuilders.doc(
+      baseDoc.child(0).mark([structureAdd]),
+      baseDoc.child(1),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, tagB),
+    });
+
+    const transform = joinNodesAndMarkJoinPoints(editorState.tr, tagA, tagB, 1);
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph("firstsecond").mark([structureAdd]),
+    );
+
+    assert(
+      eq(transform.doc, expected),
+      `Expected ${transform.doc} to match ${expected}`,
+    );
+  });
+
+  it("should keep adding a ZWSP marker when neither joined node has a Structure add mark", () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph("first<a>"),
+      testBuilders.paragraph("<b>second"),
+    ) as TaggedNode;
+
+    const tagA = doc.tag["a"];
+    const tagB = doc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, tagB),
+    });
+
+    const transform = joinNodesAndMarkJoinPoints(editorState.tr, tagA, tagB, 1);
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph(
+        "first",
+        testBuilders.deletion(
+          {
+            id: 1,
+            type: "join",
+            data: {
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+            },
+          },
+          ZWSP,
+        ),
+        "second",
+      ),
+    );
+
+    assert(
+      eq(transform.doc, expected),
+      `Expected ${transform.doc} to match ${expected}`,
+    );
+  });
+
   it("should join two sibling paragraphs with ZWSP marker", () => {
     const doc = testBuilders.doc(
       testBuilders.paragraph("first paragraph<a>"),
@@ -61,8 +176,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -110,8 +225,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 1 }, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -166,8 +281,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 1 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 2 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
             },
           },
           ZWSP,
@@ -178,8 +293,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 2 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 3 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
             },
           },
           ZWSP,
@@ -190,8 +305,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 3 }, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -202,8 +317,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -214,8 +329,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -226,8 +341,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 3 }, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
             },
           },
           ZWSP,
@@ -238,8 +353,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 3 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 2 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
             },
           },
           ZWSP,
@@ -250,8 +365,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 2 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 1 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
             },
           },
           ZWSP,
@@ -267,7 +382,7 @@ describe("handleJoinOnDelete", () => {
     );
   });
 
-  it("should join two list items by deleting node boundary (legacy behaviour)", () => {
+  it("should keep list items separate when deleting only the outer node boundary", () => {
     const doc = testBuilders.doc(
       testBuilders.bulletList(
         testBuilders.listItem(testBuilders.paragraph("first paragraph")),
@@ -303,7 +418,119 @@ describe("handleJoinOnDelete", () => {
     );
   });
 
-  it("should join two list items by deleting a selection across node boundary (legacy behavior)", () => {
+  it("should join two list items and their paragraphs for a multi-depth structural join", () => {
+    const doc = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first paragraph<a>")),
+        testBuilders.listItem(testBuilders.paragraph("<b>second paragraph")),
+      ),
+    ) as TaggedNode;
+
+    const tagA = doc.tag["a"];
+    const tagB = doc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const step = createJoinStep(tagA, tagB, true);
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const tr = editorState.tr;
+    suggestReplaceStep(tr, editorState, doc, step, [], 1);
+
+    const newState = editorState.apply(tr);
+
+    const expected = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(
+          testBuilders.paragraph(
+            "first paragraph",
+            testBuilders.deletion(
+              {
+                id: 1,
+                type: "join",
+                data: {
+                  leftNodes: [
+                    { type: "paragraph", attrs: {}, marks: [] },
+                    { type: "listItem", attrs: {}, marks: [] },
+                  ],
+                  rightNodes: [
+                    { type: "paragraph", attrs: {}, marks: [] },
+                    { type: "listItem", attrs: {}, marks: [] },
+                  ],
+                },
+              },
+              ZWSP,
+            ),
+            "second paragraph",
+          ),
+        ),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should join two blockquotes and their paragraphs for a multi-depth structural join", () => {
+    const doc = testBuilders.doc(
+      testBuilders.blockquote(testBuilders.paragraph("first paragraph<a>")),
+      testBuilders.blockquote(testBuilders.paragraph("<b>second paragraph")),
+    ) as TaggedNode;
+
+    const tagA = doc.tag["a"];
+    const tagB = doc.tag["b"];
+    assert.exists(tagA);
+    assert.exists(tagB);
+
+    const step = createJoinStep(tagA, tagB, true);
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const tr = editorState.tr;
+    suggestReplaceStep(tr, editorState, doc, step, [], 1);
+
+    const newState = editorState.apply(tr);
+
+    const expected = testBuilders.doc(
+      testBuilders.blockquote(
+        testBuilders.paragraph(
+          "first paragraph",
+          testBuilders.deletion(
+            {
+              id: 1,
+              type: "join",
+              data: {
+                leftNodes: [
+                  { type: "paragraph", attrs: {}, marks: [] },
+                  { type: "blockquote", attrs: {}, marks: [] },
+                ],
+                rightNodes: [
+                  { type: "paragraph", attrs: {}, marks: [] },
+                  { type: "blockquote", attrs: {}, marks: [] },
+                ],
+              },
+            },
+            ZWSP,
+          ),
+          "second paragraph",
+        ),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should join two list items by deleting a selection across node boundary", () => {
     const doc = testBuilders.doc(
       testBuilders.bulletList(
         testBuilders.listItem(testBuilders.paragraph("first paragr<a>aph")),
@@ -334,10 +561,23 @@ describe("handleJoinOnDelete", () => {
           testBuilders.paragraph(
             "first paragr",
             testBuilders.deletion({ id: 1 }, `aph`),
-          ),
-        ),
-        testBuilders.listItem(
-          testBuilders.paragraph(
+            testBuilders.deletion(
+              {
+                id: 1,
+                type: "join",
+                data: {
+                  leftNodes: [
+                    { type: "paragraph", attrs: {}, marks: [] },
+                    { type: "listItem", attrs: {}, marks: [] },
+                  ],
+                  rightNodes: [
+                    { type: "paragraph", attrs: {}, marks: [] },
+                    { type: "listItem", attrs: {}, marks: [] },
+                  ],
+                },
+              },
+              ZWSP,
+            ),
             testBuilders.deletion({ id: 1 }, `sec`),
             "ond paragraph",
           ),
@@ -387,8 +627,8 @@ describe("handleJoinOnDelete", () => {
                 id: 1,
                 type: "join",
                 data: {
-                  leftNode: { type: "paragraph", attrs: {}, marks: [] },
-                  rightNode: { type: "paragraph", attrs: {}, marks: [] },
+                  leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+                  rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
                 },
               },
               ZWSP,
@@ -435,8 +675,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -482,8 +722,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -527,8 +767,8 @@ describe("handleJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -554,8 +794,8 @@ describe("applyJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
             newValue: null,
           },
@@ -594,8 +834,8 @@ describe("applyJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 1 }, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -609,8 +849,8 @@ describe("applyJoinOnDelete", () => {
             id: 2,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -624,8 +864,8 @@ describe("applyJoinOnDelete", () => {
             id: 3,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 2 }, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
             },
           },
           ZWSP,
@@ -666,6 +906,47 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+            },
+          },
+          ZWSP,
+        ),
+        "second paragraph",
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.atStart(doc),
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestions(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph("first paragraph"),
+      testBuilders.paragraph("second paragraph"),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should revert legacy paragraph join metadata back to two paragraphs", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph(
+        "first paragraph",
+        testBuilders.deletion(
+          {
+            id: 1,
+            type: "join",
+            data: {
               leftNode: { type: "paragraph", attrs: {}, marks: [] },
               rightNode: { type: "paragraph", attrs: {}, marks: [] },
             },
@@ -698,6 +979,58 @@ describe("revertJoinOnDelete", () => {
     );
   });
 
+  it("should reject over-max join metadata and remove the invalid join marker", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.blockquote(
+        testBuilders.paragraph(
+          "first paragraph",
+          testBuilders.deletion(
+            {
+              id: 1,
+              type: "join",
+              data: {
+                leftNodes: [
+                  { type: "paragraph", attrs: {}, marks: [] },
+                  { type: "blockquote", attrs: {}, marks: [] },
+                  { type: "blockquote", attrs: {}, marks: [] },
+                ],
+                rightNodes: [
+                  { type: "paragraph", attrs: {}, marks: [] },
+                  { type: "blockquote", attrs: {}, marks: [] },
+                  { type: "blockquote", attrs: {}, marks: [] },
+                ],
+              },
+            },
+            ZWSP,
+          ),
+          "second paragraph",
+        ),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+      selection: TextSelection.atStart(doc),
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.blockquote(
+        testBuilders.paragraph("first paragraphsecond paragraph"),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
   it("should revert heading-paragraph join back to heading and paragraph", async () => {
     // Start with a joined heading containing ZWSP with join mark
     const doc = testBuilders.doc(
@@ -709,8 +1042,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 1 }, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -752,8 +1085,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 1 }, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -767,8 +1100,8 @@ describe("revertJoinOnDelete", () => {
             id: 2,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -782,8 +1115,8 @@ describe("revertJoinOnDelete", () => {
             id: 3,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 2 }, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
             },
           },
           ZWSP,
@@ -826,8 +1159,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 1 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 2 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
             },
           },
           ZWSP,
@@ -838,8 +1171,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 2 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 3 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
             },
           },
           ZWSP,
@@ -850,8 +1183,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 3 }, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -862,8 +1195,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -874,8 +1207,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -886,8 +1219,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 3 }, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
             },
           },
           ZWSP,
@@ -898,8 +1231,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 3 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 2 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 3 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
             },
           },
           ZWSP,
@@ -910,8 +1243,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "heading", attrs: { level: 2 }, marks: [] },
-              rightNode: { type: "heading", attrs: { level: 1 }, marks: [] },
+              leftNodes: [{ type: "heading", attrs: { level: 2 }, marks: [] }],
+              rightNodes: [{ type: "heading", attrs: { level: 1 }, marks: [] }],
             },
           },
           ZWSP,
@@ -957,8 +1290,8 @@ describe("revertJoinOnDelete", () => {
             id: 1,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -969,8 +1302,8 @@ describe("revertJoinOnDelete", () => {
             id: 2,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,
@@ -997,8 +1330,8 @@ describe("revertJoinOnDelete", () => {
             id: 2,
             type: "join",
             data: {
-              leftNode: { type: "paragraph", attrs: {}, marks: [] },
-              rightNode: { type: "paragraph", attrs: {}, marks: [] },
+              leftNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
+              rightNodes: [{ type: "paragraph", attrs: {}, marks: [] }],
             },
           },
           ZWSP,

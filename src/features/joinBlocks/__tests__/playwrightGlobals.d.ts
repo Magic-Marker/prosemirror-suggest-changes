@@ -1,9 +1,13 @@
 import type { EditorView } from "prosemirror-view";
 import type { Mark } from "prosemirror-model";
+import type { SuggestionId } from "../../../generateId.js";
 
 declare global {
   interface Window {
     pmEditor: {
+      __prevState: EditorState;
+      __prevAnchor: number;
+      __prevHead: number;
       view: EditorView;
       getState: () => {
         paragraphCount: number;
@@ -13,7 +17,7 @@ declare global {
         cursorTo: number;
         marks: Mark[];
       };
-      getDocJSON: () => unknown;
+      getDocJSON: () => object;
       getCursorInfo: () => {
         from: number;
         to: number;
@@ -21,6 +25,7 @@ declare global {
         parentOffset: number;
         depth: number;
       };
+      setCursorToStart: () => void;
       setCursorToEnd: () => void;
       setCursorToPosition: (pos: number) => void;
       setCursorToEndOfBlock: (blockIndex: number) => void;
@@ -34,9 +39,24 @@ declare global {
       logState: () => void;
       replaceDoc: (doc: unknown) => void;
       getProseMirrorMarkCount: (name: string) => number;
+      getProseMirrorMarksJSON: () => unknown[];
       getProseMirrorSelection: () => { anchor: number; head: number };
-      getTextContentOfChildAtIndex: (index: number) => string;
+      getTextContentOfChildAtIndex: (
+        index: number,
+        childIndexes?: number[],
+      ) => string;
       getDOMTextContentOfChildAtIndex: (index: number) => string;
+      dispatchTransactionWithSteps: (
+        stepJSONs: object[],
+        selection?: { type: string; anchor: number; head: number },
+      ) => void;
+      setSuggestChangesEnabled: (enabled: boolean) => void;
+      revertSuggestion: (
+        suggestionId: SuggestionId,
+        opts?: { structure: boolean },
+      ) => void;
+      revertStructureSuggestion: (suggestionId: SuggestionId) => void;
+      setNextNodeId: (nextNodeId: number) => void;
     };
   }
 }

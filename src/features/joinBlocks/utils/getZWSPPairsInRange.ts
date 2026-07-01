@@ -15,7 +15,9 @@ export const getZWSPPairsInRange = (
   const pairs: { left?: ZWSPWithPos; right?: ZWSPWithPos }[] = [];
   let currentEndingZWSP = previousZWSP;
   doc.nodesBetween(from, to, (node, pos, parent, index) => {
-    // two cases: we have a left in currentPair and we're at 0 index
+    // A split block is represented by matching insertion ZWSP anchors at the
+    // end of the left block and the start of the right block. Pair only anchors
+    // with the same suggestion ID so unrelated insertion marks are not joined.
     const insertionMarkId = insertionMarkType.isInSet(node.marks)?.attrs[
       "id"
     ] as SuggestionId | undefined;
@@ -29,16 +31,14 @@ export const getZWSPPairsInRange = (
       // the previousZWSP and the current node's ZWSP are at the same position
       currentEndingZWSP.pos !== pos
     ) {
-      // maybe it's pos + 1
       pairs.push({
         left: currentEndingZWSP,
         right: { pos, node, char: ZWSP, id: insertionMarkId },
       });
-      // don't return yet, we'll have to check if this text node contains
     }
     if (node.isText) {
-      // WE HAVE TO remove ending zwsp anyway. Either we found a pair, on the beginning of the next block
-      // or we did not, but then we don't have a matching pair on a block boundary.
+      // Once real text is encountered, the previous ending anchor can no longer
+      // describe the next block boundary.
       currentEndingZWSP = undefined;
     }
     const lastTextInParent = node.isText && parent?.childCount === index + 1;

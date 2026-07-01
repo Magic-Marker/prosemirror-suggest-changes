@@ -1,0 +1,169 @@
+import { type Transform } from "prosemirror-transform";
+import { type MoveOp } from "../types.js";
+import { type Node } from "prosemirror-model";
+import { deleteNodeUpwards } from "./deleteNodeUpwards.js";
+import { getNodeId } from "../getNodeId.js";
+import { type Parent } from "../types.js";
+
+export function revertMoveOp(
+  op: MoveOp,
+  tr: Transform,
+  node: Node,
+  pos: number,
+) {
+  // The original parent chain may have been partially removed since the move.
+  // Reuse the deepest surviving parent and recreate only the missing wrappers.
+  const parent = getDeepestSurvivingParent(op.from, tr.doc);
+
+  const child = wrapNodeInParentChain(parent.remainingChain, node);
+  const insertTo = findInsertionPos(
+    parent.node,
+    parent.pos,
+    parent.parent,
+    child,
+  );
+
+  if (typeof insertTo === "number") {
+    tr.insert(insertTo, child);
+  } else {
+    tr.replaceWith(insertTo.from, insertTo.to, child);
+  }
+
+  const mappedPos = tr.mapping.map(pos);
+  deleteNodeUpwards(tr, node, mappedPos);
+}
+
+// given a chain of parent node descriptors, follow the chain from top to bottom as long as nodes exist
+// return the deepest existing parent node descriptor, along with the actual node and the pos in the current document
+// also return the remaining part of the chain
+export function getDeepestSurvivingParent(parentChain: Parent[], doc: Node) {
+  const chain = [...parentChain].reverse();
+
+  const root = chain.shift();
+  if (root == null) {
+    throw new Error("Parent chain is empty");
+  }
+
+  let result: { parent: Parent; node: Node; pos: number | null } = {
+    parent: root,
+    node: doc,
+    pos: null,
+  };
+
+  let remainingChain: Parent[] = [...chain];
+
+  // follow the chain up-down
+  // look for the node with the matching id in the children of the previously found node
+  for (const [index, item] of chain.entries()) {
+    let found = false as boolean;
+
+    result.node.forEach((child, offset) => {
+      if (found) return;
+      if (child.attrs["id"] !== item.nodeId) return;
+
+      found = true;
+      const pos = result.pos == null ? offset : result.pos + 1 + offset;
+      result = {
+        parent: item,
+        node: child,
+        pos,
+      };
+      remainingChain = chain.slice(index + 1);
+    });
+
+    if (!found) break;
+  }
+
+  return {
+    parent: result.parent,
+    node: result.node,
+    pos: result.pos,
+    remainingChain: remainingChain.reverse(),
+  };
+}
+
+// given a chain of parent node descriptors and a node
+// wrap the node in the parent chain
+export function wrapNodeInParentChain(parentChain: Parent[], node: Node) {
+  let child = node.copy(node.content);
+
+  for (const parent of parentChain) {
+    const schema = node.type.schema;
+
+    const nodeType = schema.nodes[parent.nodeType];
+    if (!nodeType) {
+      throw new Error(`node type ${parent.nodeType} not found in schema`);
+    }
+
+    const marks = parent.nodeMarks.map((mark) => schema.markFromJSON(mark));
+
+    const parentNode = nodeType.createAndFill(parent.nodeAttrs, child, marks);
+    if (parentNode == null)
+      throw new Error(
+        `Unable to create node ${nodeType.name} with child ${child.toString()}`,
+      );
+
+    child = parentNode;
+    child.check();
+  }
+
+  return child;
+}
+
+// given a node, its position, and a parent descriptor of this node in some parent chain,
+// use the info from the descriptor to find the insertion position in the node
+// first try to find siblings, fallback to end of node
+export function findInsertionPos(
+  node: Node,
+  pos: number | null,
+  parent: Parent,
+  child: Node,
+) {
+  let leftSibling = null as { node: Node; pos: number } | null;
+  let rightSibling = null as { node: Node; pos: number } | null;
+
+  node.descendants((child, localChildPos) => {
+    const childId = getNodeId(child);
+    if (childId == null) return false;
+
+    const globalChildPos =
+      pos != null ? pos + 1 + localChildPos : localChildPos;
+
+    if (parent.childSiblingIds[0] === childId) {
+      leftSibling = { node: child, pos: globalChildPos };
+    }
+
+    if (parent.childSiblingIds[1] === childId) {
+      rightSibling = { node: child, pos: globalChildPos };
+    }
+
+    // iterate only direct children
+    return false;
+  });
+
+  if (rightSibling != null) {
+    // If the original first-child slot is now occupied by an empty placeholder
+    // of the same type, replace it instead of inserting beside it. This avoids
+    // leaving a blank node where the moved content should be restored.
+    const firstChild = node.children[0];
+    if (
+      parent.childSiblingIds[0] == null &&
+      firstChild?.type === child.type &&
+      firstChild.textContent === ""
+    ) {
+      const from = pos != null ? pos + 1 : 0;
+      return { from, to: from + firstChild.nodeSize };
+    }
+
+    // insert before right sibling
+    return rightSibling.pos;
+  }
+
+  if (leftSibling != null) {
+    // insert after left sibling
+    return leftSibling.pos + leftSibling.node.nodeSize;
+  }
+
+  // insert at end of node
+  return pos != null ? pos + node.nodeSize - 1 : node.content.size;
+}

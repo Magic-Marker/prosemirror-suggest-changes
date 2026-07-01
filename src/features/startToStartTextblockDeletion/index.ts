@@ -14,6 +14,9 @@ export function adjustForStartToStartTextblockDeletion(
     return { from: step.from, to: step.to };
   }
 
+  // ProseMirror can represent a start-to-start textblock selection as a block
+  // boundary deletion. The user-visible deletion ends at the selection head,
+  // not at the start token of the right textblock.
   const { $from, $to } = selection;
   if (!$from.parent.isTextblock || !$to.parent.isTextblock) {
     return { from: step.from, to: step.to };
