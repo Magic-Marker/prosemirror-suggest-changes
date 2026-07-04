@@ -12,6 +12,7 @@ import {
   chainCommands,
   exitCode,
   lift,
+  toggleMark,
   wrapIn,
 } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
@@ -123,6 +124,7 @@ let state = EditorState.create({
       "Shift-Tab": liftListItem(schema.nodes.listItem),
       "Mod-u": wrapIn(schema.nodes.blockquote),
       "Mod-l": lift,
+      "Mod-b": toggleMark(schema.marks.strong),
     }),
     inputRules({
       rules: [
