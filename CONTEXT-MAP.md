@@ -15,6 +15,8 @@ Context docs live under `src`.
   range.
 - Ensure Valid Selection - cursor and text-selection positions that suggestion
   markers make unsafe for normal editing.
+- Cleanup No-op Mark Pairs - detection and cleanup of deletion/insertion mark
+  pairs that no longer represent a meaningful user-visible change.
 
 ## Relationships
 
