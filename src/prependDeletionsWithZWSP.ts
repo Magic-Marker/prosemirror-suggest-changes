@@ -1,4 +1,4 @@
-import { type Transaction } from "prosemirror-state";
+import { TextSelection, type Transaction } from "prosemirror-state";
 import { getSuggestionMarks } from "./utils.js";
 import { Transform } from "prosemirror-transform";
 import { ZWSP } from "./constants.js";
@@ -11,6 +11,13 @@ function trace(...args: unknown[]) {
   console.log("[prependDeletionsWithZWSP]", ...args);
 }
 
+/**
+ * When deletion marks are hidden, and we have a textblock with all of it's contents deleted,
+ * the cursor is invisible inside that textblock
+ * This function finds deletions that start at the node boundary
+ * and prepends them with ZWSP deletion marks that are not hidden
+ * so they act like anchors where the cursor become visible
+ */
 export function prependDeletionsWithZWSP(
   transaction: Transaction,
 ): Transaction {
@@ -70,5 +77,46 @@ export function prependDeletionsWithZWSP(
       transform,
     );
 
+  maybeIncludeAnchorDeletionInSelection(transaction);
+
   return transaction;
+}
+
+/**
+ * After adding anchor deletions, we might have a situation when transaction selection, previously valid,
+ * now became invalid, because selection is now located between "anchor deletion" and "normal deletion"
+ * so check if that's the case and include the anchor deletion into selection
+ */
+function maybeIncludeAnchorDeletionInSelection(transaction: Transaction) {
+  const { deletion } = getSuggestionMarks(transaction.doc.type.schema);
+  // when selection starts exactly after an anchor deletion,
+  // expand the left end of the selection to include the anchor deletion
+  const selection = transaction.selection;
+  if (selection instanceof TextSelection && !selection.empty) {
+    const $from = transaction.doc.resolve(selection.from);
+    const nodeBefore = $from.nodeBefore;
+    const nodeAfter = $from.nodeAfter;
+    const anchorMark = nodeBefore?.marks.find(
+      (mark) => mark.type === deletion && mark.attrs["type"] === "anchor",
+    );
+    const deletionAfter = nodeAfter?.marks.find(
+      (mark) => mark.type === deletion && mark.attrs["type"] !== "anchor",
+    );
+    if (
+      nodeBefore?.isText &&
+      nodeBefore.text === ZWSP &&
+      anchorMark &&
+      deletionAfter &&
+      anchorMark.attrs["id"] === deletionAfter.attrs["id"]
+    ) {
+      const expandedFrom = selection.from - nodeBefore.nodeSize;
+      const anchor =
+        selection.anchor === selection.from ? expandedFrom : selection.anchor;
+      const head =
+        selection.head === selection.from ? expandedFrom : selection.head;
+      transaction.setSelection(
+        TextSelection.create(transaction.doc, anchor, head),
+      );
+    }
+  }
 }

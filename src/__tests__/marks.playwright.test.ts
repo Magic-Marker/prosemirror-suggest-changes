@@ -104,4 +104,91 @@ test.describe("Behavior around adding and removing marks", () => {
     expect(await editorPage.getProseMirrorMarkCount("insertion")).toBe(0);
     expect(await editorPage.getProseMirrorMarkCount("deletion")).toBe(0);
   });
+
+  test("should have the cursor at the correct position after making a whole textblock bold", async ({
+    page,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Hello world" }],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page);
+    await editorPage.enableTrackChanges();
+
+    // move to "|Hello world"
+    await editorPage.pressKey("Home", { waitForSelectionChange: true });
+
+    // select "Hello world"
+    await editorPage.pressKey("Shift+ArrowDown", {
+      waitForSelectionChange: true,
+    });
+
+    // make bold
+    await editorPage.pressKey("ControlOrMeta+b");
+
+    // collapse selection to the left
+    await editorPage.pressKey("ArrowLeft", { waitForSelectionChange: true });
+
+    // insert some text to verify the cursor position
+    await editorPage.insertText("FOO");
+
+    await expect(editorPage.getParagraphAt(0)).toHaveText(
+      "Hello worldFOOHello world",
+    );
+  });
+
+  test("should have the cursor at the correct position after making part of a textblock bold", async ({
+    page,
+  }) => {
+    await setupDocFromJSON(page, {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Hello world" }],
+        },
+      ],
+    });
+
+    await page.evaluate(() => {
+      window.pmEditor.setCursorToEnd();
+    });
+
+    const editorPage = new EditorPage(page);
+    await editorPage.enableTrackChanges();
+
+    // move to "|Hello world"
+    await editorPage.pressKey("Home", { waitForSelectionChange: true });
+
+    // move to "H|ello world"
+    await editorPage.pressKey("ArrowRight", { waitForSelectionChange: true });
+
+    // select "ello world"
+    await editorPage.pressKey("Shift+ArrowDown", {
+      waitForSelectionChange: true,
+    });
+
+    // make bold
+    await editorPage.pressKey("ControlOrMeta+b");
+
+    // collapse selection to the left
+    await editorPage.pressKey("ArrowLeft", { waitForSelectionChange: true });
+
+    // insert some text to verify the cursor position
+    await editorPage.insertText("FOO");
+
+    await expect(editorPage.getParagraphAt(0)).toHaveText(
+      "Hello worldFOOello world",
+    );
+  });
 });
