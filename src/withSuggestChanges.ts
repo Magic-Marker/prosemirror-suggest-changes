@@ -13,6 +13,8 @@ import {
 import { type StructuralContextPath } from "./features/wrapUnwrap/types.js";
 import { handleSpecialTransactionShape } from "./features/transactionShaping/index.js";
 import { transformToSuggestionTransaction } from "./transformToSuggestionTransaction.js";
+import { getChangedRanges } from "./getChangedRanges.js";
+import { cleanupNoopDeletionInsertionPairs } from "./features/cleanupNoopMarkPairs/index.js";
 
 export { transformToSuggestionTransaction } from "./transformToSuggestionTransaction.js";
 export { suggestStructureChanges } from "./features/wrapUnwrap/structureChangesPlugin.js";
@@ -182,6 +184,11 @@ export function withSuggestChanges(
     }
 
     if (transaction.docChanged) {
+      const changedRanges = getChangedRanges(transaction);
+      cleanupNoopDeletionInsertionPairs(
+        transaction,
+        changedRanges.map((range) => range.newRange),
+      );
       prependDeletionsWithZWSP(transaction);
     }
 
