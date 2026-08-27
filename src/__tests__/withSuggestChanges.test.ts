@@ -209,6 +209,49 @@ describe("withSuggestChanges", () => {
     );
   });
 
+  it("should shift an insertion past a deletion whose run is split by another mark", () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph(
+        { id: null },
+        "hello ",
+        testBuilders.deletion(
+          { id: 1 },
+          "wo",
+          testBuilders.strong("rl"),
+          "d",
+        ),
+        " again",
+      ),
+    ) as TaggedNode;
+
+    const state = EditorState.create({
+      doc,
+      plugins: [suggestChanges()],
+    });
+
+    // pos 9 is between "wo" and "rl", inside the deletion run
+    const tr = state.tr.insertText("X", 9);
+    const suggestedTr = transformToSuggestionTransaction(tr, state);
+    const newState = state.apply(suggestedTr);
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph(
+        { id: null },
+        "hello ",
+        testBuilders.deletion(
+          { id: 1 },
+          "wo",
+          testBuilders.strong("rl"),
+          "d",
+        ),
+        testBuilders.insertion({ id: 1 }, "X"),
+        " again",
+      ),
+    );
+
+    expect(newState.doc.toJSON()).toEqual(expected.toJSON());
+  });
+
   it("should use default numeric ID generation when generateId is not provided", () => {
     const doc = testBuilders.doc(testBuilders.paragraph("Hello world"));
 
