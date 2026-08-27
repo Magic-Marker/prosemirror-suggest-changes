@@ -214,12 +214,7 @@ describe("withSuggestChanges", () => {
       testBuilders.paragraph(
         { id: null },
         "hello ",
-        testBuilders.deletion(
-          { id: 1 },
-          "wo",
-          testBuilders.strong("rl"),
-          "d",
-        ),
+        testBuilders.deletion({ id: 1 }, "wo", testBuilders.strong("rl"), "d"),
         " again",
       ),
     ) as TaggedNode;
@@ -238,12 +233,7 @@ describe("withSuggestChanges", () => {
       testBuilders.paragraph(
         { id: null },
         "hello ",
-        testBuilders.deletion(
-          { id: 1 },
-          "wo",
-          testBuilders.strong("rl"),
-          "d",
-        ),
+        testBuilders.deletion({ id: 1 }, "wo", testBuilders.strong("rl"), "d"),
         testBuilders.insertion({ id: 1 }, "X"),
         " again",
       ),
