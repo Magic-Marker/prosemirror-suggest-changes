@@ -13,10 +13,19 @@ export function findSuggestionMarkEnd($pos: ResolvedPos, markType: MarkType) {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   while (true) {
     const $afterPos = $pos.doc.resolve(afterPos);
-    if (
-      $afterPos.depth < 1 ||
-      ($afterPos.nodeAfter && !markType.isInSet($afterPos.marks()))
-    ) {
+    const nodeAfter = $afterPos.nodeAfter;
+    if (nodeAfter) {
+      const siblingMark = markType.isInSet(nodeAfter.marks);
+      if (
+        siblingMark &&
+        siblingMark.attrs["id"] === initialDeletionMark.attrs["id"]
+      ) {
+        afterPos += nodeAfter.nodeSize;
+        continue;
+      }
+      return $afterPos.pos;
+    }
+    if ($afterPos.depth < 1) {
       return $afterPos.pos;
     }
 
