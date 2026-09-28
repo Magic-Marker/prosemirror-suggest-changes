@@ -81,13 +81,20 @@ function applySuggestionsToTransform(
     }
 
     if (isToRevert) {
-      const { pos: deletionFrom, deleted } = tr.mapping.mapResult(pos);
-      if (deleted) return false;
+      // skip a node an earlier deletion removed; one that only lost its
+      // leading space to the double-space cleanup below is still removed
+      const deletionFrom = tr.mapping.map(pos);
+      const nodeEnd = tr.mapping.map(pos + child.nodeSize, -1);
+      if (nodeEnd <= deletionFrom) {
+        return false;
+      }
 
-      const deletionTo = findSuggestionMarkEnd(
-        tr.doc.resolve(deletionFrom + child.nodeSize),
-        markTypeToRevert,
-      );
+      // this loop visits the following siblings itself; only look past the
+      // node at the end of its block, to follow the deletion into the next one
+      const $nodeEnd = tr.doc.resolve(nodeEnd);
+      const deletionTo = $nodeEnd.nodeAfter
+        ? nodeEnd
+        : findSuggestionMarkEnd($nodeEnd, markTypeToRevert);
       // check if the previous and the next text part is a space
       // if so, we can delete the whole text part
       const prevChar = tr.doc.textBetween(
