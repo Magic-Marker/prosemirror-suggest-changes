@@ -200,10 +200,13 @@ function revertRestoredStructureSuggestions(
   });
 }
 
-function revertModifications(node: Node, pos: number, tr: Transform) {
-  const { modification } = getSuggestionMarks(node.type.schema);
-  const existingMods = node.marks.filter((mark) => mark.type === modification);
-  for (const mod of existingMods) {
+function revertModifications(
+  node: Node,
+  pos: number,
+  tr: Transform,
+  mods: readonly Mark[],
+) {
+  for (const mod of mods) {
     if (
       mod.attrs["type"] === "attr" &&
       typeof mod.attrs["attrName"] === "string"
@@ -237,17 +240,16 @@ function revertModifications(node: Node, pos: number, tr: Transform) {
   }
 }
 
-function modificationIsInSet(
+function modificationsInSet(
   modification: MarkType,
   id: SuggestionId | undefined,
   marks: readonly Mark[],
 ) {
-  const mark = modification.isInSet(marks);
-  if (id === undefined) return mark;
-
-  if (mark?.attrs["id"] === id) return mark;
-
-  return undefined;
+  return marks.filter(
+    (mark) =>
+      mark.type === modification &&
+      (id === undefined || mark.attrs["id"] === id),
+  );
 }
 
 function applyModificationsToTransform(
@@ -260,22 +262,14 @@ function applyModificationsToTransform(
 ) {
   const { modification } = getSuggestionMarks(node.type.schema);
 
-  const isModification = modificationIsInSet(
-    modification,
-    suggestionId,
-    node.marks,
-  );
-
-  if (isModification) {
-    let prevLength: number;
-    do {
-      // https://github.com/ProseMirror/prosemirror/issues/1525
-      prevLength = tr.steps.length;
-      tr.removeNodeMark(0, modification);
-    } while (tr.steps.length > prevLength);
-    if (dir < 0) {
-      revertModifications(node, 0, tr);
-    }
+  // remove each matching mark by instance, so a node's modifications with
+  // other ids stay pending
+  const mods = modificationsInSet(modification, suggestionId, node.marks);
+  for (const mod of mods) {
+    tr.removeNodeMark(0, mod);
+  }
+  if (dir < 0) {
+    revertModifications(node, 0, tr, mods);
   }
 
   node.descendants((child, pos) => {
@@ -285,24 +279,12 @@ function applyModificationsToTransform(
     if (to !== undefined && pos > to) {
       return false;
     }
-    const isModification = modificationIsInSet(
-      modification,
-      suggestionId,
-      child.marks,
-    );
-    if (!isModification) {
-      return true;
+    const mods = modificationsInSet(modification, suggestionId, child.marks);
+    for (const mod of mods) {
+      tr.removeNodeMark(pos, mod);
     }
-
-    let prevLength: number;
-    do {
-      // https://github.com/ProseMirror/prosemirror/issues/1525
-      prevLength = tr.steps.length;
-      tr.removeNodeMark(pos, modification);
-    } while (tr.steps.length > prevLength);
-
     if (dir < 0) {
-      revertModifications(child, pos, tr);
+      revertModifications(child, pos, tr, mods);
     }
     return true;
   });
@@ -556,7 +538,7 @@ export function applySuggestion(
       suggestionsTransform.doc,
       suggestionsTransform,
       1,
-      undefined,
+      suggestionId,
       from,
       to,
     );
@@ -766,7 +748,7 @@ export function revertSuggestion(
       suggestionsTransform.doc,
       suggestionsTransform,
       -1,
-      undefined,
+      suggestionId,
       from,
       to,
     );

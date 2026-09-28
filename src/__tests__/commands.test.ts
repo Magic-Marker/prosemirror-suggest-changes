@@ -173,6 +173,118 @@ describe("applyTrackedChanges", () => {
 });
 
 describe("applyTrackedChange", () => {
+  it("should only apply modifications with the specified id", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.modification(
+        {
+          id: 1,
+          type: "attr",
+          attrName: "level",
+          previousValue: 1,
+          newValue: 2,
+        },
+        testBuilders.heading({ level: 2 }, "first paragraph"),
+      ),
+      testBuilders.modification(
+        {
+          id: 2,
+          type: "attr",
+          attrName: "src",
+          previousValue: "https://dskrpt.de/test-image",
+          newValue: "https://dskrpt.de/test-image-2",
+        },
+        testBuilders.image({ src: "https://dskrpt.de/test-image-2" }),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.heading({ level: 2 }, "first paragraph"),
+      testBuilders.modification(
+        {
+          id: 2,
+          type: "attr",
+          attrName: "src",
+          previousValue: "https://dskrpt.de/test-image",
+          newValue: "https://dskrpt.de/test-image-2",
+        },
+        testBuilders.image({ src: "https://dskrpt.de/test-image-2" }),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should only apply the specified modification on a node with several", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.modification(
+        {
+          id: 1,
+          type: "attr",
+          attrName: "src",
+          previousValue: "https://dskrpt.de/test-image",
+          newValue: "https://dskrpt.de/test-image-2",
+        },
+        testBuilders.modification(
+          {
+            id: 2,
+            type: "attr",
+            attrName: "alt",
+            previousValue: null,
+            newValue: "caption",
+          },
+          testBuilders.image({
+            src: "https://dskrpt.de/test-image-2",
+            alt: "caption",
+          }),
+        ),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.modification(
+        {
+          id: 2,
+          type: "attr",
+          attrName: "alt",
+          previousValue: null,
+          newValue: "caption",
+        },
+        testBuilders.image({
+          src: "https://dskrpt.de/test-image-2",
+          alt: "caption",
+        }),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
   it("should apply specified tracked change", async () => {
     const doc = testBuilders.doc(
       testBuilders.paragraph(
@@ -389,6 +501,115 @@ describe("revertTrackedChanges", () => {
 });
 
 describe("revertTrackedChange", () => {
+  it("should only revert modifications with the specified id", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.modification(
+        {
+          id: 1,
+          type: "attr",
+          attrName: "level",
+          previousValue: 1,
+          newValue: 2,
+        },
+        testBuilders.heading({ level: 2 }, "first paragraph"),
+      ),
+      testBuilders.modification(
+        {
+          id: 2,
+          type: "attr",
+          attrName: "src",
+          previousValue: "https://dskrpt.de/test-image",
+          newValue: "https://dskrpt.de/test-image-2",
+        },
+        testBuilders.image({ src: "https://dskrpt.de/test-image-2" }),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.heading({ level: 1 }, "first paragraph"),
+      testBuilders.modification(
+        {
+          id: 2,
+          type: "attr",
+          attrName: "src",
+          previousValue: "https://dskrpt.de/test-image",
+          newValue: "https://dskrpt.de/test-image-2",
+        },
+        testBuilders.image({ src: "https://dskrpt.de/test-image-2" }),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should only revert the specified modification on a node with several", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.modification(
+        {
+          id: 1,
+          type: "attr",
+          attrName: "src",
+          previousValue: "https://dskrpt.de/test-image",
+          newValue: "https://dskrpt.de/test-image-2",
+        },
+        testBuilders.modification(
+          {
+            id: 2,
+            type: "attr",
+            attrName: "alt",
+            previousValue: null,
+            newValue: "caption",
+          },
+          testBuilders.image({
+            src: "https://dskrpt.de/test-image-2",
+            alt: "caption",
+          }),
+        ),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestion(2)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.modification(
+        {
+          id: 1,
+          type: "attr",
+          attrName: "src",
+          previousValue: "https://dskrpt.de/test-image",
+          newValue: "https://dskrpt.de/test-image-2",
+        },
+        testBuilders.image({ src: "https://dskrpt.de/test-image-2" }),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
   it("should revert specified tracked change", async () => {
     const doc = testBuilders.doc(
       testBuilders.paragraph(
