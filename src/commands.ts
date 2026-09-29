@@ -89,8 +89,8 @@ function applySuggestionsToTransform(
         return false;
       }
 
-      // this loop visits the following siblings itself; only look past the
-      // node at the end of its block, to follow the deletion into the next one
+      // remove just this node, or, when it ends its block, also the rest of
+      // its suggestion at the start of the next block
       const $nodeEnd = tr.doc.resolve(nodeEnd);
       const deletionTo = $nodeEnd.nodeAfter
         ? nodeEnd
