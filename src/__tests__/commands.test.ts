@@ -170,6 +170,34 @@ describe("applyTrackedChanges", () => {
       `Expected ${newState.doc} to match ${expected}`,
     );
   });
+
+  it("should apply neighbouring deletions with different ids that meet at a space", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph(
+        "The ",
+        testBuilders.deletion({ id: 1 }, "quick"),
+        testBuilders.deletion({ id: 2 }, " brown"),
+        " fox",
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestions(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(testBuilders.paragraph("The fox"));
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
 });
 
 describe("applyTrackedChange", () => {
@@ -285,6 +313,165 @@ describe("applyTrackedChange", () => {
       `Expected ${newState.doc} to match ${expected}`,
     );
   });
+
+  it("should leave a neighbouring deleted block with a different id", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.deletion({ id: 1 }, testBuilders.paragraph("first")),
+      testBuilders.deletion({ id: 2 }, testBuilders.paragraph("second")),
+      testBuilders.paragraph("third"),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.deletion({ id: 2 }, testBuilders.paragraph("second")),
+      testBuilders.paragraph("third"),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should delete neighbouring blocks that share the id", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.deletion({ id: 1 }, testBuilders.paragraph("first")),
+      testBuilders.deletion({ id: 1 }, testBuilders.paragraph("second")),
+      testBuilders.paragraph("third"),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(testBuilders.paragraph("third"));
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should leave a neighbouring inline deletion with a different id", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph(
+        "first ",
+        testBuilders.deletion({ id: 1 }, "second"),
+        testBuilders.deletion({ id: 2 }, "third"),
+        " fourth",
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph(
+        "first ",
+        testBuilders.deletion({ id: 2 }, "third"),
+        " fourth",
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should leave the rest of a neighbouring deletion after removing a double space", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph(
+        "The ",
+        testBuilders.deletion({ id: 1 }, "quick"),
+        testBuilders.deletion({ id: 2 }, " brown"),
+        " fox",
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph(
+        "The ",
+        testBuilders.deletion({ id: 2 }, "brown"),
+        " fox",
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should remove a list item whose contents share one deletion", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
+        testBuilders.listItem(
+          testBuilders.deletion({ id: 1 }, testBuilders.paragraph("second")),
+          testBuilders.deletion(
+            { id: 1 },
+            testBuilders.bulletList(
+              testBuilders.listItem(testBuilders.paragraph("nested")),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
 });
 
 describe("revertTrackedChanges", () => {
@@ -386,6 +573,34 @@ describe("revertTrackedChanges", () => {
       `Expected ${newState.doc} to match ${expected}`,
     );
   });
+
+  it("should revert neighbouring insertions with different ids that meet at a space", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph(
+        "The ",
+        testBuilders.insertion({ id: 1 }, "quick"),
+        testBuilders.insertion({ id: 2 }, " brown"),
+        " fox",
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestions(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(testBuilders.paragraph("The fox"));
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
 });
 
 describe("revertTrackedChange", () => {
@@ -422,6 +637,106 @@ describe("revertTrackedChange", () => {
         testBuilders.deletion({ id: 2 }, "ond"),
         testBuilders.insertion({ id: 2 }, "undo"),
         " paragraph",
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should leave a neighbouring inserted block with a different id", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.insertion({ id: 1 }, testBuilders.paragraph("first")),
+      testBuilders.insertion({ id: 2 }, testBuilders.paragraph("second")),
+      testBuilders.paragraph("third"),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.insertion({ id: 2 }, testBuilders.paragraph("second")),
+      testBuilders.paragraph("third"),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should leave a neighbouring inline insertion with a different id", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.paragraph(
+        "first ",
+        testBuilders.insertion({ id: 1 }, "second"),
+        testBuilders.insertion({ id: 2 }, "third"),
+        " fourth",
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.paragraph(
+        "first ",
+        testBuilders.insertion({ id: 2 }, "third"),
+        " fourth",
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should remove a list item whose contents share one insertion", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
+        testBuilders.listItem(
+          testBuilders.insertion({ id: 1 }, testBuilders.paragraph("second")),
+          testBuilders.insertion(
+            { id: 1 },
+            testBuilders.bulletList(
+              testBuilders.listItem(testBuilders.paragraph("nested")),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
       ),
     );
 
