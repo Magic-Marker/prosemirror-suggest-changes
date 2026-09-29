@@ -434,6 +434,44 @@ describe("applyTrackedChange", () => {
       `Expected ${newState.doc} to match ${expected}`,
     );
   });
+
+  it("should remove a list item whose contents share one deletion", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
+        testBuilders.listItem(
+          testBuilders.deletion({ id: 1 }, testBuilders.paragraph("second")),
+          testBuilders.deletion(
+            { id: 1 },
+            testBuilders.bulletList(
+              testBuilders.listItem(testBuilders.paragraph("nested")),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      applySuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
 });
 
 describe("revertTrackedChanges", () => {
@@ -661,6 +699,44 @@ describe("revertTrackedChange", () => {
         "first ",
         testBuilders.insertion({ id: 2 }, "third"),
         " fourth",
+      ),
+    );
+
+    assert(
+      eq(newState.doc, expected),
+      `Expected ${newState.doc} to match ${expected}`,
+    );
+  });
+
+  it("should remove a list item whose contents share one insertion", async () => {
+    const doc = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
+        testBuilders.listItem(
+          testBuilders.insertion({ id: 1 }, testBuilders.paragraph("second")),
+          testBuilders.insertion(
+            { id: 1 },
+            testBuilders.bulletList(
+              testBuilders.listItem(testBuilders.paragraph("nested")),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const editorState = EditorState.create({
+      doc,
+    });
+
+    const newState = await new Promise<EditorState>((resolve) => {
+      revertSuggestion(1)(editorState, (tr) => {
+        resolve(editorState.apply(tr));
+      });
+    });
+
+    const expected = testBuilders.doc(
+      testBuilders.bulletList(
+        testBuilders.listItem(testBuilders.paragraph("first")),
       ),
     );
 
