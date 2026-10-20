@@ -340,8 +340,17 @@ export function suggestReplaceStep(
 
     // Don't allow inserting content within an existing deletion
     // mark. Instead, shift the proposed insertion to the end
-    // of the deletion.
-    let insertFrom = findSuggestionMarkEnd($to, deletion);
+    // of the deletion. Where one suggestion's deletion ends and
+    // another's begins, stay put, so the new text follows its
+    // own deletion rather than the next suggestion's.
+    const deletionBefore = deletion.isInSet($to.nodeBefore?.marks ?? []);
+    const deletionAfter = deletion.isInSet($to.nodeAfter?.marks ?? []);
+    let insertFrom =
+      deletionBefore &&
+      deletionAfter &&
+      deletionBefore.attrs["id"] !== deletionAfter.attrs["id"]
+        ? $to.pos
+        : findSuggestionMarkEnd($to, deletion);
 
     // We execute the insertion normally, on top of all of the existing
     // tracked changes.
