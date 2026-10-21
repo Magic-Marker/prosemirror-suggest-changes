@@ -8,6 +8,7 @@ import { type ReplaceStep, replaceStep } from "prosemirror-transform";
 import { assert, describe, expect, it } from "vitest";
 
 import { type TaggedNode, testBuilders } from "../testing/testBuilders.js";
+import { applySuggestion, revertSuggestion } from "../commands.js";
 import { suggestChanges } from "../plugin.js";
 import { transformToSuggestionTransaction } from "../withSuggestChanges.js";
 
@@ -266,5 +267,60 @@ describe("withSuggestChanges", () => {
       eq(state.doc, expected),
       `Expected ${state.doc} to match ${expected}`,
     );
+  });
+
+  describe("touching changes in one transaction", () => {
+    // "semaphore tower. It was" becomes "semaphore signal tower in France. It
+    // was" as two changes with no unchanged text between them, the later one
+    // first, as a diff applies them.
+    const suggestTouchingChanges = () => {
+      const state = EditorState.create({
+        doc: testBuilders.doc(
+          testBuilders.paragraph("semaphore tower. It was"),
+        ),
+      });
+      const tr = state.tr
+        .insertText("tower in France.", 11, 17)
+        .insertText(" signal ", 10, 11);
+      return state.apply(transformToSuggestionTransaction(tr, state));
+    };
+
+    it("should put each change's new text after its own deleted text", () => {
+      const state = suggestTouchingChanges();
+
+      const expected = testBuilders.doc(
+        testBuilders.paragraph(
+          "semaphore",
+          testBuilders.deletion({ id: 2 }, " "),
+          testBuilders.insertion({ id: 2 }, " signal "),
+          testBuilders.deletion({ id: 1 }, "tower."),
+          testBuilders.insertion({ id: 1 }, "tower in France."),
+          " It was",
+        ),
+      );
+
+      assert(
+        eq(state.doc, expected),
+        `Expected ${state.doc} to match ${expected}`,
+      );
+    });
+
+    it("should keep the spaces when they're applied or reverted one at a time, last first", () => {
+      const state = suggestTouchingChanges();
+      const oneAtATime = (command: typeof applySuggestion) => {
+        let current = state;
+        for (const id of [1, 2]) {
+          command(id)(current, (tr) => {
+            current = current.apply(tr);
+          });
+        }
+        return current.doc.textContent;
+      };
+
+      expect(oneAtATime(applySuggestion)).toEqual(
+        "semaphore signal tower in France. It was",
+      );
+      expect(oneAtATime(revertSuggestion)).toEqual("semaphore tower. It was");
+    });
   });
 });
